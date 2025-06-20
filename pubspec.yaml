@@ -1,0 +1,41 @@
+name: prestige_app
+description: Application de gestion Prestige.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.2.1
+  intl: ^0.20.0
+  shared_preferences: ^2.2.3
+  provider: ^6.1.2
+  fl_chart: ^0.68.0
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.2.1
+  printing: ^5.11.1
+  pdf: ^3.10.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1 # Package pour les icônes
+
+flutter:
+  uses-material-design: true
+
+# IMPORTANT: Ce bloc doit être à la racine du fichier (pas d'indentation)
+# et les lignes à l'intérieur doivent avoir deux espaces d'indentation.
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/icon.png"
+  min_sdk_android: 21
