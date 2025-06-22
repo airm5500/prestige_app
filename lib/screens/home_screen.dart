@@ -7,6 +7,7 @@ import '../providers/ip_config_provider.dart';
 import '../services/api_service.dart';
 import '../models/officine_model.dart';
 import '../utils/constants.dart';
+import 'analyse_article_screen.dart';
 import 'settings_screen.dart';
 
 // Import de tous les écrans de fonctionnalités
@@ -56,7 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _isOfficineLoading = false;
         });
       } else {
-        if (mounted) setState(() => _isOfficineLoading = false);
+        if (mounted) {
+          setState(() => _isOfficineLoading = false);
+        }
       }
     } catch (e) {
       debugPrint("Erreur lors de la récupération des données de l'officine: $e");
@@ -71,15 +74,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final ipProvider = Provider.of<IpConfigProvider>(context);
 
     final List<Map<String, dynamic>> menuItems = [
+      {'title': 'Analyse Article', 'icon': Icons.pie_chart_outline_rounded, 'color': Colors.indigo, 'screen': const AnalyseArticleScreen()},
       {'title': 'Achats Fourn.', 'icon': Icons.shopping_cart_checkout_outlined, 'color': Colors.deepOrange, 'screen': const AchatsFournisseursScreen()},
-      {'title': 'CA Analyse', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
-      {'title': 'Ventes Credit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
+      {'title': 'CA Comptant', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
+      {'title': 'CA Crédit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
       {'title': 'Evolution Stock', 'icon': Icons.ssid_chart_outlined, 'color': Colors.brown, 'screen': const EvolutionStockScreen()},
       {'title': 'Fiche Article', 'icon': Icons.article_outlined, 'color': Colors.cyan, 'screen': const FicheArticleScreen()},
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
-      {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
-      {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
+      {'title': 'TdB: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
+      {'title': 'TdB: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
     ];
 
@@ -87,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prestige2 Mobile'),
+        title: const Text('Prestige'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_applications_outlined),
@@ -137,11 +141,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildWelcomeCard(BuildContext context, IpConfigProvider ipProvider, Officine? officineData, bool isLoading) {
     final theme = Theme.of(context);
 
-    String welcomeMessage = 'Bienvenu(e)';
+    String welcomeMessage = 'Bienvenue';
     if (isLoading) {
       welcomeMessage = 'Chargement...';
     } else if (officineData != null && officineData.fullName.isNotEmpty) {
-      welcomeMessage = 'Bienvenu(e) Dr ${officineData.fullName}';
+      welcomeMessage = 'Bienvenue ${officineData.fullName}';
     }
 
     return Container(
@@ -154,8 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         borderRadius: BorderRadius.circular(20.0),
         boxShadow: [
-          // CORRECTION: Utilisation de `withAlpha`
-          BoxShadow(color: theme.primaryColor.withAlpha(77), blurRadius: 10, offset: const Offset(0, 5)) // ~30% opacité
+          BoxShadow(color: theme.primaryColor.withAlpha(77), blurRadius: 10, offset: const Offset(0, 5))
         ],
       ),
       child: Column(
@@ -171,8 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (officineData != null)
             Text(
               officineData.nomComplet,
-              // CORRECTION: Utilisation de `withAlpha`
-              style: GoogleFonts.lato(fontSize: 16, color: Colors.white.withAlpha(230)), // ~90% opacité
+              style: GoogleFonts.lato(fontSize: 16, color: Colors.white.withAlpha(230)),
             ),
           const SizedBox(height: 16),
           Row(
@@ -196,10 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ipProvider.setUseLocalIp(value);
                 },
                 activeColor: Colors.white,
-                // CORRECTION: Utilisation de `withAlpha`
-                activeTrackColor: Colors.white.withAlpha(128), // 50% opacité
+                activeTrackColor: Colors.white.withAlpha(128),
                 inactiveThumbColor: Colors.white,
-                inactiveTrackColor: Colors.black.withAlpha(51), // ~20% opacité
+                inactiveTrackColor: Colors.black.withAlpha(51),
               ),
             ],
           )
@@ -217,8 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16.0),
           boxShadow: [
-            // CORRECTION: Utilisation de `withAlpha`
-            BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 10, offset: const Offset(0, 4)) // 5% opacité
+            BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 10, offset: const Offset(0, 4))
           ],
         ),
         child: Column(
@@ -227,8 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: <Widget>[
             Container(
               padding: const EdgeInsets.all(14.0),
-              // CORRECTION: Utilisation de `withAlpha`
-              decoration: BoxDecoration(color: color.withAlpha(38), shape: BoxShape.circle), // ~15% opacité
+              decoration: BoxDecoration(color: color.withAlpha(38), shape: BoxShape.circle),
               child: Icon(icon, size: 32.0, color: color),
             ),
             const SizedBox(height: 12.0),

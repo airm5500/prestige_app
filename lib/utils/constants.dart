@@ -20,6 +20,7 @@ class AppConstants {
   static const String tableauBordAchatsVentesEndpoint = '/ws/ca-achats-ventes';
   static const String valorisationAllEndpoint = '/valorisation/all';
   static const String officineEndpoint = '/officine'; // AJOUT: Pour les infos utilisateur
+  static const String infoEndpoint = '/info';
 
   // Default IP addresses (examples, user should configure these)
   static const String defaultLocalIp = '192.168.1.100'; // Example
