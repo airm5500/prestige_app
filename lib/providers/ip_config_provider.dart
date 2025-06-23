@@ -10,18 +10,20 @@ class IpConfigProvider with ChangeNotifier {
   String _localIp = AppConstants.defaultLocalIp;
   String _remoteIp = AppConstants.defaultRemoteIp;
   bool _useLocalIp = true;
-  final String _port = AppConstants.defaultPort; // Default port
+  String _port = AppConstants.defaultPort;
+  int _sessionTimeout = AppConstants.defaultSessionTimeout;
 
   String get localIp => _localIp;
   String get remoteIp => _remoteIp;
   bool get useLocalIp => _useLocalIp;
-  String get port => _port; // Port can also be configurable if needed
+  String get port => _port;
+  int get sessionTimeout => _sessionTimeout;
 
   String get activeBaseUrl {
     final ip = _useLocalIp ? _localIp : _remoteIp;
-    if (ip.isEmpty) {
-      // Fallback if IP is not configured, though settings screen should enforce it.
-      return 'http://${AppConstants.defaultLocalIp}:$_port${AppConstants.apiBasePath}';
+    if (ip.isEmpty || (ip == AppConstants.defaultLocalIp && !_useLocalIp) || (ip == AppConstants.defaultRemoteIp && _useLocalIp)) {
+      // Fallback pour éviter d'utiliser une IP non configurée
+      return 'http://0.0.0.0:$_port${AppConstants.apiBasePath}';
     }
     return 'http://$ip:$_port${AppConstants.apiBasePath}';
   }
@@ -31,19 +33,28 @@ class IpConfigProvider with ChangeNotifier {
   }
 
   Future<void> loadSettings() async {
-    final settings = await _storageService.loadIpSettings();
+    final settings = await _storageService.loadAllSettings();
     _localIp = settings['localIp'] ?? AppConstants.defaultLocalIp;
     _remoteIp = settings['remoteIp'] ?? AppConstants.defaultRemoteIp;
     _useLocalIp = settings['useLocal'] ?? true;
-    // _port could also be loaded from storage if it's made configurable
+    _port = settings['port'] ?? AppConstants.defaultPort;
+    _sessionTimeout = settings['sessionTimeout'] ?? AppConstants.defaultSessionTimeout;
     notifyListeners();
   }
 
-  Future<void> updateSettings(String newLocalIp, String newRemoteIp, /* String newPort */) async {
+  Future<void> updateSettings(String newLocalIp, String newRemoteIp, String newPort, int newTimeout) async {
     _localIp = newLocalIp.isNotEmpty ? newLocalIp : AppConstants.defaultLocalIp;
     _remoteIp = newRemoteIp.isNotEmpty ? newRemoteIp : AppConstants.defaultRemoteIp;
-    // _port = newPort.isNotEmpty ? newPort : AppConstants.defaultPort;
-    await _storageService.saveIpSettings(_localIp, _remoteIp, _useLocalIp);
+    _port = newPort.isNotEmpty ? newPort : AppConstants.defaultPort;
+    _sessionTimeout = newTimeout;
+
+    await _storageService.saveAllSettings(
+      localIp: _localIp,
+      remoteIp: _remoteIp,
+      port: _port,
+      useLocal: _useLocalIp,
+      sessionTimeout: _sessionTimeout,
+    );
     notifyListeners();
   }
 

@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
 import '../models/ca_global_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer notre logique centralisée
 
 class CaGlobalScreen extends StatefulWidget {
   const CaGlobalScreen({super.key});
@@ -14,26 +14,19 @@ class CaGlobalScreen extends StatefulWidget {
   State<CaGlobalScreen> createState() => _CaGlobalScreenState();
 }
 
-class _CaGlobalScreenState extends State<CaGlobalScreen> {
-  late ApiService _apiService;
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<CaGlobalScreen> {
+
   List<CaGlobal> _caGlobalDataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
 
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _apiService = ApiService(context);
-  }
+  // Les variables 'isLoading' et 'errorMessage' viennent maintenant du mixin.
+  // Plus besoin de les déclarer ici !
 
   Future<void> _loadCaGlobal() async {
-    if(!mounted) return;
+    // On réinitialise la liste avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
       _caGlobalDataList = [];
     });
 
@@ -42,30 +35,16 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    try {
-      final data = await _apiService.get(AppConstants.caAllEndpoint, queryParams: queryParams);
-      if (data is List) {
-        if(mounted){
-          setState(() {
-            _caGlobalDataList = data.map((item) => CaGlobal.fromJson(item)).toList();
-          });
-        }
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if(mounted){
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if(mounted){
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.caAllEndpoint, queryParams: queryParams);
+
+    // On traite uniquement le cas où l'appel a réussi et retourne des données
+    if (mounted && data is List) {
+      setState(() {
+        _caGlobalDataList = data.map((item) => CaGlobal.fromJson(item)).toList();
+      });
     }
+    // La gestion de l'état de chargement et des erreurs est automatique !
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -173,8 +152,6 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
             _buildDataRow("Total TVA:", currencyFormat.format(data.totTVA)),
             const SizedBox(height:10),
             _buildDataRow("TOTAL CA NET:", currencyFormat.format(data.totalCa - data.remiseSurCA), isTotal: true, isNet: true),
-
-
           ],
         ),
       ),
@@ -218,6 +195,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
       body: RefreshIndicator(
         onRefresh: _loadCaGlobal,
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -233,7 +211,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.assessment_outlined),
                         label: const Text('Afficher le CA Global'),
-                        onPressed: _isLoading ? null : _loadCaGlobal,
+                        onPressed: isLoading ? null : _loadCaGlobal, // Utilise 'isLoading' du mixin
                         style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                       ),
                     ],
@@ -241,12 +219,12 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
                 ),
               ),
               const SizedBox(height: 15),
-              if (_isLoading)
+              if (isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 30.0),
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else if (_errorMessage != null)
+              else if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Center(
@@ -255,7 +233,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
                       children: [
                         Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                         const SizedBox(height: 10),
-                        Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
+                        Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
                           icon: const Icon(Icons.refresh),
@@ -271,7 +249,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
                 else
                   const Center(child: Padding(
                     padding: EdgeInsets.only(top:30.0),
-                    child: Text('Aucun CA global trouvé pour la période sélectionnée.', textAlign: TextAlign.center),
+                    child: Text('Aucune donnée à afficher pour la période sélectionnée.', textAlign: TextAlign.center),
                   )),
 
               if (_caGlobalDataList.isNotEmpty && _caGlobalDataList.length > 1 && _startDate != _endDate)
@@ -284,7 +262,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Détail par jour:", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).primaryColorDark)),
+                          Text("Détail par jour:", style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
                           ListView.builder(
                             shrinkWrap: true,

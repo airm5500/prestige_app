@@ -1,20 +1,21 @@
 // lib/screens/evolution_stock_screen.dart
 
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/foundation.dart'; // Importer pour debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../services/api_service.dart';
 import '../models/valorisation_model.dart';
 import '../models/evolution_stock_point_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 extension ColorExtensionOnColorForEvolutionStock on Color {
   Color darker([double amount = .2]) {
@@ -31,7 +32,6 @@ extension ColorExtensionOnColorForEvolutionStock on Color {
   }
 }
 
-
 class EvolutionStockScreen extends StatefulWidget {
   const EvolutionStockScreen({super.key});
 
@@ -39,28 +39,18 @@ class EvolutionStockScreen extends StatefulWidget {
   State<EvolutionStockScreen> createState() => _EvolutionStockScreenState();
 }
 
-class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
-  late ApiService _apiService;
+class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseScreenLogic<EvolutionStockScreen> {
   List<EvolutionStockPoint> _dataPoints = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
 
   final GlobalKey _chartKey = GlobalKey();
 
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _apiService = ApiService(context);
-  }
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadData() async {
-    if (!mounted) return;
+    // On réinitialise la liste avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
       _dataPoints = [];
     });
 
@@ -69,58 +59,41 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    try {
-      final data = await _apiService.get(AppConstants.valorisationAllEndpoint, queryParams: queryParams);
-      if (!mounted) return;
-      if (data is List) {
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.valorisationAllEndpoint, queryParams: queryParams);
 
-        List<EvolutionStockPoint> tempList = [];
-        int dayDifference = _endDate.difference(_startDate).inDays;
+    if (mounted && data is List) {
+      List<EvolutionStockPoint> tempList = [];
+      int dayDifference = _endDate.difference(_startDate).inDays;
 
-        // CORRECTION: Remplacement de 'print' par 'debugPrint'
-        if (data.length != dayDifference + 1) {
-          debugPrint('Warning: Mismatch between date range and data points received.');
-        }
-
-        for (int i = 0; i < data.length; i++) {
-          final valorisationData = ValorisationStock.fromJson(data[i]);
-          final dateForPoint = _startDate.add(Duration(days: i));
-          tempList.add(EvolutionStockPoint(date: dateForPoint, data: valorisationData));
-        }
-
-        tempList.sort((a, b) => a.date.compareTo(b.date));
-
-        setState(() {
-          _dataPoints = tempList;
-        });
-
-      } else {
-        throw Exception('Format de données incorrect.');
+      if (data.length != dayDifference + 1) {
+        debugPrint('Warning: Mismatch between date range and data points received.');
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
+
+      for (int i = 0; i < data.length; i++) {
+        final valorisationData = ValorisationStock.fromJson(data[i]);
+        final dateForPoint = _startDate.add(Duration(days: i));
+        tempList.add(EvolutionStockPoint(date: dateForPoint, data: valorisationData));
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+
+      tempList.sort((a, b) => a.date.compareTo(b.date));
+
+      setState(() {
+        _dataPoints = tempList;
+      });
     }
+    // La gestion du chargement et des erreurs est automatique !
   }
 
   Future<void> _printChart() async {
     try {
-      RenderRepaintBoundary boundary = _chartKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      Uint8List pngBytes = byteData!.buffer.asUint8List();
+      final boundary = _chartKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      final pngBytes = byteData.buffer.asUint8List();
 
       final pdf = pw.Document();
-
       pdf.addPage(pw.Page(
         pageFormat: PdfPageFormat.a4,
         build: (pw.Context context) {
@@ -141,20 +114,15 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
 
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
     } catch (e) {
-      // CORRECTION: Utilisation de `debugPrint` et vérification de `mounted`
       debugPrint("Erreur lors de la génération du PDF: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la préparation de l\'impression.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de la préparation de l\'impression.')));
       }
     }
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context, initialDate: isStartDate ? _startDate : _endDate, firstDate: DateTime(2000), lastDate: DateTime(2101), locale: const Locale('fr', 'FR'),
-    );
+    final picked = await showDatePicker(context: context, initialDate: isStartDate ? _startDate : _endDate, firstDate: DateTime(2000), lastDate: DateTime(2101), locale: const Locale('fr', 'FR'));
     if (picked != null && mounted) {
       setState(() {
         if (isStartDate) {
@@ -177,10 +145,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
+              TextButton(onPressed: () => _selectDate(context, true), child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
             ],
           ),
         ),
@@ -189,10 +154,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
+              TextButton(onPressed: () => _selectDate(context, false), child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
             ],
           ),
         ),
@@ -203,17 +165,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Évolution du Stock'),
-        actions: [
-          if (_dataPoints.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.print_outlined),
-              tooltip: 'Imprimer le graphique',
-              onPressed: _printChart,
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Évolution du Stock'), actions: [if (_dataPoints.isNotEmpty) IconButton(icon: const Icon(Icons.print_outlined), tooltip: 'Imprimer le graphique', onPressed: _printChart)]),
       body: Column(
         children: [
           Padding(
@@ -222,31 +174,14 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
               children: [
                 _buildDatePicker(context),
                 const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.ssid_chart_outlined),
-                  label: const Text('Afficher l\'Évolution'),
-                  onPressed: _isLoading ? null : _loadData,
-                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
-                ),
+                ElevatedButton.icon(icon: const Icon(Icons.ssid_chart_outlined), label: const Text('Afficher l\'Évolution'), onPressed: isLoading ? null : _loadData, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45))),
               ],
             ),
           ),
-          if (_isLoading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (_errorMessage != null)
-            Expanded(child: Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red))))
-          else if (_dataPoints.isEmpty)
-              const Expanded(child: Center(child: Text('Aucune donnée à afficher. Veuillez sélectionner une période.')))
-            else
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _EvolutionChart(
-                    chartKey: _chartKey,
-                    dataPoints: _dataPoints,
-                  ),
-                ),
-              ),
+          if (isLoading) const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (errorMessage != null) Expanded(child: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
+          else if (_dataPoints.isEmpty) const Expanded(child: Center(child: Text('Aucune donnée à afficher. Veuillez sélectionner une période.')))
+            else Expanded(child: Padding(padding: const EdgeInsets.all(16.0), child: _EvolutionChart(chartKey: _chartKey, dataPoints: _dataPoints))),
         ],
       ),
     );
@@ -256,94 +191,50 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> {
 class _EvolutionChart extends StatelessWidget {
   final GlobalKey chartKey;
   final List<EvolutionStockPoint> dataPoints;
-
   const _EvolutionChart({required this.chartKey, required this.dataPoints});
 
   @override
   Widget build(BuildContext context) {
     List<FlSpot> spots = [];
     double maxY = 0;
-
     for (int i = 0; i < dataPoints.length; i++) {
       final point = dataPoints[i];
       spots.add(FlSpot(i.toDouble(), point.data.valeurAchat));
-      if (point.data.valeurAchat > maxY) {
-        maxY = point.data.valeurAchat;
-      }
+      if (point.data.valeurAchat > maxY) {maxY = point.data.valeurAchat;}
     }
-
-    if (dataPoints.length == 1) {
-      spots.add(FlSpot(1, dataPoints.first.data.valeurAchat));
-    }
-
-    return RepaintBoundary(
-      key: chartKey,
-      child: Container(
-        color: Theme.of(context).cardColor,
-        padding: const EdgeInsets.only(right: 18.0, top: 24, bottom: 12, left: 6),
-        child: LineChart(
-          LineChartData(
-            gridData: FlGridData(show: true, drawVerticalLine: true, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade300, strokeWidth: 0.5), getDrawingVerticalLine: (value) => FlLine(color: Colors.grey.shade300, strokeWidth: 0.5)),
-            titlesData: FlTitlesData(
-              show: true,
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: dataPoints.length > 5 ? (dataPoints.length/5).roundToDouble().clamp(1, double.infinity) : 1, getTitlesWidget: (value, meta) => _bottomTitleWidgets(value, meta, dataPoints))),
-              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 80, getTitlesWidget: (value, meta) => _leftTitleWidgets(value, meta, maxY), interval: maxY > 0 ? (maxY / 5).clamp(1, double.infinity) : 1)),
-            ),
-            borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade400)),
-            minX: 0,
-            maxX: (dataPoints.length == 1 ? 1 : (dataPoints.length - 1)).toDouble().clamp(0, double.infinity),
-            minY: 0,
-            maxY: maxY == 0 ? 10 : maxY * 1.1,
-            lineBarsData: [_lineChartBarData(spots, Colors.brown, 'Valeur Achat')],
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230),
-                getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                  return touchedBarSpots.map((barSpot) {
-                    final flSpot = barSpot;
-                    final pointIndex = flSpot.x.toInt();
-                    if(pointIndex >= dataPoints.length) { return null; }
-
-                    final point = dataPoints[pointIndex];
-                    return LineTooltipItem(
-                      'Valeur Achat\n',
-                      TextStyle(color: Colors.brown.darker(0.2), fontWeight: FontWeight.bold),
-                      children: [
-                        TextSpan(
-                          text: NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA ', decimalDigits: 0).format(flSpot.y),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.normal),
-                        ),
-                        TextSpan(
-                          text: '\n${DateFormatter.toDisplayFormat(point.date)}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 10),
-                        ),
-                      ],
-                      textAlign: TextAlign.left,
-                    );
-                  }).toList();
-                },
-              ),
-            ),
-          ),
-        ),
+    if (dataPoints.length == 1) {spots.add(FlSpot(1, dataPoints.first.data.valeurAchat));}
+    return RepaintBoundary(key: chartKey, child: Container(color: Theme.of(context).cardColor, padding: const EdgeInsets.only(right: 18.0, top: 24, bottom: 12, left: 6), child: LineChart(LineChartData(
+      gridData: FlGridData(show: true, drawVerticalLine: true, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade300, strokeWidth: 0.5), getDrawingVerticalLine: (value) => FlLine(color: Colors.grey.shade300, strokeWidth: 0.5)),
+      titlesData: FlTitlesData(
+        show: true,
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: dataPoints.length > 5 ? (dataPoints.length/5).roundToDouble().clamp(1, double.infinity) : 1, getTitlesWidget: (value, meta) => _bottomTitleWidgets(value, meta, dataPoints))),
+        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 80, getTitlesWidget: (value, meta) => _leftTitleWidgets(value, meta, maxY), interval: maxY > 0 ? (maxY / 5).clamp(1, double.infinity) : 1)),
       ),
-    );
+      borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade400)),
+      minX: 0,
+      maxX: (dataPoints.length == 1 ? 1 : (dataPoints.length - 1)).toDouble().clamp(0, double.infinity),
+      minY: 0,
+      maxY: maxY == 0 ? 10 : maxY * 1.1,
+      lineBarsData: [_lineChartBarData(spots, Colors.brown, 'Valeur Achat')],
+      lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(
+        getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230),
+        getTooltipItems: (touchedBarSpots) => touchedBarSpots.map((barSpot) {
+          final flSpot = barSpot;
+          final pointIndex = flSpot.x.toInt();
+          if(pointIndex >= dataPoints.length) {return null;}
+          final point = dataPoints[pointIndex];
+          return LineTooltipItem('Valeur Achat\n', TextStyle(color: Colors.brown.darker(0.2), fontWeight: FontWeight.bold), children: [
+            TextSpan(text: NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA ', decimalDigits: 0).format(flSpot.y), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.normal)),
+            TextSpan(text: '\n${DateFormatter.toDisplayFormat(point.date)}', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ], textAlign: TextAlign.left);
+        }).toList(),
+      )),
+    ))));
   }
 
-  LineChartBarData _lineChartBarData(List<FlSpot> spots, Color color, String name) {
-    return LineChartBarData(
-      spots: spots,
-      isCurved: true,
-      color: color,
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: FlDotData(show: spots.length < 20 || spots.length == 1),
-      belowBarData: BarAreaData(show: true, color: color.withAlpha(51)), // ~20% opacité
-    );
-  }
-
+  LineChartBarData _lineChartBarData(List<FlSpot> spots, Color color, String name) => LineChartBarData(spots: spots, isCurved: true, color: color, barWidth: 3, isStrokeCapRound: true, dotData: FlDotData(show: spots.length < 20 || spots.length == 1), belowBarData: BarAreaData(show: true, color: color.withAlpha(51)));
   Widget _bottomTitleWidgets(double value, TitleMeta meta, List<EvolutionStockPoint> data) {
     const style = TextStyle(color: Color(0xff68737d), fontWeight: FontWeight.bold, fontSize: 10);
     Widget text;
@@ -355,20 +246,13 @@ class _EvolutionChart extends StatelessWidget {
     }
     return SideTitleWidget(axisSide: meta.axisSide, space: 8.0, child: text);
   }
-
   Widget _leftTitleWidgets(double value, TitleMeta meta, double chartMaxY) {
     const style = TextStyle(color: Color(0xff67727d), fontWeight: FontWeight.bold, fontSize: 10);
     String text;
-    // CORRECTION: Ajout des accolades pour le 'if'
-    if (value == 0 && chartMaxY == 0) {
-      text = '0';
-    } else if (value >= 1000000) {
-      text = '${(value / 1000000).toStringAsFixed(1)}M';
-    } else if (value >= 1000) {
-      text = '${(value / 1000).toStringAsFixed(0)}K';
-    } else {
-      text = value.toStringAsFixed(0);
-    }
+    if (value == 0 && chartMaxY == 0) {text = '0';}
+    else if (value >= 1000000) {text = '${(value / 1000000).toStringAsFixed(1)}M';}
+    else if (value >= 1000) {text = '${(value / 1000).toStringAsFixed(0)}K';}
+    else {text = value.toStringAsFixed(0);}
     return Text(text, style: style, textAlign: TextAlign.left);
   }
 }

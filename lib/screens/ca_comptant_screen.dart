@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../services/api_service.dart';
 import '../models/ca_comptant_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 extension ColorExtensionOnColorForCaComptantScreen on Color {
   Color darker([double amount = .2]) {
@@ -30,92 +30,37 @@ class CaComptantScreen extends StatefulWidget {
   State<CaComptantScreen> createState() => _CaComptantScreenState();
 }
 
-class _CaComptantScreenState extends State<CaComptantScreen> {
-  late ApiService _apiService;
+class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogic<CaComptantScreen> {
   List<CaComptant> _caComptantDataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
-
-  bool _isLoading = false;
-  String? _errorMessage;
-
   final List<Color> _pieColors = [
     Colors.blue.shade400, Colors.green.shade400, Colors.orange.shade400, Colors.purple.shade400, Colors.red.shade400, Colors.teal.shade400, Colors.pink.shade300
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _apiService = ApiService(context);
-  }
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadCaComptant() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _caComptantDataList = [];
-    });
+    setState(() => _caComptantDataList = []);
 
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    try {
-      final data = await _apiService.get(AppConstants.caComptantEndpoint, queryParams: queryParams);
-      if (data is List) {
-        if(mounted){
-          setState(() {
-            var tempList = data.map((item) => CaComptant.fromJson(item)).toList();
-            tempList.sort((a, b) {
-              if (a.mvtDate == null && b.mvtDate == null) return 0;
-              if (a.mvtDate == null) return 1;
-              if (b.mvtDate == null) return -1;
-              return a.mvtDate!.compareTo(b.mvtDate!);
-            });
-            _caComptantDataList = tempList;
-          });
-        }
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if(mounted){
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if(mounted){
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+    final data = await apiGet(AppConstants.caComptantEndpoint, queryParams: queryParams);
 
-  // --- GETTER POUR LES DONNÉES AGRÉGÉES ---
-  // Cette fonction est essentielle pour les calculs.
-  CaComptant get _aggregatedData {
-    if (_caComptantDataList.isEmpty) {
-      return CaComptant(montantCredit: 0, remiseSurCA: 0, totCB: 0, totChq: 0, totEsp: 0, totMobile: 0, totTVA: 0, totVirement: 0);
+    if (mounted && data is List) {
+      setState(() {
+        var tempList = data.map((item) => CaComptant.fromJson(item)).toList();
+        tempList.sort((a, b) {
+          if (a.mvtDate == null || b.mvtDate == null) return 0;
+          return a.mvtDate!.compareTo(b.mvtDate!);
+        });
+        _caComptantDataList = tempList;
+      });
     }
-    return _caComptantDataList.reduce((acc, current) {
-      return CaComptant(
-        montantCredit: acc.montantCredit + current.montantCredit,
-        mvtDate: null,
-        remiseSurCA: acc.remiseSurCA + current.remiseSurCA,
-        totCB: acc.totCB + current.totCB,
-        totChq: acc.totChq + current.totChq,
-        totEsp: acc.totEsp + current.totEsp,
-        totMobile: acc.totMobile + current.totMobile,
-        totTVA: acc.totTVA + current.totTVA,
-        totVirement: acc.totVirement + current.totVirement,
-      );
-    });
   }
-  // --- FIN DU GETTER ---
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
     final DateTime? picked = await showDatePicker(
@@ -172,8 +117,27 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
     );
   }
 
+  CaComptant get _aggregatedData {
+    if (_caComptantDataList.isEmpty) {
+      return CaComptant(montantCredit: 0, remiseSurCA: 0, totCB: 0, totChq: 0, totEsp: 0, totMobile: 0, totTVA: 0, totVirement: 0);
+    }
+    return _caComptantDataList.reduce((acc, current) {
+      return CaComptant(
+        montantCredit: acc.montantCredit + current.montantCredit,
+        mvtDate: null,
+        remiseSurCA: acc.remiseSurCA + current.remiseSurCA,
+        totCB: acc.totCB + current.totCB,
+        totChq: acc.totChq + current.totChq,
+        totEsp: acc.totEsp + current.totEsp,
+        totMobile: acc.totMobile + current.totMobile,
+        totTVA: acc.totTVA + current.totTVA,
+        totVirement: acc.totVirement + current.totVirement,
+      );
+    });
+  }
+
   Widget _buildPieChartSection() {
-    final data = _aggregatedData; // Appel du getter
+    final data = _aggregatedData;
     List<PieChartSectionData> sections = [];
     double totalForPie = 0;
 
@@ -271,7 +235,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
   }
 
   Widget _buildTotalsTable() {
-    final data = _aggregatedData; // Appel du getter
+    final data = _aggregatedData;
     final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0);
 
     return Padding(
@@ -299,7 +263,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
 
   TableRow _buildTableRow(String label, String value, {bool isHeader = false}) {
     return TableRow(
-      decoration: BoxDecoration(color: isHeader ? Theme.of(context).primaryColorLight.withAlpha(77) : null), // ~30% opacité
+      decoration: BoxDecoration(color: isHeader ? Theme.of(context).primaryColorLight.withAlpha(77) : null),
       children: [
         Padding(
           padding: const EdgeInsets.all(8.0),
@@ -325,19 +289,15 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
     List<FlSpot> spotsCredit = [];
     List<FlSpot> spotsMobile = [];
     List<FlSpot> spotsCB = [];
-
-    double minY = 0;
-    double maxY = 0;
+    double maxY = 0; // CORRECTION: `minY` est retiré d'ici, et défini à 0 dans le graphique.
 
     for (int i = 0; i < _caComptantDataList.length; i++) {
       final item = _caComptantDataList[i];
       double xValue = i.toDouble();
-
       spotsEsp.add(FlSpot(xValue, item.totEsp));
       spotsCredit.add(FlSpot(xValue, item.montantCredit));
       spotsMobile.add(FlSpot(xValue, item.totMobile));
       spotsCB.add(FlSpot(xValue, item.totCB));
-
       maxY = [maxY, item.totEsp, item.montantCredit, item.totMobile, item.totCB].reduce((currMax, val) => val > currMax ? val : currMax);
     }
 
@@ -352,7 +312,6 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
       }
     }
 
-
     return AspectRatio(
       aspectRatio: 1.7,
       child: Padding(
@@ -361,31 +320,23 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
           LineChartData(
             lineTouchData: LineTouchData(
               touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (LineBarSpot spot) {
-                    return Colors.blueGrey.withAlpha(230); // ~90% opacity
-                  },
-                  getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                    return touchedBarSpots.map((barSpot) {
-                      final flSpot = barSpot;
-                      String seriesName = '';
-                      Color seriesColor = Colors.white;
-
-                      if (barSpot.barIndex == 0) {seriesName = 'Espèces'; seriesColor = _pieColors[0];}
-                      else if (barSpot.barIndex == 1) {seriesName = 'Crédit'; seriesColor = _pieColors[1];}
-                      else if (barSpot.barIndex == 2) {seriesName = 'Mobile'; seriesColor = _pieColors[2];}
-                      else if (barSpot.barIndex == 3) {seriesName = 'Carte B.'; seriesColor = _pieColors[3];}
-
-                      return LineTooltipItem(
-                          '$seriesName\n',
-                          TextStyle(color: seriesColor.darker(0.2), fontWeight: FontWeight.bold, fontSize: 12),
-                          children: [
-                            TextSpan(text: NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA ', decimalDigits: 0).format(flSpot.y), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.normal, fontSize: 11)),
-                            TextSpan(text: '\n${_caComptantDataList.isNotEmpty && flSpot.x.toInt() >= 0 && flSpot.x.toInt() < _caComptantDataList.length && _caComptantDataList[flSpot.x.toInt()].mvtDate != null ? DateFormatter.toDisplayFormat(_caComptantDataList[flSpot.x.toInt()].mvtDate!) : ''}', style: const TextStyle(color: Colors.white70, fontSize: 9)),
-                          ],
-                          textAlign: TextAlign.left
-                      );
-                    }).toList();
-                  }
+                  getTooltipColor: (LineBarSpot spot) => Colors.blueGrey.withAlpha(230),
+                  getTooltipItems: (touchedBarSpots) => touchedBarSpots.map((barSpot) {
+                    final flSpot = barSpot;
+                    String seriesName = '';
+                    Color seriesColor = Colors.white;
+                    if (barSpot.barIndex == 0) {seriesName = 'Espèces'; seriesColor = _pieColors[0];}
+                    else if (barSpot.barIndex == 1) {seriesName = 'Crédit'; seriesColor = _pieColors[1];}
+                    else if (barSpot.barIndex == 2) {seriesName = 'Mobile'; seriesColor = _pieColors[2];}
+                    else if (barSpot.barIndex == 3) {seriesName = 'Carte B.'; seriesColor = _pieColors[3];}
+                    return LineTooltipItem('$seriesName\n', TextStyle(color: seriesColor.darker(0.2), fontWeight: FontWeight.bold, fontSize: 12),
+                        children: [
+                          TextSpan(text: NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA ', decimalDigits: 0).format(flSpot.y), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.normal, fontSize: 11)),
+                          TextSpan(text: '\n${_caComptantDataList.isNotEmpty && flSpot.x.toInt() >= 0 && flSpot.x.toInt() < _caComptantDataList.length && _caComptantDataList[flSpot.x.toInt()].mvtDate != null ? DateFormatter.toDisplayFormat(_caComptantDataList[flSpot.x.toInt()].mvtDate!) : ''}', style: const TextStyle(color: Colors.white70, fontSize: 9)),
+                        ],
+                        textAlign: TextAlign.left
+                    );
+                  }).toList()
               ),
             ),
             gridData: FlGridData(show: true, drawVerticalLine: true, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade300, strokeWidth: 0.5), getDrawingVerticalLine: (value) => FlLine(color: Colors.grey.shade300, strokeWidth: 0.5)),
@@ -399,7 +350,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
             borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade400)),
             minX: 0,
             maxX: (_caComptantDataList.length == 1 ? 1 : (_caComptantDataList.length -1)).toDouble().clamp(0, double.infinity),
-            minY: minY,
+            minY: 0, // minY est toujours 0
             maxY: maxY == 0 ? 10 : maxY * 1.1,
             lineBarsData: [
               _lineChartBarData(spotsEsp, _pieColors[0], 'Espèces'),
@@ -414,15 +365,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
   }
 
   LineChartBarData _lineChartBarData(List<FlSpot> spots, Color color, String name) {
-    return LineChartBarData(
-      spots: spots,
-      isCurved: true,
-      gradient: LinearGradient(colors: [color.lighter(0.1), color.darker(0.1)]),
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: FlDotData(show: spots.length < 15 || spots.length ==1),
-      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])), // ~30% opacity
-    );
+    return LineChartBarData(spots: spots, isCurved: true, gradient: LinearGradient(colors: [color.lighter(0.1), color.darker(0.1)]), barWidth: 3, isStrokeCapRound: true, dotData: FlDotData(show: spots.length < 15 || spots.length ==1), belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])));
   }
 
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
@@ -440,24 +383,17 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
   Widget leftTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(color: Color(0xff67727d), fontWeight: FontWeight.bold, fontSize: 10);
     String text;
-    if (value >= 1000000) {
-      text = '${(value / 1000000).toStringAsFixed(1)}M';
-    } else if (value >= 1000) {
-      text = '${(value / 1000).toStringAsFixed(0)}K';
-    } else {
-      text = value.toStringAsFixed(0);
-    }
+    if (value >= 1000000) {text = '${(value / 1000000).toStringAsFixed(1)}M';}
+    else if (value >= 1000) {text = '${(value / 1000).toStringAsFixed(0)}K';}
+    else {text = value.toStringAsFixed(0);}
     return Text(text, style: style, textAlign: TextAlign.left);
   }
-
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('CA Comptant'),
-      ),
+      appBar: AppBar(title: const Text('CA Comptant')),
       body: RefreshIndicator(
         onRefresh: _loadCaComptant,
         child: SingleChildScrollView(
@@ -473,23 +409,18 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
                     children: [
                       _buildDatePicker(context),
                       const SizedBox(height: 10),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.bar_chart_outlined),
-                        label: const Text('Afficher le CA Comptant'),
-                        onPressed: _isLoading ? null : _loadCaComptant,
-                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
-                      ),
+                      ElevatedButton.icon(icon: const Icon(Icons.bar_chart_outlined), label: const Text('Afficher le CA Comptant'), onPressed: isLoading ? null : _loadCaComptant, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45))),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 15),
-              if (_isLoading)
+              if (isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 30.0),
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else if (_errorMessage != null)
+              else if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Center(
@@ -498,13 +429,9 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
                       children: [
                         Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                         const SizedBox(height: 10),
-                        Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
+                        Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
                         const SizedBox(height: 20),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Réessayer'),
-                          onPressed: _loadCaComptant,
-                        )
+                        ElevatedButton.icon(icon: const Icon(Icons.refresh), label: const Text('Réessayer'), onPressed: _loadCaComptant)
                       ],
                     ),
                   ),
@@ -577,6 +504,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> {
       ],
     );
   }
+
   Widget _legendItem(Color color, String name) {
     return Row(
       mainAxisSize: MainAxisSize.min,

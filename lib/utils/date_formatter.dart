@@ -1,6 +1,6 @@
 // lib/utils/date_formatter.dart
 
-import 'package:flutter/foundation.dart'; // Importer pour debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 class DateFormatter {
@@ -26,7 +26,6 @@ class DateFormatter {
       final day = int.parse(dateString.substring(6, 8));
       return DateTime(year, month, day);
     } catch (e) {
-      // CORRECTION: Remplacement de 'print' par 'debugPrint'
       debugPrint('Error parsing date string: $dateString. Error: $e');
       return null;
     }
@@ -45,5 +44,21 @@ class DateFormatter {
   // Récupère la date de fin par défaut (aujourd'hui)
   static DateTime getDefaultEndDate() {
     return DateTime.now();
+  }
+
+  // AJOUT: Formate une durée en un texte lisible
+  static String formatDuration(Duration duration) {
+    if (duration.inMinutes < 1) {
+      return "moins d'une minute";
+    }
+    if (duration.inHours < 1) {
+      return "${duration.inMinutes} minute(s)";
+    }
+    final int hours = duration.inHours;
+    final int minutes = duration.inMinutes.remainder(60);
+    if (minutes == 0) {
+      return "$hours heure(s)";
+    }
+    return "${hours}h${minutes.toString().padLeft(2, '0')}";
   }
 }

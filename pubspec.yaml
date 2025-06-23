@@ -31,7 +31,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
+  assets:
+    - assets/icons/
 # IMPORTANT: Ce bloc doit être à la racine du fichier (pas d'indentation)
 # et les lignes à l'intérieur doivent avoir deux espaces d'indentation.
 flutter_launcher_icons:

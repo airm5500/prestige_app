@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/ip_config_provider.dart';
-import '../utils/constants.dart'; // For AppConstants
-import 'home_screen.dart'; // To navigate to HomeScreen after saving
+import '../services/api_service.dart';
+import '../utils/constants.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,63 +17,105 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _localIpController;
   late TextEditingController _remoteIpController;
-  // late TextEditingController _portController; // Optional: if port is also configurable
-
+  late TextEditingController _portController;
+  late TextEditingController _timeoutController;
   bool _isLoading = false;
+
+  bool _isPingingLocal = false;
+  bool _isPingingRemote = false;
+  bool _isPortEditable = false;
+
+  // AJOUT: États pour stocker le résultat du ping
+  String? _localPingMessage;
+  bool? _localPingSuccess;
+  String? _remotePingMessage;
+  bool? _remotePingSuccess;
 
   @override
   void initState() {
     super.initState();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
-    // Initialize with current provider values, but show empty if they are the placeholder defaults
-    _localIpController = TextEditingController(
-        text: ipProvider.localIp == AppConstants.defaultLocalIp ? '' : ipProvider.localIp);
-    _remoteIpController = TextEditingController(
-        text: ipProvider.remoteIp == AppConstants.defaultRemoteIp ? '' : ipProvider.remoteIp);
-    // _portController = TextEditingController(text: ipProvider.port);
+    _localIpController = TextEditingController(text: ipProvider.localIp == AppConstants.defaultLocalIp ? '' : ipProvider.localIp);
+    _remoteIpController = TextEditingController(text: ipProvider.remoteIp == AppConstants.defaultRemoteIp ? '' : ipProvider.remoteIp);
+    _portController = TextEditingController(text: ipProvider.port);
+    _timeoutController = TextEditingController(text: ipProvider.sessionTimeout.toString());
   }
 
   @override
   void dispose() {
     _localIpController.dispose();
     _remoteIpController.dispose();
-    // _portController.dispose();
+    _portController.dispose();
+    _timeoutController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handlePing(bool isLocal) async {
+    FocusScope.of(context).unfocus();
+
+    final ipToTest = isLocal ? _localIpController.text.trim() : _remoteIpController.text.trim();
+
+    if (ipToTest.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez d\'abord entrer une adresse IP.'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        if (isLocal) {
+          _isPingingLocal = true;
+          _localPingMessage = 'Test en cours...'; // Affiche le message de test
+          _localPingSuccess = null;
+        } else {
+          _isPingingRemote = true;
+          _remotePingMessage = 'Test en cours...';
+          _remotePingSuccess = null;
+        }
+      });
+    }
+
+    final success = await ApiService.ping(ipToTest, _portController.text.trim());
+
+    if (mounted) {
+      // CORRECTION: Met à jour l'état au lieu d'afficher un SnackBar
+      setState(() {
+        if (isLocal) {
+          _isPingingLocal = false;
+          _localPingSuccess = success;
+          _localPingMessage = success ? 'Ping réussi !' : 'Échec du ping.';
+        } else {
+          _isPingingRemote = false;
+          _remotePingSuccess = success;
+          _remotePingMessage = success ? 'Ping réussi !' : 'Échec du ping.';
+        }
+      });
+    }
   }
 
   Future<void> _saveSettings() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
+
       final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
       try {
         await ipProvider.updateSettings(
           _localIpController.text.trim(),
           _remoteIpController.text.trim(),
-          // _portController.text.trim(), // if port is configurable
+          _portController.text.trim(),
+          int.tryParse(_timeoutController.text.trim()) ?? AppConstants.defaultSessionTimeout,
         );
 
-        // Check if context is still mounted before showing SnackBar or navigating
-        if (!mounted) return;
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Configuration enregistrée avec succès.'), backgroundColor: Colors.green));
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuration enregistrée avec succès.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        if (navigator.canPop()) {
+          navigator.pop();
+        }
 
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'enregistrement: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Erreur lors de l\'enregistrement: ${e.toString()}'), backgroundColor: Colors.red));
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
@@ -84,13 +126,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Access theme for consistent styling
     final theme = Theme.of(context);
+    final canPop = Navigator.canPop(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Configuration IP'),
-        automaticallyImplyLeading: false, // No back button if it's the first screen
+        automaticallyImplyLeading: canPop,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -101,92 +143,175 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Text(
-                  'Configurer les adresses IP du serveur',
-                  style: theme.textTheme.titleLarge?.copyWith(color: theme.primaryColorDark),
-                  textAlign: TextAlign.center,
-                ),
+                Text('Configurer les adresses IP du serveur', style: theme.textTheme.titleLarge?.copyWith(color: theme.primaryColorDark), textAlign: TextAlign.center),
                 const SizedBox(height: 30),
-                TextFormField(
+
+                // CORRECTION: Champ IP Locale avec son message de résultat
+                _buildIpInputRow(
                   controller: _localIpController,
-                  decoration: const InputDecoration(
-                    labelText: 'Adresse IP Locale (ex: 192.168.1.100)',
-                    hintText: 'Entrez l\'adresse IP locale',
-                    prefixIcon: Icon(Icons.computer),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.url, // Allows dots and numbers
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Veuillez entrer une adresse IP locale.';
-                    }
-                    // Basic IP format validation (not exhaustive)
-                    // RegExp ipRegex = RegExp(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$");
-                    // if (!ipRegex.hasMatch(value.trim())) {
-                    //   return 'Format d\'IP invalide.';
-                    // }
-                    return null;
-                  },
+                  labelText: 'Adresse IP Locale',
+                  hintText: 'ex: 192.168.1.100',
+                  icon: Icons.computer,
+                  isPinging: _isPingingLocal,
+                  pingMessage: _localPingMessage,
+                  pingSuccess: _localPingSuccess,
+                  onPing: () => _handlePing(true),
+                ),
+
+                const SizedBox(height: 20),
+
+                _buildIpInputRow(
+                  controller: _remoteIpController,
+                  labelText: 'Adresse IP Distante',
+                  hintText: 'ex: example.com',
+                  icon: Icons.public,
+                  isPinging: _isPingingRemote,
+                  pingMessage: _remotePingMessage,
+                  pingSuccess: _remotePingSuccess,
+                  onPing: () => _handlePing(false),
+                  isRemote: true,
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _portController,
+                        enabled: _isPortEditable,
+                        decoration: const InputDecoration(
+                          labelText: 'Port du Serveur',
+                          prefixIcon: Icon(Icons.settings_ethernet),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return 'Le port est requis.';
+                          if (int.tryParse(value.trim()) == null) return 'Port invalide.';
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(_isPortEditable ? Icons.lock_open_outlined : Icons.edit_outlined),
+                      tooltip: _isPortEditable ? 'Verrouiller le port' : 'Modifier le port',
+                      onPressed: () {
+                        setState(() {
+                          _isPortEditable = !_isPortEditable;
+                        });
+                      },
+                      padding: const EdgeInsets.only(top: 12),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
+
                 TextFormField(
-                  controller: _remoteIpController,
+                  controller: _timeoutController,
                   decoration: const InputDecoration(
-                    labelText: 'Adresse IP Distante ',
-                    hintText: 'Entrez l\'adresse IP distante',
-                    prefixIcon: Icon(Icons.public),
-                    border: OutlineInputBorder(),
+                    labelText: 'Délai de déconnexion (minutes)',
+                    prefixIcon: Icon(Icons.timer_outlined),
                   ),
-                  keyboardType: TextInputType.url,
+                  keyboardType: TextInputType.number,
                   validator: (value) {
-                    // Remote IP can be optional if local is primary
-                    // if (value == null || value.trim().isEmpty) {
-                    //   return 'Veuillez entrer une adresse IP distante.';
-                    // }
+                    if (value == null || value.trim().isEmpty) return 'Le délai est requis.';
+                    if (int.tryParse(value.trim()) == null) return 'Valeur invalide.';
                     return null;
                   },
                 ),
-                // SizedBox(height: 20),
-                // TextFormField(
-                //   controller: _portController,
-                //   decoration: InputDecoration(
-                //     labelText: 'Port (ex: 8080)',
-                //     hintText: 'Entrez le numéro de port',
-                //     prefixIcon: Icon(Icons.settings_ethernet),
-                //   ),
-                //   keyboardType: TextInputType.number,
-                //   validator: (value) {
-                //     if (value == null || value.trim().isEmpty) {
-                //       return 'Veuillez entrer un numéro de port.';
-                //     }
-                //     if (int.tryParse(value.trim()) == null) {
-                //       return 'Port invalide.';
-                //     }
-                //     return null;
-                //   },
-                // ),
                 const SizedBox(height: 30),
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton.icon(
                   icon: const Icon(Icons.save_alt_outlined),
-                  label: const Text('Enregistrer et Continuer'),
+                  label: Text(canPop ? 'Enregistrer' : 'Enregistrer et Continuer'),
                   onPressed: _saveSettings,
-                  style: theme.elevatedButtonTheme.style?.copyWith(
-                    padding: WidgetStateProperty.all(const EdgeInsets.symmetric(vertical: 15)),
-                  ),
+                  style: theme.elevatedButtonTheme.style?.copyWith(padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 15))),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  'Note: L\'adresse IP locale est requise. L\'adresse distante est optionnelle.',
-                  style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
-                  textAlign: TextAlign.center,
-                ),
+                Text('Note: L\'adresse IP locale est requise pour utiliser l\'application.', style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic), textAlign: TextAlign.center),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  // CORRECTION: Nouveau widget pour combiner le champ, le bouton et le message
+  Widget _buildIpInputRow({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required IconData icon,
+    required bool isPinging,
+    required String? pingMessage,
+    required bool? pingSuccess,
+    required VoidCallback onPing,
+    bool isRemote = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: labelText,
+                  hintText: hintText,
+                  prefixIcon: Icon(icon),
+                ),
+                keyboardType: TextInputType.url,
+                validator: (value) {
+                  if (!isRemote && (value == null || value.trim().isEmpty)) {
+                    return 'Ce champ est requis.';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            isPinging
+                ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            )
+                : IconButton(
+              icon: const Icon(Icons.network_ping),
+              tooltip: 'Tester la connexion',
+              onPressed: onPing,
+              padding: const EdgeInsets.only(top: 8),
+            ),
+          ],
+        ),
+        // Espace pour afficher le message du ping
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: (pingMessage != null)
+              ? Padding(
+            key: ValueKey<String>(pingMessage), // Clé pour l'animation
+            padding: const EdgeInsets.only(top: 6.0, left: 12.0),
+            child: Text(
+              pingMessage,
+              style: TextStyle(
+                color: (pingSuccess == null)
+                    ? Colors.grey.shade600
+                    : (pingSuccess == true ? Colors.green.shade700 : Colors.red.shade700),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+              : const SizedBox.shrink(), // Ne rien afficher si pas de message
+        ),
+      ],
     );
   }
 }

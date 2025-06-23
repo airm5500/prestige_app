@@ -1,11 +1,10 @@
 // lib/screens/tableau_bord_analyse_menu_screen.dart
 
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
-// Importer les écrans de graphiques
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import 'evolution_comparative_screen.dart';
 import 'evolution_achats_screen.dart';
 import 'evolution_ventes_screen.dart';
@@ -17,27 +16,19 @@ class TableauBordAnalyseMenuScreen extends StatefulWidget {
   State<TableauBordAnalyseMenuScreen> createState() => _TableauBordAnalyseMenuScreenState();
 }
 
-class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScreen> {
-  late ApiService _apiService;
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScreen> with BaseScreenLogic<TableauBordAnalyseMenuScreen> {
+
   List<TableauBordAchatsVentes> _dataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
-
-  bool _isLoading = false;
-  String? _errorMessage;
   bool _dataLoaded = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _apiService = ApiService(context);
-  }
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadDataForAnalyses() async {
-    if (!mounted) return;
+    // On réinitialise l'état avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
       _dataList = [];
       _dataLoaded = false;
     });
@@ -47,55 +38,32 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    try {
-      final data = await _apiService.get(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
-      if (!mounted) return;
-      if (data is List) {
-        setState(() {
-          var tempList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
 
-          // --- CORRECTION : TRI DE LA LISTE PAR DATE ---
-          // Cela garantit que les points sur le graphique sont dans l'ordre chronologique.
-          tempList.sort((a, b) {
-            if (a.dateMvt == null && b.dateMvt == null) return 0;
-            if (a.dateMvt == null) return 1; // Mettre les nuls à la fin pour la sécurité
-            if (b.dateMvt == null) return -1;
-            return a.dateMvt!.compareTo(b.dateMvt!);
-          });
-          _dataList = tempList;
-          // --- FIN DE LA CORRECTION ---
+    if (mounted && data is List) {
+      setState(() {
+        var tempList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
 
-          _dataLoaded = _dataList.isNotEmpty;
-          if (_dataList.isEmpty) {
-            _errorMessage = "Aucune donnée trouvée pour la période sélectionnée pour l'analyse.";
-          }
+        tempList.sort((a, b) {
+          if (a.dateMvt == null && b.dateMvt == null) return 0;
+          if (a.dateMvt == null) return 1;
+          if (b.dateMvt == null) return -1;
+          return a.dateMvt!.compareTo(b.dateMvt!);
         });
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+        _dataList = tempList;
+
+        _dataLoaded = _dataList.isNotEmpty;
+        if (!_dataLoaded) {
+          errorMessage = "Aucune donnée trouvée pour la période sélectionnée pour l'analyse.";
+        }
+      });
     }
+    // La gestion du chargement et des erreurs est automatique !
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStartDate ? _startDate : _endDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      locale: const Locale('fr', 'FR'),
-    );
+    final picked = await showDatePicker(context: context, initialDate: isStartDate ? _startDate : _endDate, firstDate: DateTime(2000), lastDate: DateTime(2101), locale: const Locale('fr', 'FR'));
     if (picked != null && mounted) {
       setState(() {
         if (isStartDate) {
@@ -120,10 +88,7 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
+              TextButton(onPressed: () => _selectDate(context, true), child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
             ],
           ),
         ),
@@ -132,10 +97,7 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
+              TextButton(onPressed: () => _selectDate(context, false), child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
             ],
           ),
         ),
@@ -147,9 +109,7 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tableau: Menu Analyses'),
-      ),
+      appBar: AppBar(title: const Text('Tableau: Menu Analyses')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -163,72 +123,22 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
                   children: [
                     _buildDatePicker(context),
                     const SizedBox(height: 10),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.refresh_outlined),
-                      label: const Text('Charger les Données pour Analyse'),
-                      onPressed: _isLoading ? null : _loadDataForAnalyses,
-                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
-                    ),
+                    ElevatedButton.icon(icon: const Icon(Icons.refresh_outlined), label: const Text('Charger les Données pour Analyse'), onPressed: isLoading ? null : _loadDataForAnalyses, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45))),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.red[700], size: 40),
-                      const SizedBox(height: 8),
-                      Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 15)),
-                    ],
-                  ),
-                ),
-              )
-            else if (!_dataLoaded && !_isLoading)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Center(
-                    child: Text(
-                      'Veuillez charger les données pour la période sélectionnée avant de consulter les analyses.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                    ),
-                  ),
-                ),
-            if (_dataLoaded) ...[
-              Text("Analyses Disponibles:", style: theme.textTheme.titleMedium?.copyWith(color: theme.primaryColorDark)),
-              const SizedBox(height: 10),
-              _buildAnalysisButton(
-                context,
-                title: 'Évolution Comparative Achats vs Ventes',
-                icon: Icons.multiline_chart_outlined,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => EvolutionComparaisonScreen(dataList: _dataList, startDate: _startDate, endDate: _endDate)));
-                },
-              ),
-              _buildAnalysisButton(
-                context,
-                title: 'Évolution des Achats',
-                icon: Icons.show_chart_outlined,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => EvolutionAchatsScreen(dataList: _dataList, startDate: _startDate, endDate: _endDate)));
-                },
-              ),
-              _buildAnalysisButton(
-                context,
-                title: 'Évolution des Ventes',
-                icon: Icons.stacked_line_chart_outlined,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => EvolutionVentesScreen(dataList: _dataList, startDate: _startDate, endDate: _endDate)));
-                },
-              ),
-            ],
+            if (isLoading) const Center(child: CircularProgressIndicator())
+            else if (errorMessage != null) Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.error_outline, color: Colors.red[700], size: 40), const SizedBox(height: 8), Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 15))])))
+            else if (!_dataLoaded && !isLoading) Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Text('Veuillez charger les données pour la période sélectionnée avant de consulter les analyses.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[700]))))
+              else if (_dataLoaded) ...[
+                  Text("Analyses Disponibles:", style: theme.textTheme.titleMedium?.copyWith(color: theme.primaryColorDark)),
+                  const SizedBox(height: 10),
+                  _buildAnalysisButton(context, title: 'Évolution Comparative Achats vs Ventes', icon: Icons.multiline_chart_outlined, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EvolutionComparaisonScreen(dataList: _dataList, startDate: _startDate, endDate: _endDate)))),
+                  _buildAnalysisButton(context, title: 'Évolution des Achats', icon: Icons.show_chart_outlined, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EvolutionAchatsScreen(dataList: _dataList, startDate: _startDate, endDate: _endDate)))),
+                  _buildAnalysisButton(context, title: 'Évolution des Ventes', icon: Icons.stacked_line_chart_outlined, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => EvolutionVentesScreen(dataList: _dataList, startDate: _startDate, endDate: _endDate)))),
+                ],
           ],
         ),
       ),

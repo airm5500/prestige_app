@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 class TableauBordRatioScreen extends StatefulWidget {
   const TableauBordRatioScreen({super.key});
@@ -14,14 +14,12 @@ class TableauBordRatioScreen extends StatefulWidget {
   State<TableauBordRatioScreen> createState() => _TableauBordRatioScreenState();
 }
 
-class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
-  late ApiService _apiService;
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with BaseScreenLogic<TableauBordRatioScreen> {
+
   List<TableauBordAchatsVentes> _dataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
-
-  bool _isLoading = false;
-  String? _errorMessage;
 
   final TextEditingController _inputVenteNormeeController = TextEditingController();
   final TextEditingController _inputAchatNormeController = TextEditingController();
@@ -30,11 +28,11 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
   final FocusNode _venteFocusNode = FocusNode();
   final FocusNode _achatFocusNode = FocusNode();
 
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   @override
   void initState() {
     super.initState();
-    _apiService = ApiService(context);
     _venteFocusNode.addListener(() {
       if (_venteFocusNode.hasFocus) {
         _inputAchatNormeController.clear();
@@ -59,10 +57,8 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
   }
 
   Future<void> _loadData() async {
-    if (!mounted) return;
+    // On réinitialise la liste avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
       _dataList = [];
     });
 
@@ -71,29 +67,16 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    try {
-      final data = await _apiService.get(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
-      if (!mounted) return;
-      if (data is List) {
-        setState(() {
-          _dataList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
-        });
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
+
+    // On traite uniquement le cas où l'appel a réussi et retourne des données
+    if (mounted && data is List) {
+      setState(() {
+        _dataList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
+      });
     }
+    // La gestion du chargement et des erreurs est automatique !
   }
 
   void _calculerAchatNorme() {
@@ -181,7 +164,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tableau: Ratios Ventes/Achats'),
+        title: const Text('Tableau: Ratios Achats/Ventes'),
       ),
       body: Column(
         children: [
@@ -194,7 +177,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.analytics_outlined),
                   label: const Text('Afficher les Données'),
-                  onPressed: _isLoading ? null : _loadData,
+                  onPressed: isLoading ? null : _loadData, // Utilise isLoading du mixin
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                 ),
                 const SizedBox(height: 10),
@@ -205,9 +188,9 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
               ],
             ),
           ),
-          if (_isLoading)
+          if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (_errorMessage != null)
+          else if (errorMessage != null)
             Expanded(
               child: Center(
                 child: Padding(
@@ -217,7 +200,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
                     children: [
                       Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                       const SizedBox(height: 10),
-                      Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
+                      Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
                       const SizedBox(height: 20),
                       ElevatedButton.icon(icon: const Icon(Icons.refresh), label: const Text('Réessayer'), onPressed: _loadData)
                     ],
@@ -229,39 +212,43 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> {
               const Expanded(child: Center(child: Text('Aucune donnée à afficher pour la période sélectionnée.')))
             else
               Expanded(
-                child: SingleChildScrollView( // Main scroll for table and calculation section
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: DataTable(
-                          columnSpacing: 10,
-                          headingRowHeight: 40,
-                          dataRowMinHeight: 35,
-                          dataRowMaxHeight: 45,
-                          columns: const [
-                            DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Achats', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                            DataColumn(label: Text('Ventes', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                            DataColumn(label: Text('Ratio', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                          ],
-                          rows: _dataList.map((item) {
-                            final ratio = item.ratio;
-                            final Color ratioColor = ratio == 0 ? Colors.grey : (ratio >= AppConstants.ratioNormeVenteAchat ? Colors.green.shade700 : Colors.red.shade700);
-                            return DataRow(cells: [
-                              DataCell(Text(item.dateMvt != null ? DateFormatter.toDisplayFormat(item.dateMvt!) : 'N/A')),
-                              DataCell(Text(currencyFormat.format(item.montantAchat))),
-                              DataCell(Text(currencyFormat.format(item.montantVente))),
-                              DataCell(Text(ratio.toStringAsFixed(2), style: TextStyle(color: ratioColor, fontWeight: FontWeight.bold))),
-                            ]);
-                          }).toList(),
+                child: RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: DataTable(
+                            columnSpacing: 10,
+                            headingRowHeight: 40,
+                            dataRowMinHeight: 35,
+                            dataRowMaxHeight: 45,
+                            columns: const [
+                              DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Achats', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                              DataColumn(label: Text('Ventes', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                              DataColumn(label: Text('Ratio', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                            ],
+                            rows: _dataList.map((item) {
+                              final ratio = item.ratio;
+                              final Color ratioColor = ratio == 0 ? Colors.grey : (ratio >= AppConstants.ratioNormeVenteAchat ? Colors.green.shade700 : Colors.red.shade700);
+                              return DataRow(cells: [
+                                DataCell(Text(item.dateMvt != null ? DateFormatter.toDisplayFormat(item.dateMvt!) : 'N/A')),
+                                DataCell(Text(currencyFormat.format(item.montantAchat))),
+                                DataCell(Text(currencyFormat.format(item.montantVente))),
+                                DataCell(Text(ratio.toStringAsFixed(2), style: TextStyle(color: ratioColor, fontWeight: FontWeight.bold))),
+                              ]);
+                            }).toList(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildNormeCalculationSection(theme, currencyFormat),
-                      const SizedBox(height: 20), // Spacing at the bottom
-                    ],
+                        const SizedBox(height: 20),
+                        _buildNormeCalculationSection(theme, currencyFormat),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
               ),

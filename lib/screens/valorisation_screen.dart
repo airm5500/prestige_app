@@ -1,12 +1,12 @@
 // lib/screens/valorisation_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For NumberFormat
-import '../services/api_service.dart';
+import 'package:intl/intl.dart';
 import '../models/valorisation_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
-import '../utils/color_extensions.dart'; // Import the color extension
+import '../utils/color_extensions.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 class ValorisationScreen extends StatefulWidget {
   const ValorisationScreen({super.key});
@@ -15,56 +15,32 @@ class ValorisationScreen extends StatefulWidget {
   State<ValorisationScreen> createState() => _ValorisationScreenState();
 }
 
-class _ValorisationScreenState extends State<ValorisationScreen> {
-  late ApiService _apiService;
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _ValorisationScreenState extends State<ValorisationScreen> with BaseScreenLogic<ValorisationScreen> {
+
   ValorisationStock? _valorisationData;
-  DateTime _selectedDate = DateFormatter.getDefaultEndDate(); // dtJour is a single date
+  DateTime _selectedDate = DateFormatter.getDefaultEndDate();
 
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _apiService = ApiService(context);
-  }
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadValorisation() async {
-    if (!mounted) return;
+    // On réinitialise les données avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
       _valorisationData = null;
     });
 
-    final queryParams = {
-      'dtJour': DateFormatter.toApiFormat(_selectedDate),
-    };
+    final queryParams = {'dtJour': DateFormatter.toApiFormat(_selectedDate)};
 
-    try {
-      final data = await _apiService.get(AppConstants.valorisationEndpoint, queryParams: queryParams);
-      if (data is Map<String, dynamic>) {
-        if(mounted){
-          setState(() {
-            _valorisationData = ValorisationStock.fromJson(data);
-          });
-        }
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if(mounted){
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if(mounted){
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.valorisationEndpoint, queryParams: queryParams);
+
+    // On traite uniquement le cas où l'appel a réussi et retourne des données
+    if (mounted && data is Map<String, dynamic>) {
+      setState(() {
+        _valorisationData = ValorisationStock.fromJson(data);
+      });
     }
+    // La gestion du chargement et des erreurs est automatique !
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -119,7 +95,7 @@ class _ValorisationScreenState extends State<ValorisationScreen> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.calculate_outlined),
                       label: const Text('Afficher la Valorisation'),
-                      onPressed: _isLoading ? null : _loadValorisation,
+                      onPressed: isLoading ? null : _loadValorisation, // Utilise isLoading du mixin
                       style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                     ),
                   ],
@@ -127,9 +103,9 @@ class _ValorisationScreenState extends State<ValorisationScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            if (_isLoading)
+            if (isLoading)
               const Center(child: CircularProgressIndicator())
-            else if (_errorMessage != null)
+            else if (errorMessage != null)
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Center(
@@ -138,7 +114,7 @@ class _ValorisationScreenState extends State<ValorisationScreen> {
                     children: [
                       Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                       const SizedBox(height: 10),
-                      Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
+                      Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
                       const SizedBox(height: 20),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.refresh),
@@ -167,14 +143,14 @@ class _ValorisationScreenState extends State<ValorisationScreen> {
                           'Valeur d\'Achat:',
                           _valorisationData!.valeurAchat,
                           Icons.shopping_basket_outlined,
-                          Colors.orangeAccent, // Base color
+                          Colors.orangeAccent,
                         ),
                         const Divider(height: 20, thickness: 1),
                         _buildValorisationRow(
                           'Valeur de Vente:',
                           _valorisationData!.valeurVente,
                           Icons.sell_outlined,
-                          Colors.greenAccent, // Base color
+                          Colors.greenAccent,
                         ),
                       ],
                     ),
@@ -196,8 +172,7 @@ class _ValorisationScreenState extends State<ValorisationScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          // Using the .darker() extension method
-          Icon(icon, size: 28, color: baseIconColor.darker(0.25)), // Adjusted amount for visibility
+          Icon(icon, size: 28, color: baseIconColor.darker(0.25)),
           const SizedBox(width: 15),
           Expanded(
             child: Text(label, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),

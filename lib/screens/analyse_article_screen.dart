@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../services/api_service.dart';
 import '../models/analyse_article_model.dart';
 import '../utils/constants.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 class AnalyseArticleScreen extends StatefulWidget {
   const AnalyseArticleScreen({super.key});
@@ -16,19 +16,17 @@ class AnalyseArticleScreen extends StatefulWidget {
   State<AnalyseArticleScreen> createState() => _AnalyseArticleScreenState();
 }
 
-class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
-  late ApiService _apiService;
+class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseScreenLogic<AnalyseArticleScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<AnalyseArticle> _results = [];
-  bool _isLoading = false;
-  String? _errorMessage;
   String _lastSearchTerm = "";
   Timer? _debounce;
+
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin 'BaseScreenLogic'.
 
   @override
   void initState() {
     super.initState();
-    _apiService = ApiService(context);
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -41,13 +39,10 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
   }
 
   void _onSearchChanged() {
-    if (_debounce?.isActive ?? false) {
-      _debounce!.cancel();
-    }
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       final searchTerm = _searchController.text.trim();
       final isNumeric = int.tryParse(searchTerm) != null;
-
       final minLength = isNumeric ? 3 : 2;
 
       if (searchTerm.length >= minLength) {
@@ -58,7 +53,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
         if (mounted) {
           setState(() {
             _results = [];
-            _errorMessage = null;
+            errorMessage = null; // Utilise la variable du mixin
             _lastSearchTerm = "";
           });
         }
@@ -68,24 +63,18 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
 
   Future<void> _rechercherArticles() async {
     final searchTerm = _searchController.text.trim();
-    if (searchTerm.isEmpty) {
-      return;
-    }
+    if (searchTerm.isEmpty) return;
 
     _lastSearchTerm = searchTerm;
 
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    // Utilisation de la méthode centralisée 'apiGet' du mixin
+    final dynamic response = await apiGet(
+        AppConstants.infoEndpoint,
+        queryParams: {'search': searchTerm}
+    );
 
-    try {
-      final dynamic response = await _apiService.get(AppConstants.infoEndpoint, queryParams: {'search': searchTerm});
-      if (!mounted) return;
-
+    if (mounted && response != null) {
       List<dynamic> dataList = [];
-
       if (response is Map<String, dynamic> && response['data'] is List) {
         dataList = response['data'];
       }
@@ -95,23 +84,9 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
         _results = allResults.where((article) => article.libelle.isNotEmpty && article.libelle != 'N/A').toList();
 
         if (_results.isEmpty) {
-          _errorMessage = "Aucun article valide trouvé pour '$searchTerm'.";
+          errorMessage = "Aucun article valide trouvé pour '$searchTerm'.";
         }
       });
-
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _results = [];
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
@@ -129,9 +104,8 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
-              mainAxisSize: MainAxisSize.min, // S'adapte à la taille du contenu
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // CORRECTION: Nouvelle mise en page pour la bulle
                 _buildDetailRow('Code CIP', article.codeCip),
                 _buildDetailRow('Désignation', article.libelle),
                 const SizedBox(height: 8),
@@ -147,15 +121,14 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
                           _buildDetailRow('Grossiste', article.grossiste ?? 'N/A'),
                           _buildDetailRow('Moyenne sur 3 mois', article.moyenne.toStringAsFixed(2)),
                           _buildDetailRow('Emplacement', article.emplacement ?? 'N/A'),
-                          _buildDetailRow('Qté totale vendue sur 6mois', article.quantiteVendue.toString()),
+                          _buildDetailRow('Qté totale vendue', article.quantiteVendue.toString()),
                         ],
                       ),
                     ),
                     const SizedBox(width: 16),
-                    _buildStockBubble(context, article.stock), // La bulle est maintenant ici
+                    _buildStockBubble(context, article.stock),
                   ],
                 ),
-                // FIN DE LA CORRECTION
                 const Divider(height: 24),
                 Text('Évolution des ventes mensuelles:', style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor, fontSize: 15)),
                 const SizedBox(height: 15),
@@ -182,7 +155,6 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
 
   Widget _buildStockBubble(BuildContext context, int? stock) {
     final Color bubbleColor = Theme.of(context).primaryColor;
-
     return Container(
       width: 80,
       height: 80,
@@ -202,7 +174,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              "Stock Actuel", // Libellé ajouté
+              "Stock Actuel",
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 11,
@@ -261,7 +233,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
               decoration: InputDecoration(
                 hintText: 'Code CIP ou libellé...',
                 labelText: 'Rechercher un Article',
-                suffixIcon: _isLoading
+                suffixIcon: isLoading // Utilise isLoading du mixin
                     ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(strokeWidth: 2))
                     : (_searchController.text.isNotEmpty
                     ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
@@ -270,12 +242,12 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
               onSubmitted: (_) => _rechercherArticles(),
             ),
           ),
-          if (_errorMessage != null)
+          if (errorMessage != null) // Utilise errorMessage du mixin
             Expanded(
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Text(_errorMessage!, style: TextStyle(color: Colors.red.shade700, fontSize: 16), textAlign: TextAlign.center),
+                  child: Text(errorMessage!, style: TextStyle(color: Colors.red.shade700, fontSize: 16), textAlign: TextAlign.center),
                 ),
               ),
             )
@@ -322,7 +294,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    _lastSearchTerm.isEmpty ? 'Entrez un libellé ou un code CIP pour rechercher.' : (_isLoading ? 'Recherche en cours...' : ''),
+                    isLoading ? 'Recherche en cours...' : 'Entrez un libellé (2+ car.) ou un code CIP (3+ car.) pour rechercher.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                   ),

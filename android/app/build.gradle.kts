@@ -32,6 +32,18 @@ android {
         versionName = flutter.versionName
     }
 
+    // Ajouter ce bloc pour renommer les fichiers de sortie
+    applicationVariants.all {
+        val variant = this // 'this' fait référence à la variante (ex: release, debug)
+        outputs.all {
+            // 'this' ici fait référence à la sortie (l'APK)
+            // Nous changeons le nom du fichier de sortie.
+            val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            // Construire le nouveau nom, par exemple : prestige-release-1.0.0+1.apk
+            outputImpl.outputFileName = "prestige-${variant.name}-${variant.versionName}.apk"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
