@@ -1,5 +1,6 @@
 // lib/providers/auth_provider.dart
 
+import 'dart:async'; // CORRECTION: Import manquant pour StreamController
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +15,11 @@ class AuthProvider with ChangeNotifier {
 
   AppUser? _user;
   bool _isLoggedIn = false;
-  bool _isLoading = true; // True au démarrage pour afficher le splash screen
+  bool _isLoading = true;
   String? _errorMessage;
+
+  final StreamController<String> _eventController = StreamController<String>.broadcast();
+  Stream<String> get events => _eventController.stream;
 
   AppUser? get user => _user;
   bool get isLoggedIn => _isLoggedIn;
@@ -26,34 +30,30 @@ class AuthProvider with ChangeNotifier {
     _prepareApp();
   }
 
-  // Prépare l'application au démarrage
+  @override
+  void dispose() {
+    _eventController.close();
+    super.dispose();
+  }
+
   Future<void> _prepareApp() async {
     final startTime = DateTime.now();
-
-    // Tâches de fond (chargement du cookie, etc.)
     await _apiService.loadSessionCookie();
-    await _loadUserData(); // Charger les données utilisateur si elles existent
-
-    // Calcul du temps écoulé pour garantir une durée minimale au splash screen
+    await _loadUserData();
     const minDuration = Duration(milliseconds: 2500);
     final elapsedTime = DateTime.now().difference(startTime);
-
     if (elapsedTime < minDuration) {
       await Future.delayed(minDuration - elapsedTime);
     }
-
-    // Termine l'écran de chargement. L'app ne se connecte pas automatiquement.
     _isLoading = false;
     notifyListeners();
   }
 
-  // Gère la déconnexion après une période d'inactivité
-  Future<void> checkSessionTimeout(BuildContext context, int timeoutInMinutes) async {
+  Future<void> checkSessionTimeout(int timeoutInMinutes) async {
     if (!_isLoggedIn) return;
 
     final prefs = await SharedPreferences.getInstance();
     final lastPausedTimestamp = prefs.getInt(AppConstants.lastPausedTimeKey);
-
     if (lastPausedTimestamp == null) return;
 
     final lastPausedTime = DateTime.fromMillisecondsSinceEpoch(lastPausedTimestamp);
@@ -64,42 +64,22 @@ class AuthProvider with ChangeNotifier {
       final userName = _user?.fullName ?? 'Utilisateur';
       final formattedDuration = DateFormatter.formatDuration(inactiveDuration);
 
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            title: const Text("Session Expirée"),
-            content: Text(
-                "Veuillez vous reconnecter Dr $userName, vous avez fait $formattedDuration sans venir me consulter 😢"
-            ),
-            actions: [
-              TextButton(
-                child: const Text('OK'),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  forceLogout();
-                },
-              ),
-            ],
-          ),
-        );
-      }
+      final message = "Veuillez vous reconnecter Dr $userName, vous avez fait $formattedDuration sans venir me consulter 😢";
+      _eventController.add(message);
+
+      forceLogout();
     }
   }
 
-  // Méthode de connexion
   Future<String?> login(BuildContext context, String username, String password, bool rememberMe) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
       final response = await _apiService.post(context, AppConstants.authEndpoint, {
         "login": username,
         "password": password,
       }, onSessionInvalid: forceLogout);
-
       if (response['success'] == true) {
         _user = AppUser.fromJson(response);
         _isLoggedIn = true;
@@ -119,10 +99,8 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Déconnexion forcée (session invalide)
   void forceLogout() {
     if (!_isLoggedIn) return;
-
     debugPrint("Forcing logout due to invalid session.");
     _user = null;
     _isLoggedIn = false;
@@ -131,7 +109,6 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Déconnexion manuelle
   Future<void> logout(BuildContext context) async {
     try {
       await _apiService.post(context, AppConstants.logoutEndpoint, {});
@@ -141,17 +118,11 @@ class AuthProvider with ChangeNotifier {
     forceLogout();
   }
 
-  // --- Méthodes de gestion des données sauvegardées ---
-
   Future<void> _saveUserData(AppUser user) async {
     final prefs = await SharedPreferences.getInstance();
     final userData = {
-      'str_USER_ID': user.userId,
-      'str_FIRST_NAME': user.firstName,
-      'str_LAST_NAME': user.lastName,
-      'str_LOGIN': user.login,
-      'OFFICINE': user.officineName,
-      'str_PIC': user.profilePicUrl,
+      'str_USER_ID': user.userId, 'str_FIRST_NAME': user.firstName, 'str_LAST_NAME': user.lastName,
+      'str_LOGIN': user.login, 'OFFICINE': user.officineName, 'str_PIC': user.profilePicUrl,
     };
     await prefs.setString(AppConstants.userDataKey, jsonEncode(userData));
   }

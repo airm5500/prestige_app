@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/analyse_article_model.dart';
 import '../utils/constants.dart';
-import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../ui_helpers/base_screen_logic.dart';
 
 class AnalyseArticleScreen extends StatefulWidget {
   const AnalyseArticleScreen({super.key});
@@ -21,13 +21,15 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
   List<AnalyseArticle> _results = [];
   String _lastSearchTerm = "";
   Timer? _debounce;
-
-  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin 'BaseScreenLogic'.
+  final FocusNode _searchFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -35,6 +37,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
     _debounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -53,7 +56,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
         if (mounted) {
           setState(() {
             _results = [];
-            errorMessage = null; // Utilise la variable du mixin
+            errorMessage = null;
             _lastSearchTerm = "";
           });
         }
@@ -67,16 +70,17 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
 
     _lastSearchTerm = searchTerm;
 
-    // Utilisation de la méthode centralisée 'apiGet' du mixin
-    final dynamic response = await apiGet(
+    final data = await apiGet(
         AppConstants.infoEndpoint,
         queryParams: {'search': searchTerm}
     );
 
-    if (mounted && response != null) {
+    if (mounted && data != null) {
       List<dynamic> dataList = [];
-      if (response is Map<String, dynamic> && response['data'] is List) {
-        dataList = response['data'];
+      if (data is Map<String, dynamic> && data['data'] is List) {
+        dataList = data['data'];
+      } else if (data is List) {
+        dataList = data;
       }
 
       setState(() {
@@ -90,12 +94,12 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
     }
   }
 
-  void _afficherDetailsArticle(BuildContext context, AnalyseArticle article) {
+  Future<void> _afficherDetailsArticle(BuildContext context, AnalyseArticle article) async {
     final theme = Theme.of(context);
     final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0);
     final chartData = article.getVentesChartData();
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -151,6 +155,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
         );
       },
     );
+    _searchFocusNode.requestFocus();
   }
 
   Widget _buildStockBubble(BuildContext context, int? stock) {
@@ -230,10 +235,11 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
+              focusNode: _searchFocusNode,
               decoration: InputDecoration(
                 hintText: 'Code CIP ou libellé...',
                 labelText: 'Rechercher un Article',
-                suffixIcon: isLoading // Utilise isLoading du mixin
+                suffixIcon: isLoading
                     ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(strokeWidth: 2))
                     : (_searchController.text.isNotEmpty
                     ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
@@ -242,7 +248,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
               onSubmitted: (_) => _rechercherArticles(),
             ),
           ),
-          if (errorMessage != null) // Utilise errorMessage du mixin
+          if (errorMessage != null)
             Expanded(
               child: Center(
                 child: Padding(

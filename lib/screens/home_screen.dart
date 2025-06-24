@@ -52,27 +52,29 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(officineName),
+        title: const Text('Prestige'), // Titre simple
         actions: [
-          // CORRECTION: Ajout de l'interrupteur pour changer de mode
+          // CORRECTION: Interrupteur de mode de retour dans la barre d'outils
           Tooltip(
             message: ipProvider.useLocalIp ? 'Passer en mode Distant' : 'Passer en mode Local',
-            child: Switch(
-              value: ipProvider.useLocalIp,
-              onChanged: (value) {
-                if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('L\'adresse IP distante n\'est pas configurée.'),
-                    backgroundColor: Colors.orange,
-                  ));
-                  return;
-                }
-                ipProvider.setUseLocalIp(value);
-              },
-              activeColor: Colors.white,
-              activeTrackColor: Colors.white.withAlpha(128),
-              inactiveThumbColor: Colors.white,
-              inactiveTrackColor: Colors.black.withAlpha(51),
+            child: Row(
+              children: [
+                Text(ipProvider.useLocalIp ? 'Local' : 'Distant', style: const TextStyle(color: Colors.white)),
+                Switch(
+                  value: ipProvider.useLocalIp,
+                  onChanged: (value) {
+                    if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('L\'adresse IP distante n\'est pas configurée.'), backgroundColor: Colors.orange));
+                      return;
+                    }
+                    ipProvider.setUseLocalIp(value);
+                  },
+                  activeColor: Colors.white,
+                  activeTrackColor: Colors.white.withAlpha(128),
+                  inactiveThumbColor: Colors.white,
+                  inactiveTrackColor: Colors.black.withAlpha(51),
+                ),
+              ],
             ),
           ),
           IconButton(
@@ -93,7 +95,7 @@ class HomeScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _buildWelcomeCard(context, ipProvider, userName),
+            child: _buildWelcomeCard(context, userName, officineName),
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -127,7 +129,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWelcomeCard(BuildContext context, IpConfigProvider ipProvider, String userName) {
+  Widget _buildWelcomeCard(BuildContext context, String userName, String officineName) {
     final theme = Theme.of(context);
 
     return Container(
@@ -146,25 +148,19 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // CORRECTION: Affiche le nom de la pharmacie en grand
           Text(
-            'Bienvenue Dr $userName',
-            style: GoogleFonts.lato(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+            officineName,
+            style: GoogleFonts.lato(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
-          // CORRECTION: Affiche simplement le mode actif, sans interrupteur
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(51),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Mode Actif: ${ipProvider.useLocalIp ? "Local" : "Distant"}',
-              style: GoogleFonts.lato(
-                  fontSize: 14, color: Colors.white.withAlpha(230), fontWeight: FontWeight.w600),
-            ),
+          // CORRECTION: Message de bienvenue mis à jour
+          Text(
+            'Bienvenu(e) $userName',
+            style: GoogleFonts.lato(
+                fontSize: 16, color: Colors.white.withAlpha(230), fontWeight: FontWeight.w500),
           ),
         ],
       ),

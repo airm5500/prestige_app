@@ -1,5 +1,6 @@
 // lib/main.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -131,16 +132,37 @@ class AppLifecycleObserver extends StatefulWidget {
 }
 
 class _AppLifecycleObserverState extends State<AppLifecycleObserver> with WidgetsBindingObserver {
+  StreamSubscription? _eventSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // On écoute les événements de déconnexion ici
+    _eventSubscription = Provider.of<AuthProvider>(context, listen: false).events.listen((message) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Session Expirée"),
+            content: Text(message),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _eventSubscription?.cancel(); // Ne pas oublier d'annuler l'écoute
     super.dispose();
   }
 
@@ -156,7 +178,7 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
       case AppLifecycleState.resumed:
       // L'utilisateur revient sur l'application
         debugPrint("App resumed");
-        authProvider.checkSessionTimeout(context, ipConfigProvider.sessionTimeout);
+        await authProvider.checkSessionTimeout(ipConfigProvider.sessionTimeout);
         break;
       case AppLifecycleState.paused:
       // L'utilisateur quitte l'application
@@ -183,7 +205,6 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
 // Widget qui décide quel écran afficher au démarrage
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -192,12 +213,10 @@ class AuthWrapper extends StatelessWidget {
         if (auth.isLoading) {
           return const SplashScreen();
         }
-
         // Si l'utilisateur est connecté, affiche l'écran d'accueil
         if (auth.isLoggedIn) {
           return const HomeScreen();
         }
-
         // Sinon, vérifie la configuration des IP
         else {
           return const IpConfigCheck();
@@ -210,14 +229,11 @@ class AuthWrapper extends StatelessWidget {
 // Widget séparé pour vérifier la configuration IP avant de montrer l'écran de connexion
 class IpConfigCheck extends StatelessWidget {
   const IpConfigCheck({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Consumer<IpConfigProvider>(
       builder: (context, ipProvider, child) {
-        final bool isConfigured = ipProvider.localIp.trim().isNotEmpty && ipProvider.localIp != AppConstants.defaultLocalIp;
-
-        if (isConfigured) {
+        if (ipProvider.isAppConfigured) {
           return const LoginScreen();
         } else {
           return const SettingsScreen();

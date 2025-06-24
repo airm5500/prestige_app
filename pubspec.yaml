@@ -22,6 +22,8 @@ dependencies:
   google_fonts: ^6.2.1
   printing: ^5.11.1
   pdf: ^3.10.8
+  fluttertoast: ^8.2.6 # AJOUT: Pour les notifications "toast"
+  shimmer: ^3.0.0 # AJOUT: Pour l'effet de chargement
 
 dev_dependencies:
   flutter_test:

@@ -25,7 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isPingingRemote = false;
   bool _isPortEditable = false;
 
-  // AJOUT: États pour stocker le résultat du ping
   String? _localPingMessage;
   bool? _localPingSuccess;
   String? _remotePingMessage;
@@ -52,42 +51,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _handlePing(bool isLocal) async {
     FocusScope.of(context).unfocus();
-
     final ipToTest = isLocal ? _localIpController.text.trim() : _remoteIpController.text.trim();
 
     if (ipToTest.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez d\'abord entrer une adresse IP.'), backgroundColor: Colors.orange));
+      if (mounted) {
+        setState(() {
+          if (isLocal) { _localPingMessage = 'Champ vide.'; _localPingSuccess = false; }
+          else { _remotePingMessage = 'Champ vide.'; _remotePingSuccess = false; }
+        });
+      }
       return;
     }
 
     if (mounted) {
       setState(() {
-        if (isLocal) {
-          _isPingingLocal = true;
-          _localPingMessage = 'Test en cours...'; // Affiche le message de test
-          _localPingSuccess = null;
-        } else {
-          _isPingingRemote = true;
-          _remotePingMessage = 'Test en cours...';
-          _remotePingSuccess = null;
-        }
+        if (isLocal) { _isPingingLocal = true; _localPingMessage = 'Test en cours...'; _localPingSuccess = null; }
+        else { _isPingingRemote = true; _remotePingMessage = 'Test en cours...'; _remotePingSuccess = null; }
       });
     }
 
     final success = await ApiService.ping(ipToTest, _portController.text.trim());
 
     if (mounted) {
-      // CORRECTION: Met à jour l'état au lieu d'afficher un SnackBar
       setState(() {
-        if (isLocal) {
-          _isPingingLocal = false;
-          _localPingSuccess = success;
-          _localPingMessage = success ? 'Ping réussi !' : 'Échec du ping.';
-        } else {
-          _isPingingRemote = false;
-          _remotePingSuccess = success;
-          _remotePingMessage = success ? 'Ping réussi !' : 'Échec du ping.';
-        }
+        if (isLocal) { _isPingingLocal = false; _localPingSuccess = success; _localPingMessage = success ? 'Réussi !' : 'Échec.'; }
+        else { _isPingingRemote = false; _remotePingSuccess = success; _remotePingMessage = success ? 'Réussi !' : 'Échec.'; }
       });
     }
   }
@@ -99,6 +87,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
       final navigator = Navigator.of(context);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      // Logique de ping automatique
+      List<Future> pingTasks = [];
+      if (_localIpController.text.trim().isNotEmpty) {
+        pingTasks.add(_handlePing(true));
+      }
+      if (_remoteIpController.text.trim().isNotEmpty) {
+        pingTasks.add(_handlePing(false));
+      }
+      await Future.wait(pingTasks);
 
       try {
         await ipProvider.updateSettings(
@@ -124,6 +122,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // CORRECTION: Ce widget était manquant dans la version précédente.
+  Widget _buildIpInputRow({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required IconData icon,
+    required bool isPinging,
+    required String? pingMessage,
+    required bool? pingSuccess,
+    required VoidCallback onPing,
+    bool isRemote = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: labelText,
+                  hintText: hintText,
+                  prefixIcon: Icon(icon),
+                ),
+                keyboardType: TextInputType.url,
+                validator: (value) {
+                  if (!isRemote && (value == null || value.trim().isEmpty)) {
+                    return 'Ce champ est requis.';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            isPinging
+                ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            )
+                : IconButton(
+              icon: const Icon(Icons.network_ping),
+              tooltip: 'Tester la connexion',
+              onPressed: onPing,
+              padding: const EdgeInsets.only(top: 8),
+            ),
+          ],
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: (pingMessage != null)
+              ? Padding(
+            key: ValueKey<String>(pingMessage),
+            padding: const EdgeInsets.only(top: 6.0, left: 12.0),
+            child: Text(
+              pingMessage,
+              style: TextStyle(
+                color: (pingSuccess == null)
+                    ? Colors.grey.shade600
+                    : (pingSuccess == true ? Colors.green.shade700 : Colors.red.shade700),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -146,7 +218,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text('Configurer les adresses IP du serveur', style: theme.textTheme.titleLarge?.copyWith(color: theme.primaryColorDark), textAlign: TextAlign.center),
                 const SizedBox(height: 30),
 
-                // CORRECTION: Champ IP Locale avec son message de résultat
                 _buildIpInputRow(
                   controller: _localIpController,
                   labelText: 'Adresse IP Locale',
@@ -237,81 +308,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  // CORRECTION: Nouveau widget pour combiner le champ, le bouton et le message
-  Widget _buildIpInputRow({
-    required TextEditingController controller,
-    required String labelText,
-    required String hintText,
-    required IconData icon,
-    required bool isPinging,
-    required String? pingMessage,
-    required bool? pingSuccess,
-    required VoidCallback onPing,
-    bool isRemote = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: controller,
-                decoration: InputDecoration(
-                  labelText: labelText,
-                  hintText: hintText,
-                  prefixIcon: Icon(icon),
-                ),
-                keyboardType: TextInputType.url,
-                validator: (value) {
-                  if (!isRemote && (value == null || value.trim().isEmpty)) {
-                    return 'Ce champ est requis.';
-                  }
-                  return null;
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            isPinging
-                ? const Padding(
-              padding: EdgeInsets.all(12.0),
-              child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
-            )
-                : IconButton(
-              icon: const Icon(Icons.network_ping),
-              tooltip: 'Tester la connexion',
-              onPressed: onPing,
-              padding: const EdgeInsets.only(top: 8),
-            ),
-          ],
-        ),
-        // Espace pour afficher le message du ping
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: (pingMessage != null)
-              ? Padding(
-            key: ValueKey<String>(pingMessage), // Clé pour l'animation
-            padding: const EdgeInsets.only(top: 6.0, left: 12.0),
-            child: Text(
-              pingMessage,
-              style: TextStyle(
-                color: (pingSuccess == null)
-                    ? Colors.grey.shade600
-                    : (pingSuccess == true ? Colors.green.shade700 : Colors.red.shade700),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          )
-              : const SizedBox.shrink(), // Ne rien afficher si pas de message
-        ),
-      ],
     );
   }
 }

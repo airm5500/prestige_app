@@ -8,6 +8,7 @@ class AppConstants {
   static const String portKey = 'port_key';
   static const String sessionTimeoutKey = 'session_timeout';
   static const String lastPausedTimeKey = 'last_paused_time';
+  static const String isConfiguredKey = 'is_app_configured';
   static const String sessionCookieKey = 'session_cookie';
   static const String savedUsernameKey = 'saved_username';
   static const String savedPasswordKey = 'saved_password';
@@ -32,11 +33,11 @@ class AppConstants {
   static const String valorisationAllEndpoint = '/valorisation/all';
   static const String officineEndpoint = '/officine';
 
-  // Default IP, Port, and Timeout
-  static const String defaultLocalIp = 'adresse ip locale';
-  static const String defaultRemoteIp = 'adresse ip publique';
+  // Default Values
+  static const String defaultLocalIp = '';
+  static const String defaultRemoteIp = '';
   static const String defaultPort = '8080';
-  static const int defaultSessionTimeout = 30;
+  static const int defaultSessionTimeout = 30; // 30 minutes
 
   // Norme Ratio
   static const double ratioNormeVenteAchat = 1.51;

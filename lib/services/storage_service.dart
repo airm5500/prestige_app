@@ -5,7 +5,6 @@ import '../utils/constants.dart';
 
 class StorageService {
 
-  // Méthode pour tout sauvegarder d'un coup
   Future<void> saveAllSettings({
     required String localIp,
     required String remoteIp,
@@ -19,9 +18,10 @@ class StorageService {
     await prefs.setString(AppConstants.portKey, port);
     await prefs.setBool(AppConstants.useLocalIpKey, useLocal);
     await prefs.setInt(AppConstants.sessionTimeoutKey, sessionTimeout);
+    // AJOUT: Marque l'application comme configurée
+    await prefs.setBool(AppConstants.isConfiguredKey, true);
   }
 
-  // Méthode pour tout charger d'un coup
   Future<Map<String, dynamic>> loadAllSettings() async {
     final prefs = await SharedPreferences.getInstance();
     return {
@@ -30,10 +30,10 @@ class StorageService {
       'port': prefs.getString(AppConstants.portKey),
       'useLocal': prefs.getBool(AppConstants.useLocalIpKey),
       'sessionTimeout': prefs.getInt(AppConstants.sessionTimeoutKey),
+      'isConfigured': prefs.getBool(AppConstants.isConfiguredKey), // AJOUT
     };
   }
 
-  // Cette méthode reste utile pour changer rapidement le mode de connexion
   Future<void> saveUseLocalIp(bool useLocal) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(AppConstants.useLocalIpKey, useLocal);

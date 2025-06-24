@@ -12,17 +12,18 @@ class IpConfigProvider with ChangeNotifier {
   bool _useLocalIp = true;
   String _port = AppConstants.defaultPort;
   int _sessionTimeout = AppConstants.defaultSessionTimeout;
+  bool _isAppConfigured = false;
 
   String get localIp => _localIp;
   String get remoteIp => _remoteIp;
   bool get useLocalIp => _useLocalIp;
   String get port => _port;
   int get sessionTimeout => _sessionTimeout;
+  bool get isAppConfigured => _isAppConfigured;
 
   String get activeBaseUrl {
     final ip = _useLocalIp ? _localIp : _remoteIp;
     if (ip.isEmpty || (ip == AppConstants.defaultLocalIp && !_useLocalIp) || (ip == AppConstants.defaultRemoteIp && _useLocalIp)) {
-      // Fallback pour éviter d'utiliser une IP non configurée
       return 'http://0.0.0.0:$_port${AppConstants.apiBasePath}';
     }
     return 'http://$ip:$_port${AppConstants.apiBasePath}';
@@ -39,6 +40,7 @@ class IpConfigProvider with ChangeNotifier {
     _useLocalIp = settings['useLocal'] ?? true;
     _port = settings['port'] ?? AppConstants.defaultPort;
     _sessionTimeout = settings['sessionTimeout'] ?? AppConstants.defaultSessionTimeout;
+    _isAppConfigured = settings['isConfigured'] ?? false;
     notifyListeners();
   }
 
@@ -47,6 +49,7 @@ class IpConfigProvider with ChangeNotifier {
     _remoteIp = newRemoteIp.isNotEmpty ? newRemoteIp : AppConstants.defaultRemoteIp;
     _port = newPort.isNotEmpty ? newPort : AppConstants.defaultPort;
     _sessionTimeout = newTimeout;
+    _isAppConfigured = true;
 
     await _storageService.saveAllSettings(
       localIp: _localIp,
