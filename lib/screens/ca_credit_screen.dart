@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
 import '../models/ca_credit_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 class CaCreditScreen extends StatefulWidget {
   const CaCreditScreen({super.key});
@@ -14,22 +14,21 @@ class CaCreditScreen extends StatefulWidget {
   State<CaCreditScreen> createState() => _CaCreditScreenState();
 }
 
-class _CaCreditScreenState extends State<CaCreditScreen> {
-  late ApiService _apiService;
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _CaCreditScreenState extends State<CaCreditScreen> with BaseScreenLogic<CaCreditScreen> {
+
   List<CaCredit> _caCreditData = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
 
-  bool _isLoading = false;
-  String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
   List<CaCredit> _filteredCaCreditData = [];
 
+  // Les variables 'isLoading' et 'errorMessage' viennent maintenant du mixin.
 
   @override
   void initState() {
     super.initState();
-    _apiService = ApiService(context);
     _searchController.addListener(_filterCaCreditLocally);
   }
 
@@ -40,10 +39,8 @@ class _CaCreditScreenState extends State<CaCreditScreen> {
   }
 
   Future<void> _loadCaCredit() async {
-    if (!mounted) return;
+    // On réinitialise les listes avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
       _caCreditData = [];
       _filteredCaCreditData = [];
     });
@@ -53,31 +50,16 @@ class _CaCreditScreenState extends State<CaCreditScreen> {
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    try {
-      final data = await _apiService.get(AppConstants.caCreditEndpoint, queryParams: queryParams);
-      if (data is List) {
-        if(mounted){
-          setState(() {
-            _caCreditData = data.map((item) => CaCredit.fromJson(item)).toList();
-            _filterCaCreditLocally();
-          });
-        }
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if(mounted){
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if(mounted){
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.caCreditEndpoint, queryParams: queryParams);
+
+    if (mounted && data is List) {
+      setState(() {
+        _caCreditData = data.map((item) => CaCredit.fromJson(item)).toList();
+        _filterCaCreditLocally();
+      });
     }
+    // La gestion du chargement et des erreurs est automatique !
   }
 
   void _filterCaCreditLocally() {
@@ -167,7 +149,7 @@ class _CaCreditScreenState extends State<CaCreditScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.receipt_long_outlined),
                   label: const Text('Afficher les Ventes à Crédit'),
-                  onPressed: _isLoading ? null : _loadCaCredit,
+                  onPressed: isLoading ? null : _loadCaCredit, // Utilise isLoading du mixin
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                 ),
                 const SizedBox(height: 10),
@@ -186,13 +168,10 @@ class _CaCreditScreenState extends State<CaCreditScreen> {
               ],
             ),
           ),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20.0),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_errorMessage != null)
-            Expanded( // Make error message scrollable
+          if (isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (errorMessage != null)
+            Expanded(
               child: SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -202,7 +181,7 @@ class _CaCreditScreenState extends State<CaCreditScreen> {
                       children: [
                         Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                         const SizedBox(height: 10),
-                        Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
+                        Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
                           icon: const Icon(Icons.refresh),
@@ -219,7 +198,7 @@ class _CaCreditScreenState extends State<CaCreditScreen> {
             Expanded(
               child: _filteredCaCreditData.isEmpty
                   ? Center(
-                child: Text(_caCreditData.isEmpty && !_isLoading ? 'Aucune vente à crédit trouvée pour la période.' : 'Aucune vente à crédit ne correspond à vos filtres.'),
+                child: Text(_caCreditData.isEmpty && !isLoading ? 'Aucune vente à crédit trouvée pour la période.' : 'Aucune vente à crédit ne correspond à vos filtres.'),
               )
                   : RefreshIndicator(
                 onRefresh: _loadCaCredit,

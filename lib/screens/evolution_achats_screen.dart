@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/date_formatter.dart';
 
+// Extension pour manipuler les couleurs
 extension ColorExtensionOnColorForAchatsEvolution on Color {
   Color darker([double amount = .2]) {
     assert(amount >= 0 && amount <= 1);
@@ -13,6 +14,7 @@ extension ColorExtensionOnColorForAchatsEvolution on Color {
     final hslDark = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
     return hslDark.toColor();
   }
+
   Color lighter([double amount = .2]) {
     assert(amount >= 0 && amount <= 1);
     final hsl = HSLColor.fromColor(this);
@@ -30,7 +32,7 @@ class EvolutionAchatsScreen extends StatelessWidget {
     super.key,
     required this.dataList,
     required this.startDate,
-    required this.endDate
+    required this.endDate,
   });
 
   @override
@@ -90,7 +92,7 @@ class EvolutionAchatsScreen extends StatelessWidget {
                   ],
                   lineTouchData: LineTouchData(
                     touchTooltipData: LineTouchTooltipData(
-                      getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230), // Utilisation de withAlpha
+                      getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230),
                       getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                         return touchedBarSpots.map((barSpot) {
                           final flSpot = barSpot;
@@ -132,7 +134,7 @@ class EvolutionAchatsScreen extends StatelessWidget {
       barWidth: 3,
       isStrokeCapRound: true,
       dotData: FlDotData(show: spots.length < 20 || spots.length == 1),
-      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])), // Utilisation de withAlpha
+      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])),
     );
   }
 
@@ -151,10 +153,15 @@ class EvolutionAchatsScreen extends StatelessWidget {
   Widget _leftTitleWidgets(double value, TitleMeta meta, double chartMaxY) {
     const style = TextStyle(color: Color(0xff67727d), fontWeight: FontWeight.bold, fontSize: 10);
     String text;
-    if (value == 0 && chartMaxY == 0) { text = '0'; }
-    else if (value >= 1000000) { text = '${(value / 1000000).toStringAsFixed(1)}M'; }
-    else if (value >= 1000) { text = '${(value / 1000).toStringAsFixed(0)}K'; }
-    else { text = value.toStringAsFixed(0); }
+    if (value == 0 && chartMaxY == 0) {
+      text = '0';
+    } else if (value >= 1000000) {
+      text = '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      text = '${(value / 1000).toStringAsFixed(0)}K';
+    } else {
+      text = value.toStringAsFixed(0);
+    }
     return Text(text, style: style, textAlign: TextAlign.left);
   }
 

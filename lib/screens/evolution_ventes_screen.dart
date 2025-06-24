@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/date_formatter.dart';
 
-// Définition locale de l'extension de couleur pour cet écran
+// Extension pour manipuler les couleurs
 extension ColorExtensionOnColorForVentesEvolution on Color {
   Color darker([double amount = .2]) {
     assert(amount >= 0 && amount <= 1);
@@ -92,7 +92,7 @@ class EvolutionVentesScreen extends StatelessWidget {
                   ],
                   lineTouchData: LineTouchData(
                     touchTooltipData: LineTouchTooltipData(
-                      getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230), // ~90% opacité
+                      getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230),
                       getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                         return touchedBarSpots.map((barSpot) {
                           final flSpot = barSpot;
@@ -134,7 +134,7 @@ class EvolutionVentesScreen extends StatelessWidget {
       barWidth: 3,
       isStrokeCapRound: true,
       dotData: FlDotData(show: spots.length < 20 || spots.length == 1),
-      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])), // ~30% opacité
+      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])),
     );
   }
 
@@ -153,10 +153,15 @@ class EvolutionVentesScreen extends StatelessWidget {
   Widget _leftTitleWidgets(double value, TitleMeta meta, double chartMaxY) {
     const style = TextStyle(color: Color(0xff67727d), fontWeight: FontWeight.bold, fontSize: 10);
     String text;
-    if (value == 0 && chartMaxY == 0) { text = '0'; }
-    else if (value >= 1000000) { text = '${(value / 1000000).toStringAsFixed(1)}M'; }
-    else if (value >= 1000) { text = '${(value / 1000).toStringAsFixed(0)}K'; }
-    else { text = value.toStringAsFixed(0); }
+    if (value == 0 && chartMaxY == 0) {
+      text = '0';
+    } else if (value >= 1000000) {
+      text = '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      text = '${(value / 1000).toStringAsFixed(0)}K';
+    } else {
+      text = value.toStringAsFixed(0);
+    }
     return Text(text, style: style, textAlign: TextAlign.left);
   }
 

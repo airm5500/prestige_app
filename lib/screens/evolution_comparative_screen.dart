@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/date_formatter.dart';
 
-// Définition locale de l'extension de couleur
+// Extension pour manipuler les couleurs
 extension ColorExtensionOnColorForComparativeEvolution on Color {
   Color darker([double amount = .2]) {
     assert(amount >= 0 && amount <= 1);
@@ -108,7 +108,7 @@ class EvolutionComparaisonScreen extends StatelessWidget {
                   ],
                   lineTouchData: LineTouchData(
                     touchTooltipData: LineTouchTooltipData(
-                      getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230), // ~90% opacité
+                      getTooltipColor: (spot) => Colors.blueGrey.withAlpha(230),
                       getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                         return touchedBarSpots.map((barSpot) {
                           final flSpot = barSpot;
@@ -159,8 +159,7 @@ class EvolutionComparaisonScreen extends StatelessWidget {
       barWidth: 3,
       isStrokeCapRound: true,
       dotData: FlDotData(show: spots.length < 20 || spots.length == 1),
-      // CORRECTION: Utilisation de .withAlpha() au lieu de .withOpacity()
-      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])), // 77 est ~30% d'opacité
+      belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [color.withAlpha(77), color.withAlpha(0)])),
     );
   }
 
@@ -179,7 +178,6 @@ class EvolutionComparaisonScreen extends StatelessWidget {
   Widget _leftTitleWidgets(double value, TitleMeta meta, double chartMaxY) {
     const style = TextStyle(color: Color(0xff67727d), fontWeight: FontWeight.bold, fontSize: 10);
     String text;
-    // CORRECTION: Ajout des accolades {} pour toutes les conditions if/else if
     if (value == 0 && chartMaxY == 0) {
       text = '0';
     } else if (value >= 1000000) {

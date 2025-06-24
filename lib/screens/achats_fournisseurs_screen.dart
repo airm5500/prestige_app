@@ -1,12 +1,14 @@
 // lib/screens/achats_fournisseurs_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For DateFormat
-import '../services/api_service.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/achat_fournisseur_model.dart';
-import '../models/fournisseur_model.dart'; // For the filter
+import '../models/fournisseur_model.dart';
 import '../utils/constants.dart';
-import '../utils/date_formatter.dart'; // For date formatting
+import '../utils/date_formatter.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 class AchatsFournisseursScreen extends StatefulWidget {
   const AchatsFournisseursScreen({super.key});
@@ -15,29 +17,25 @@ class AchatsFournisseursScreen extends StatefulWidget {
   State<AchatsFournisseursScreen> createState() => _AchatsFournisseursScreenState();
 }
 
-class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
-  late ApiService _apiService;
-  // Future<List<AchatFournisseur>>? _achatsFuture; // Not using FutureBuilder directly for main list
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> with BaseScreenLogic<AchatsFournisseursScreen> {
+
   List<AchatFournisseur> _achats = [];
   List<AchatFournisseur> _filteredAchats = [];
-
   List<Fournisseur> _fournisseursList = [];
   Fournisseur? _selectedFournisseur;
-
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
-
   final TextEditingController _searchController = TextEditingController();
 
-  bool _isLoading = false;
-  String? _errorMessage;
+  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   @override
   void initState() {
     super.initState();
-    _apiService = ApiService(context); // Initialize ApiService
-    _fetchFournisseursForFilter(); // Fetch fournisseurs for the dropdown
-    // Initial fetch is done after dates are confirmed or on button press
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchFournisseursForFilter();
+    });
     _searchController.addListener(_filterAchatsLocally);
   }
 
@@ -47,15 +45,20 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
     super.dispose();
   }
 
+  // Cette fonction charge les fournisseurs pour le filtre déroulant.
+  // Elle n'a pas besoin de gérer l'état de chargement principal de l'écran.
   Future<void> _fetchFournisseursForFilter() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final data = await _apiService.get(AppConstants.fournisseursEndpoint);
-      if (data is List) {
-        if(mounted){
-          setState(() {
-            _fournisseursList = data.map((item) => Fournisseur.fromJson(item)).toList();
-          });
-        }
+      final data = await apiService.get(
+        context,
+        AppConstants.fournisseursEndpoint,
+        onSessionInvalid: () => authProvider.forceLogout(),
+      );
+      if (mounted && data is List) {
+        setState(() {
+          _fournisseursList = data.map((item) => Fournisseur.fromJson(item)).toList();
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -67,11 +70,9 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
   }
 
   Future<void> _loadAchats() async {
-    if (!mounted) return;
+    // On réinitialise les listes avant chaque appel
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _achats = []; // Clear previous data
+      _achats = [];
       _filteredAchats = [];
     });
 
@@ -80,35 +81,17 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    // Note: API for achats-fournisseurs does not seem to take fournisseurId as per spec.
-    // Filtering by fournisseur will be done locally.
+    // Utilisation de la méthode centralisée 'apiGet'
+    final data = await apiGet(AppConstants.achatsFournisseursEndpoint, queryParams: queryParams);
 
-    try {
-      final data = await _apiService.get(AppConstants.achatsFournisseursEndpoint, queryParams: queryParams);
-      if (data is List) {
-        final allAchats = data.map((item) => AchatFournisseur.fromJson(item)).toList();
-        if(mounted){
-          setState(() {
-            _achats = allAchats;
-            _filterAchatsLocally();
-          });
-        }
-      } else {
-        throw Exception('Format de données incorrect.');
-      }
-    } catch (e) {
-      if(mounted){
-        setState(() {
-          _errorMessage = 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
-        });
-      }
-    } finally {
-      if(mounted){
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    if (mounted && data is List) {
+      final allAchats = data.map((item) => AchatFournisseur.fromJson(item)).toList();
+      setState(() {
+        _achats = allAchats;
+        _filterAchatsLocally();
+      });
     }
+    // La gestion du chargement et des erreurs est automatique !
   }
 
   void _filterAchatsLocally() {
@@ -128,7 +111,6 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
       });
     }
   }
-
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
     final DateTime? picked = await showDatePicker(
@@ -190,7 +172,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
   }
 
   Widget _buildFournisseurDropdown() {
-    if (_fournisseursList.isEmpty && !_isLoading) { // Check isLoading to avoid showing this during initial load
+    if (_fournisseursList.isEmpty && !isLoading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 8.0),
         child: Text("Chargement des fournisseurs pour le filtre...", style: TextStyle(fontStyle: FontStyle.italic)),
@@ -215,7 +197,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
             value: fournisseur,
             child: Text(fournisseur.fournisseurLibelle, overflow: TextOverflow.ellipsis),
           );
-        }),
+        }).toList(),
       ],
       onChanged: (Fournisseur? newValue) {
         if(mounted){
@@ -248,7 +230,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.search_sharp),
                   label: const Text('Afficher les Achats'),
-                  onPressed: _isLoading ? null : _loadAchats,
+                  onPressed: isLoading ? null : _loadAchats, // Utilise isLoading du mixin
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                 ),
                 const SizedBox(height: 10),
@@ -267,13 +249,10 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
               ],
             ),
           ),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20.0),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_errorMessage != null)
-            Expanded( // Make error message scrollable if it's long
+          if (isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (errorMessage != null)
+            Expanded(
               child: SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -283,7 +262,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
                       children: [
                         Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                         const SizedBox(height: 10),
-                        Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
+                        Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 16)),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
                           icon: const Icon(Icons.refresh),
@@ -300,7 +279,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> {
             Expanded(
               child: _filteredAchats.isEmpty
                   ? Center(
-                child: Text(_achats.isEmpty && !_isLoading ? 'Aucun achat trouvé pour la période sélectionnée.' : 'Aucun achat ne correspond à vos filtres.'),
+                child: Text(_achats.isEmpty && !isLoading ? 'Aucun achat trouvé pour la période sélectionnée.' : 'Aucun achat ne correspond à vos filtres.'),
               )
                   : RefreshIndicator(
                 onRefresh: _loadAchats,

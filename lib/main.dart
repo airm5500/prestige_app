@@ -1,20 +1,27 @@
 // lib/main.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'providers/auth_provider.dart';
 import 'providers/ip_config_provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/splash_screen.dart';
 import 'utils/constants.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => IpConfigProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => IpConfigProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
       child: const PrestigeApp(),
     ),
   );
@@ -40,13 +47,12 @@ class PrestigeApp extends StatelessWidget {
       title: 'Prestige App',
       theme: ThemeData(
         primaryColor: primaryColor,
-        // CORRECTION APPLIQUÉE ICI pour l'avertissement 'background'
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryColor,
           primary: primaryColor,
           secondary: secondaryColor,
-          surface: cardColor, // Utilisation de 'surface' au lieu de 'background'
-        //  background: backgroundColor,
+          surface: cardColor,
+          background: backgroundColor,
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: backgroundColor,
@@ -55,7 +61,7 @@ class PrestigeApp extends StatelessWidget {
           backgroundColor: primaryColor,
           elevation: 2,
           scrolledUnderElevation: 4,
-          shadowColor: Colors.black.withAlpha(26), // ~10% opacité
+          shadowColor: Colors.black.withAlpha(26),
           titleTextStyle: GoogleFonts.lato(
             color: Colors.white,
             fontSize: 22,
@@ -111,21 +117,127 @@ class PrestigeApp extends StatelessWidget {
         Locale('en', 'US'),
       ],
       locale: const Locale('fr', 'FR'),
-      home: Consumer<IpConfigProvider>(
-        builder: (context, ipProvider, child) {
-          final bool isDefaultConfig =
-              (ipProvider.localIp == AppConstants.defaultLocalIp && ipProvider.remoteIp == AppConstants.defaultRemoteIp) ||
-                  ipProvider.localIp.trim().isEmpty;
+      home: const AppLifecycleObserver(child: AuthWrapper()),
+    );
+  }
+}
 
-          if (isDefaultConfig) {
-            return const SettingsScreen();
-          }
+// Widget pour observer le cycle de vie de l'application
+class AppLifecycleObserver extends StatefulWidget {
+  final Widget child;
+  const AppLifecycleObserver({super.key, required this.child});
+
+  @override
+  State<AppLifecycleObserver> createState() => _AppLifecycleObserverState();
+}
+
+class _AppLifecycleObserverState extends State<AppLifecycleObserver> with WidgetsBindingObserver {
+  StreamSubscription? _eventSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // On écoute les événements de déconnexion ici
+    _eventSubscription = Provider.of<AuthProvider>(context, listen: false).events.listen((message) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Session Expirée"),
+            content: Text(message),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _eventSubscription?.cancel(); // Ne pas oublier d'annuler l'écoute
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+
+    if (!mounted) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final ipConfigProvider = Provider.of<IpConfigProvider>(context, listen: false);
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+      // L'utilisateur revient sur l'application
+        debugPrint("App resumed");
+        await authProvider.checkSessionTimeout(ipConfigProvider.sessionTimeout);
+        break;
+      case AppLifecycleState.paused:
+      // L'utilisateur quitte l'application
+        debugPrint("App paused");
+        if (authProvider.isLoggedIn) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt(AppConstants.lastPausedTimeKey, DateTime.now().millisecondsSinceEpoch);
+        }
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
+
+
+// Widget qui décide quel écran afficher au démarrage
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, child) {
+        // Affiche l'écran de démarrage pendant le chargement initial
+        if (auth.isLoading) {
+          return const SplashScreen();
+        }
+        // Si l'utilisateur est connecté, affiche l'écran d'accueil
+        if (auth.isLoggedIn) {
           return const HomeScreen();
-        },
-      ),
-      routes: {
-        '/home': (context) => const HomeScreen(),
-        '/settings': (context) => const SettingsScreen(),
+        }
+        // Sinon, vérifie la configuration des IP
+        else {
+          return const IpConfigCheck();
+        }
+      },
+    );
+  }
+}
+
+// Widget séparé pour vérifier la configuration IP avant de montrer l'écran de connexion
+class IpConfigCheck extends StatelessWidget {
+  const IpConfigCheck({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<IpConfigProvider>(
+      builder: (context, ipProvider, child) {
+        if (ipProvider.isAppConfigured) {
+          return const LoginScreen();
+        } else {
+          return const SettingsScreen();
+        }
       },
     );
   }

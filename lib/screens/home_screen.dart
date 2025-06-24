@@ -3,11 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/ip_config_provider.dart';
-import '../services/api_service.dart';
-import '../models/officine_model.dart';
+import '../models/user_model.dart';
 import '../utils/constants.dart';
-import 'analyse_article_screen.dart';
 import 'settings_screen.dart';
 
 // Import de tous les écrans de fonctionnalités
@@ -21,57 +20,19 @@ import 'fiche_article_screen.dart';
 import 'tableau_bord_ratio_screen.dart';
 import 'tableau_bord_analyse_menu_screen.dart';
 import 'evolution_stock_screen.dart';
+import 'analyse_article_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  Officine? _officineData;
-  bool _isOfficineLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchOfficineData();
-    });
-  }
-
-  Future<void> _fetchOfficineData() async {
-    if (!mounted) return;
-    setState(() {
-      _isOfficineLoading = true;
-    });
-
-    try {
-      final apiService = ApiService(context);
-      final data = await apiService.get(AppConstants.officineEndpoint);
-
-      if (mounted && data is List && data.isNotEmpty) {
-        setState(() {
-          _officineData = Officine.fromJson(data[0]);
-          _isOfficineLoading = false;
-        });
-      } else {
-        if (mounted) {
-          setState(() => _isOfficineLoading = false);
-        }
-      }
-    } catch (e) {
-      debugPrint("Erreur lors de la récupération des données de l'officine: $e");
-      if (mounted) {
-        setState(() => _isOfficineLoading = false);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
     final ipProvider = Provider.of<IpConfigProvider>(context);
+
+    final AppUser? currentUser = authProvider.user;
+    final String userName = currentUser?.fullName ?? 'Utilisateur';
+    final String officineName = currentUser?.officineName ?? 'Prestige App';
 
     final List<Map<String, dynamic>> menuItems = [
       {'title': 'Analyse Article', 'icon': Icons.pie_chart_outline_rounded, 'color': Colors.indigo, 'screen': const AnalyseArticleScreen()},
@@ -82,8 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Evolution Stock', 'icon': Icons.ssid_chart_outlined, 'color': Colors.brown, 'screen': const EvolutionStockScreen()},
       {'title': 'Fiche Article', 'icon': Icons.article_outlined, 'color': Colors.cyan, 'screen': const FicheArticleScreen()},
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
-      {'title': 'TdB: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
-      {'title': 'TdB: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
+      {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
+      {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
     ];
 
@@ -91,12 +52,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prestige'),
+        title: const Text('Prestige'), // Titre simple
         actions: [
+          // CORRECTION: Interrupteur de mode de retour dans la barre d'outils
+          Tooltip(
+            message: ipProvider.useLocalIp ? 'Passer en mode Distant' : 'Passer en mode Local',
+            child: Row(
+              children: [
+                Text(ipProvider.useLocalIp ? 'Local' : 'Distant', style: const TextStyle(color: Colors.white)),
+                Switch(
+                  value: ipProvider.useLocalIp,
+                  onChanged: (value) {
+                    if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('L\'adresse IP distante n\'est pas configurée.'), backgroundColor: Colors.orange));
+                      return;
+                    }
+                    ipProvider.setUseLocalIp(value);
+                  },
+                  activeColor: Colors.white,
+                  activeTrackColor: Colors.white.withAlpha(128),
+                  inactiveThumbColor: Colors.white,
+                  inactiveTrackColor: Colors.black.withAlpha(51),
+                ),
+              ],
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_applications_outlined),
             tooltip: 'Configuration IP',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Déconnexion',
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout(context);
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -104,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _buildWelcomeCard(context, ipProvider, _officineData, _isOfficineLoading),
+            child: _buildWelcomeCard(context, userName, officineName),
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -138,15 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildWelcomeCard(BuildContext context, IpConfigProvider ipProvider, Officine? officineData, bool isLoading) {
+  Widget _buildWelcomeCard(BuildContext context, String userName, String officineName) {
     final theme = Theme.of(context);
-
-    String welcomeMessage = 'Bienvenue';
-    if (isLoading) {
-      welcomeMessage = 'Chargement...';
-    } else if (officineData != null && officineData.fullName.isNotEmpty) {
-      welcomeMessage = 'Bienvenue ${officineData.fullName}';
-    }
 
     return Container(
       margin: const EdgeInsets.all(16.0),
@@ -164,46 +148,20 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // CORRECTION: Affiche le nom de la pharmacie en grand
           Text(
-            welcomeMessage,
-            style: GoogleFonts.lato(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+            officineName,
+            style: GoogleFonts.lato(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
-          if (officineData != null)
-            Text(
-              officineData.nomComplet,
-              style: GoogleFonts.lato(fontSize: 16, color: Colors.white.withAlpha(230)),
-            ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                ipProvider.useLocalIp ? 'Mode Local' : 'Mode Distant',
-                style: GoogleFonts.lato(color: Colors.white, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(width: 8),
-              Switch(
-                value: ipProvider.useLocalIp,
-                onChanged: (value) {
-                  if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('L\'adresse IP distante n\'est pas configurée.'),
-                      backgroundColor: Colors.orange,
-                    ));
-                    return;
-                  }
-                  ipProvider.setUseLocalIp(value);
-                },
-                activeColor: Colors.white,
-                activeTrackColor: Colors.white.withAlpha(128),
-                inactiveThumbColor: Colors.white,
-                inactiveTrackColor: Colors.black.withAlpha(51),
-              ),
-            ],
-          )
+          // CORRECTION: Message de bienvenue mis à jour
+          Text(
+            'Bienvenu(e) $userName',
+            style: GoogleFonts.lato(
+                fontSize: 16, color: Colors.white.withAlpha(230), fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

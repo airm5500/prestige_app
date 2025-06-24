@@ -1,9 +1,9 @@
 // lib/screens/fournisseurs_screen.dart
 
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
 import '../models/fournisseur_model.dart';
-import '../utils/constants.dart'; // For API endpoint
+import '../utils/constants.dart';
+import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 
 class FournisseursScreen extends StatefulWidget {
   const FournisseursScreen({super.key});
@@ -12,19 +12,25 @@ class FournisseursScreen extends StatefulWidget {
   State<FournisseursScreen> createState() => _FournisseursScreenState();
 }
 
-class _FournisseursScreenState extends State<FournisseursScreen> {
-  late Future<List<Fournisseur>> _fournisseursFuture;
+// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
+class _FournisseursScreenState extends State<FournisseursScreen> with BaseScreenLogic<FournisseursScreen> {
+  Future<List<Fournisseur>>? _fournisseursFuture;
   List<Fournisseur> _fournisseurs = [];
   List<Fournisseur> _filteredFournisseurs = [];
   final TextEditingController _searchController = TextEditingController();
-  late ApiService _apiService; // Declare here
+
+  // Les variables 'isLoading', 'errorMessage' et 'apiService' sont maintenant gérées par le mixin.
 
   @override
   void initState() {
     super.initState();
-    // Initialize ApiService here as it's specific to this screen's context
-    _apiService = ApiService(context); // Initialize in initState
-    _fournisseursFuture = _fetchFournisseurs();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _fournisseursFuture = _fetchFournisseurs();
+        });
+      }
+    });
     _searchController.addListener(_filterFournisseurs);
   }
 
@@ -35,11 +41,12 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
   }
 
   Future<List<Fournisseur>> _fetchFournisseurs() async {
+    // La gestion du loading et des erreurs est maintenant gérée par 'safeApiCall' dans le mixin,
+    // mais pour un FutureBuilder, il est mieux de laisser l'erreur se propager.
     try {
-      final data = await _apiService.get(AppConstants.fournisseursEndpoint);
+      final data = await apiGet(AppConstants.fournisseursEndpoint);
       if (data is List) {
         final fournisseurs = data.map((item) => Fournisseur.fromJson(item)).toList();
-        // Check if widget is still mounted before calling setState
         if (mounted) {
           setState(() {
             _fournisseurs = fournisseurs;
@@ -51,15 +58,8 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
         throw Exception('Format de données incorrect reçu du serveur.');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de chargement des fournisseurs: ${e.toString().replaceFirst("Exception: ", "")}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      throw Exception('Impossible de charger les fournisseurs: ${e.toString().replaceFirst("Exception: ", "")}');
+      // On relance l'erreur pour que le FutureBuilder puisse la capturer et afficher l'UI d'erreur.
+      rethrow;
     }
   }
 
@@ -77,14 +77,12 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
   }
 
   Future<void> _refreshData() async {
-    // Show loading indicator or disable button during refresh
     if (mounted) {
       setState(() {
-        _fournisseursFuture = _fetchFournisseurs(); // Re-fetch data
+        _fournisseursFuture = _fetchFournisseurs();
       });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +147,7 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
                 } else if (snapshot.hasData) {
                   if (_filteredFournisseurs.isEmpty && _searchController.text.isNotEmpty) {
                     return const Center(child: Text('Aucun fournisseur ne correspond à votre recherche.'));
-                  } else if (_fournisseurs.isEmpty) { // Check original list if filtered is empty due to no data
+                  } else if (_fournisseurs.isEmpty) {
                     return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -179,10 +177,10 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: Theme.of(context).primaryColorLight,
+                              backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(50),
                               child: Text(
                                 fournisseur.fournisseurLibelle.isNotEmpty ? fournisseur.fournisseurLibelle[0].toUpperCase() : 'F',
-                                style: TextStyle(color: Theme.of(context).primaryColorDark, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
                               ),
                             ),
                             title: Text(fournisseur.fournisseurLibelle, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -203,7 +201,7 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
                       },
                     ),
                   );
-                } else { // Should not happen if future is initialized correctly
+                } else {
                   return const Center(child: Text('Chargement des fournisseurs...'));
                 }
               },
