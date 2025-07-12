@@ -14,9 +14,10 @@ class AppConstants {
   static const String savedPasswordKey = 'saved_password';
   static const String rememberMeKey = 'remember_me';
   static const String userDataKey = 'user_data';
+  static const String appNameKey = 'app_name_key';
 
   // API Base Path
-  static const String apiBasePath = '/laborex/api/v1';
+  static const String apiBasePath = '/api/v1';
 
   // API Endpoints
   static const String authEndpoint = '/user/auth';
@@ -37,6 +38,7 @@ class AppConstants {
   static const String defaultLocalIp = '';
   static const String defaultRemoteIp = '';
   static const String defaultPort = '8080';
+  static const String defaultAppName = 'laborex';
   static const int defaultSessionTimeout = 30; // 30 minutes
 
   // Norme Ratio

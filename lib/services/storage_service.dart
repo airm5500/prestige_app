@@ -11,6 +11,7 @@ class StorageService {
     required String port,
     required bool useLocal,
     required int sessionTimeout,
+    required String appName, // AJOUT
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AppConstants.localIpKey, localIp);
@@ -18,7 +19,7 @@ class StorageService {
     await prefs.setString(AppConstants.portKey, port);
     await prefs.setBool(AppConstants.useLocalIpKey, useLocal);
     await prefs.setInt(AppConstants.sessionTimeoutKey, sessionTimeout);
-    // AJOUT: Marque l'application comme configurée
+    await prefs.setString(AppConstants.appNameKey, appName); // AJOUT
     await prefs.setBool(AppConstants.isConfiguredKey, true);
   }
 
@@ -30,7 +31,8 @@ class StorageService {
       'port': prefs.getString(AppConstants.portKey),
       'useLocal': prefs.getBool(AppConstants.useLocalIpKey),
       'sessionTimeout': prefs.getInt(AppConstants.sessionTimeoutKey),
-      'isConfigured': prefs.getBool(AppConstants.isConfiguredKey), // AJOUT
+      'appName': prefs.getString(AppConstants.appNameKey), // AJOUT
+      'isConfigured': prefs.getBool(AppConstants.isConfiguredKey),
     };
   }
 

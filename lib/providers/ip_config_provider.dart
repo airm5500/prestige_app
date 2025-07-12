@@ -13,6 +13,7 @@ class IpConfigProvider with ChangeNotifier {
   String _port = AppConstants.defaultPort;
   int _sessionTimeout = AppConstants.defaultSessionTimeout;
   bool _isAppConfigured = false;
+  String _appName = AppConstants.defaultAppName; // AJOUT
 
   String get localIp => _localIp;
   String get remoteIp => _remoteIp;
@@ -20,13 +21,15 @@ class IpConfigProvider with ChangeNotifier {
   String get port => _port;
   int get sessionTimeout => _sessionTimeout;
   bool get isAppConfigured => _isAppConfigured;
+  String get appName => _appName; // AJOUT
 
+  // CORRECTION: L'URL est maintenant construite dynamiquement
   String get activeBaseUrl {
     final ip = _useLocalIp ? _localIp : _remoteIp;
-    if (ip.isEmpty || (ip == AppConstants.defaultLocalIp && !_useLocalIp) || (ip == AppConstants.defaultRemoteIp && _useLocalIp)) {
-      return 'http://0.0.0.0:$_port${AppConstants.apiBasePath}';
+    if (ip.isEmpty) {
+      return 'http://0.0.0.0:$_port/$_appName${AppConstants.apiBasePath}';
     }
-    return 'http://$ip:$_port${AppConstants.apiBasePath}';
+    return 'http://$ip:$_port/$_appName${AppConstants.apiBasePath}';
   }
 
   IpConfigProvider() {
@@ -41,22 +44,21 @@ class IpConfigProvider with ChangeNotifier {
     _port = settings['port'] ?? AppConstants.defaultPort;
     _sessionTimeout = settings['sessionTimeout'] ?? AppConstants.defaultSessionTimeout;
     _isAppConfigured = settings['isConfigured'] ?? false;
+    _appName = settings['appName'] ?? AppConstants.defaultAppName; // AJOUT
     notifyListeners();
   }
 
-  Future<void> updateSettings(String newLocalIp, String newRemoteIp, String newPort, int newTimeout) async {
+  Future<void> updateSettings(String newLocalIp, String newRemoteIp, String newPort, int newTimeout, String newAppName) async {
     _localIp = newLocalIp.isNotEmpty ? newLocalIp : AppConstants.defaultLocalIp;
     _remoteIp = newRemoteIp.isNotEmpty ? newRemoteIp : AppConstants.defaultRemoteIp;
     _port = newPort.isNotEmpty ? newPort : AppConstants.defaultPort;
     _sessionTimeout = newTimeout;
     _isAppConfigured = true;
+    _appName = newAppName.isNotEmpty ? newAppName : AppConstants.defaultAppName; // AJOUT
 
     await _storageService.saveAllSettings(
-      localIp: _localIp,
-      remoteIp: _remoteIp,
-      port: _port,
-      useLocal: _useLocalIp,
-      sessionTimeout: _sessionTimeout,
+      localIp: _localIp, remoteIp: _remoteIp, port: _port,
+      useLocal: _useLocalIp, sessionTimeout: _sessionTimeout, appName: _appName,
     );
     notifyListeners();
   }

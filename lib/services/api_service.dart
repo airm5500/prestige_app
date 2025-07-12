@@ -12,7 +12,6 @@ import '../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Singleton pattern pour s'assurer qu'il n'y a qu'une seule instance de ce service
   ApiService._privateConstructor();
   static final ApiService _instance = ApiService._privateConstructor();
   factory ApiService() {
@@ -21,22 +20,19 @@ class ApiService {
 
   String? _sessionCookie;
 
-  // --- NOUVELLE FONCTION PING STATIQUE ---
-  // Peut être appelée de n'importe où, même sans une instance de ApiService.
-  static Future<bool> ping(String ip, String port) async {
+  // --- CORRECTION: La fonction ping accepte maintenant le nom de l'application ---
+  static Future<bool> ping(String ip, String port, String appName) async {
     if (ip.trim().isEmpty) {
       return false;
     }
-    // On essaie juste de voir si le serveur répond à la racine
-    final url = Uri.parse('http://$ip:$port');
+    // On construit l'URL de base pour le ping
+    final url = Uri.parse('http://$ip:$port/$appName');
 
     try {
       // http.head est léger car il ne télécharge que les en-têtes.
-      // On utilise un délai court pour ne pas bloquer l'utilisateur.
       await http.head(url).timeout(const Duration(seconds: 5));
       return true; // Si la requête réussit, le serveur est accessible.
     } catch (e) {
-      // Si une exception est levée (Timeout, SocketException, etc.), le serveur est injoignable.
       debugPrint("Ping to $url failed: $e");
       return false;
     }
@@ -48,7 +44,6 @@ class ApiService {
   }
 
   Future<void> setSessionCookie(String rawCookie) async {
-    // Extrait uniquement la partie JSESSIONID du cookie
     if (rawCookie.contains(';')) {
       _sessionCookie = rawCookie.substring(0, rawCookie.indexOf(';'));
     } else {
@@ -118,8 +113,7 @@ class ApiService {
   }
 
   dynamic _handleResponse(http.Response response, VoidCallback? onSessionInvalid) {
-    // Si l'API renvoie une erreur 401 (Non autorisé), on déconnecte l'utilisateur.
-    if (response.statusCode == 401) {
+    if (response.statusCode == 401 || (response.body.contains("Veuillez vous connecter") && response.statusCode != 200)) {
       onSessionInvalid?.call();
       throw Exception("Session invalide ou expirée. Veuillez vous reconnecter.");
     }
@@ -128,9 +122,7 @@ class ApiService {
       if (response.body.isEmpty) return null;
       try {
         final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-
-        // Gérer le cas où le succès est false dans la réponse, ce qui peut aussi indiquer une session invalide.
-        if (decodedBody is Map<String, dynamic> && decodedBody['success'] == false && decodedBody['message'] == 'Veuillez vous connecter') {
+        if (decodedBody is Map<String, dynamic> && decodedBody['success'] == false && decodedBody.containsKey('message') && decodedBody['message'] == 'Veuillez vous connecter') {
           onSessionInvalid?.call();
           throw Exception("Session invalide ou expirée. Veuillez vous reconnecter.");
         }
