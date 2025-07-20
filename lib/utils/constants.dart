@@ -33,6 +33,7 @@ class AppConstants {
   static const String tableauBordAchatsVentesEndpoint = '/ws/ca-achats-ventes';
   static const String valorisationAllEndpoint = '/valorisation/all';
   static const String officineEndpoint = '/officine';
+  static const String suiviCreditEndpoint = '/recap/credits';
 
   // Default Values
   static const String defaultLocalIp = '';
