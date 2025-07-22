@@ -21,6 +21,7 @@ import 'tableau_bord_ratio_screen.dart';
 import 'tableau_bord_analyse_menu_screen.dart';
 import 'evolution_stock_screen.dart';
 import 'analyse_article_screen.dart';
+import 'suivi_credit_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -45,6 +46,7 @@ class HomeScreen extends StatelessWidget {
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
       {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
+      {'title': 'Suivi Crédit','icon': Icons.request_quote_outlined,'color': Colors.redAccent,'screen': const SuiviCreditScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
     ];
 
