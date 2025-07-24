@@ -34,6 +34,9 @@ class AppConstants {
   static const String valorisationAllEndpoint = '/valorisation/all';
   static const String officineEndpoint = '/officine';
   static const String suiviCreditEndpoint = '/recap/credits';
+  static const String ventesStatsEndpoint = '/ventestats';
+  static const String venteDetailEndpoint = '/ventestats/find-one';
+  static const String venteAnnulationEndpoint = '/vente/annulation';
 
   // Default Values
   static const String defaultLocalIp = '';

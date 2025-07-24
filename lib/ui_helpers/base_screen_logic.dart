@@ -56,6 +56,18 @@ mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
     );
   }
 
+  // --- AJOUT: Raccourci pour les appels DELETE ---
+  Future<dynamic> apiDelete(String endpoint) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return safeApiCall(
+            () => apiService.delete(
+          context,
+          endpoint,
+          onSessionInvalid: () => authProvider.forceLogout(),
+        )
+    );
+  }
+
 // Vous pouvez ajouter des raccourcis similaires pour POST, PUT, etc. si nécessaire
 // Future<dynamic> apiPost(String endpoint, Map<String, dynamic> body) { ... }
 }

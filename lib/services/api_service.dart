@@ -103,10 +103,33 @@ class ApiService {
     debugPrint('API GET Request: $uri');
 
     try {
-      final response = await http.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 15));
+      final response = await http.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
       return _handleResponse(response, onSessionInvalid);
     } on SocketException {
       throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
+    } catch (e) {
+      throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
+    }
+  }
+
+  // --- AJOUT: Nouvelle méthode pour les requêtes DELETE ---
+  Future<Map<String, dynamic>> delete(BuildContext context, String endpoint, {VoidCallback? onSessionInvalid}) async {
+    final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    final baseUrl = ipProvider.activeBaseUrl;
+    final url = Uri.parse('$baseUrl$endpoint');
+    debugPrint('API DELETE Request: $url');
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 45));
+
+      return _handleResponse(response, onSessionInvalid);
+    } on SocketException {
+      throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
+    } on TimeoutException {
+      throw Exception('Le serveur n\'a pas répondu à temps. Veuillez réessayer.');
     } catch (e) {
       throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
     }
