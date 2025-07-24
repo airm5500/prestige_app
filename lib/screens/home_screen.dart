@@ -24,6 +24,7 @@ import 'analyse_article_screen.dart';
 import 'suivi_credit_screen.dart';
 //import 'mes_articles_screen.dart';
 import 'annulation_vente_screen.dart';
+import 'suivi_ajustement_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -67,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
       //{'title': 'Mes Articles', 'icon': Icons.inventory, 'color': Colors.blueGrey, 'screen': const MesArticlesScreen()},
       {'title': 'Evolution Stock', 'icon': Icons.ssid_chart_outlined, 'color': Colors.brown, 'screen': const EvolutionStockScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
+      {'title': 'Suivi Ajustements', 'icon': Icons.rule_folder_outlined, 'color': Colors.deepPurple, 'screen': const SuiviAjustementScreen()},
     ];
 
     final List<Map<String, dynamic>> page3Items = [
