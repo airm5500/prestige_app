@@ -61,4 +61,30 @@ class DateFormatter {
     }
     return "${hours}h${minutes.toString().padLeft(2, '0')}";
   }
+
+  // AJOUT: Parse la chaîne DD/MM/YYYY
+  static DateTime? parseDDMMYYYY(String? dateString) {
+    if (dateString == null || dateString.isEmpty) {
+      return null;
+    }
+    try {
+      return DateFormat('dd/MM/yyyy').parse(dateString);
+    } catch (e) {
+      debugPrint('Error parsing date string (dd/MM/yyyy): $dateString. Error: $e');
+      return null;
+    }
+  }
+
+  // AJOUT: Parse la chaîne ISO 8601 DateTime
+  static DateTime? parseIsoDateTime(String? dateString) {
+    if (dateString == null || dateString.isEmpty) {
+      return null;
+    }
+    try {
+      return DateTime.parse(dateString);
+    } catch (e) {
+      debugPrint('Error parsing ISO date time string: $dateString. Error: $e');
+      return null;
+    }
+  }
 }

@@ -25,6 +25,7 @@ import 'suivi_credit_screen.dart';
 //import 'mes_articles_screen.dart';
 import 'annulation_vente_screen.dart';
 import 'suivi_ajustement_screen.dart';
+import 'retours_fournisseurs_screen.dart'; // Import the new screen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -75,6 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
       {'title': 'Achats Fourn.', 'icon': Icons.shopping_cart_checkout_outlined, 'color': Colors.deepOrange, 'screen': const AchatsFournisseursScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
+      {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
+
     ];
 
     final List<List<Map<String, dynamic>>> allPages = [page1Items, page2Items, page3Items];

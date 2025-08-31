@@ -40,6 +40,10 @@ class AppConstants {
   static const String ajustementEndpoint = '/ajustement';
   static const String ajustementItemsEndpoint = '/ajustement/items';
   static const String typeAjustementsEndpoint = '/common/type-ajustements';
+  static const String retoursFournisseursEndpoint = '/produit/retours-data';
+  static const String retourFournisseurDetailEndpoint = '/retourfournisseur/retours-items';
+  static const String grossistesEndpoint = '/grossiste/all';
+
 
   // Default Values
   static const String defaultLocalIp = '';

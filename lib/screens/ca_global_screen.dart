@@ -40,8 +40,18 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
 
     // On traite uniquement le cas où l'appel a réussi et retourne des données
     if (mounted && data is List) {
+      var tempList = data.map((item) => CaGlobal.fromJson(item)).toList();
+
+      // TRI: Ajout du tri par date ascendante
+      tempList.sort((a, b) {
+        if (a.mvtDate == null && b.mvtDate == null) return 0;
+        if (a.mvtDate == null) return 1;
+        if (b.mvtDate == null) return -1;
+        return a.mvtDate!.compareTo(b.mvtDate!);
+      });
+
       setState(() {
-        _caGlobalDataList = data.map((item) => CaGlobal.fromJson(item)).toList();
+        _caGlobalDataList = tempList;
       });
     }
     // La gestion de l'état de chargement et des erreurs est automatique !
