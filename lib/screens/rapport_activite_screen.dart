@@ -2,11 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:prestige_app/models/achat_recap_model.dart';
 import 'package:prestige_app/models/credit_recap_model.dart';
 import 'package:prestige_app/models/dashboard_recap_model.dart';
 import 'package:prestige_app/models/reglement_recap_model.dart';
 import 'package:prestige_app/models/reglement_type_recap_model.dart';
+import 'package:prestige_app/providers/auth_provider.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
@@ -28,7 +30,7 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
   List<ReglementRecap> _reglements = [];
 
   Future<void> _loadRapport() async {
-    // MODIFICATION: Activation manuelle du loader
+    // CORRECTION: Activation manuelle du loader pour gérer les appels multiples
     setState(() {
       isLoading = true;
       _dashboardData = null;
@@ -43,12 +45,14 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
         'dtStart': DateFormatter.toApiFormat(_startDate),
         'dtEnd': DateFormatter.toApiFormat(_endDate),
       };
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
+      // CORRECTION: On appelle directement le service pour éviter la gestion du loader par le mixin
       final results = await Future.wait([
-        apiGet(AppConstants.dashboardRecapEndpoint, queryParams: queryParams),
-        apiGet(AppConstants.creditsRecapEndpoint, queryParams: queryParams),
-        apiGet(AppConstants.creditTotalsRecapEndpoint, queryParams: queryParams),
-        apiGet(AppConstants.reglementsRecapEndpoint, queryParams: queryParams),
+        apiService.get(context, AppConstants.dashboardRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
+        apiService.get(context, AppConstants.creditsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
+        apiService.get(context, AppConstants.creditTotalsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
+        apiService.get(context, AppConstants.reglementsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
       ]);
 
       if (mounted) {
@@ -68,13 +72,14 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
         });
       }
     } catch (e) {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           errorMessage = e.toString().replaceFirst("Exception: ", "");
         });
       }
     } finally {
-      if(mounted) {
+      if (mounted) {
+        // CORRECTION: On désactive le loader manuellement à la fin de toutes les opérations
         setState(() => isLoading = false);
       }
     }
