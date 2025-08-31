@@ -24,13 +24,38 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   String? _uiErrorMessage;
+  String? _officineName;
 
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchAndDisplayOfficineName(); // MODIFICATION
+    });
     _usernameController.addListener(_clearError);
     _passwordController.addListener(_clearError);
+  }
+
+  // AJOUT: Nouvelle fonction pour récupérer le nom de la pharmacie
+  Future<void> _fetchAndDisplayOfficineName() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // D'abord, on essaie de charger depuis le cache
+    final cachedName = await authProvider.getLastKnownOfficineName();
+    if (mounted && cachedName != null) {
+      setState(() {
+        _officineName = cachedName;
+      });
+    }
+    // Ensuite, on lance une requête pour avoir la version la plus récente
+    await authProvider.fetchAndStoreOfficineInfo(context);
+    // On recharge depuis le cache au cas où ça aurait été mis à jour
+    final freshName = await authProvider.getLastKnownOfficineName();
+    if (mounted && freshName != null) {
+      setState(() {
+        _officineName = freshName;
+      });
+    }
   }
 
   @override
@@ -88,6 +113,8 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _uiErrorMessage = errorMessage;
         });
+      } else {
+        _fetchAndDisplayOfficineName();
       }
 
       setState(() => _isLoading = false);
@@ -127,11 +154,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ipProvider = Provider.of<IpConfigProvider>(context);
+    // MODIFICATION: On écoute les changements de l'ipProvider
+    final ipProvider = context.watch<IpConfigProvider>();
 
     return Scaffold(
-      // CORRECTION: resizeToAvoidBottomInset est true par défaut,
-      // ce qui permet au SingleChildScrollView de fonctionner correctement.
       body: Stack(
         children: [
           Container(
@@ -144,7 +170,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // CORRECTION: La barre d'actions en haut a maintenant un fond pour la lisibilité
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,
@@ -161,12 +186,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(ipProvider.useLocalIp ? 'Local' : 'Distant', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                     Switch(
                       value: ipProvider.useLocalIp,
-                      onChanged: (value) {
+                      onChanged: (value) async { // MODIFICATION: async
                         if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('L\'adresse IP distante n\'est pas configurée.'), backgroundColor: Colors.orange));
                           return;
                         }
                         ipProvider.setUseLocalIp(value);
+                        // On rafraîchit le nom de la pharmacie après le changement
+                        await _fetchAndDisplayOfficineName();
                       },
                       activeTrackColor: theme.colorScheme.primary.withAlpha(100),
                       activeColor: Colors.white,
@@ -186,8 +213,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // CORRECTION: Le formulaire est maintenant dans une colonne qui ne prend que la place nécessaire
-          // et qui est scrollable, ce qui résout le problème du clavier.
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -206,6 +231,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text("Prestige Connexion", textAlign: TextAlign.center, style: GoogleFonts.lato(fontSize: 24, fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                            // MODIFICATION: Affichage dynamique du nom de l'officine
+                            if (_officineName != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  _officineName!,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.lato(fontSize: 18, color: theme.colorScheme.secondary),
+                                ),
+                              ),
                             const SizedBox(height: 24),
                             _buildErrorMessage(),
                             TextFormField(

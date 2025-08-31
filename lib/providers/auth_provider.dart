@@ -1,11 +1,12 @@
 // lib/providers/auth_provider.dart
 
-import 'dart:async'; // CORRECTION: Import manquant pour StreamController
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import '../models/officine_model.dart'; // AJOUT
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
@@ -14,6 +15,7 @@ class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
 
   AppUser? _user;
+  Officine? _officine; // AJOUT
   bool _isLoggedIn = false;
   bool _isLoading = true;
   String? _errorMessage;
@@ -22,6 +24,7 @@ class AuthProvider with ChangeNotifier {
   Stream<String> get events => _eventController.stream;
 
   AppUser? get user => _user;
+  Officine? get officine => _officine; // AJOUT
   bool get isLoggedIn => _isLoggedIn;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -83,6 +86,10 @@ class AuthProvider with ChangeNotifier {
       if (response['success'] == true) {
         _user = AppUser.fromJson(response);
         _isLoggedIn = true;
+
+        // Après une connexion réussie, on met à jour les infos de l'officine
+        await fetchAndStoreOfficineInfo(context);
+
         await _saveUserData(_user!);
         await _saveCredentials(username, password, rememberMe);
         _isLoading = false;
@@ -96,6 +103,22 @@ class AuthProvider with ChangeNotifier {
       _errorMessage = e.toString().replaceFirst("Exception: ", "");
       notifyListeners();
       return _errorMessage;
+    }
+  }
+
+  // AJOUT: Récupère et stocke les infos de l'officine
+  Future<void> fetchAndStoreOfficineInfo(BuildContext context) async {
+    try {
+      final data = await _apiService.get(context, AppConstants.officineEndpoint, onSessionInvalid: forceLogout);
+      if (data is List && data.isNotEmpty) {
+        _officine = Officine.fromJson(data[0]);
+        final prefs = await SharedPreferences.getInstance();
+        // On stocke le nom complet pour l'afficher sur l'écran de connexion
+        await prefs.setString('officine_name', _officine!.nomComplet);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Could not fetch officine info: $e");
     }
   }
 
@@ -135,8 +158,14 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<String?> getLastKnownOfficineName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('officine_name');
+  }
+
   Future<void> _clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    // On ne supprime pas le nom de l'officine pour le garder sur l'écran de connexion
     await prefs.remove(AppConstants.userDataKey);
   }
 

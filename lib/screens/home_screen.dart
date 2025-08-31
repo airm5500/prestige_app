@@ -26,7 +26,7 @@ import 'suivi_credit_screen.dart';
 import 'annulation_vente_screen.dart';
 import 'suivi_ajustement_screen.dart';
 import 'retours_fournisseurs_screen.dart';
-import 'stat_tva_screen.dart'; // AJOUT
+import 'stat_tva_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,23 +51,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final ipProvider = Provider.of<IpConfigProvider>(context);
 
     final AppUser? currentUser = authProvider.user;
-    final String userName = currentUser?.fullName ?? 'Utilisateur';
-    final String officineName = currentUser?.officineName ?? 'Prestige App';
 
-    // --- CORRECTION: Organisation des fonctionnalités en pages ---
     final List<Map<String, dynamic>> page1Items = [
       {'title': 'CA Comptant', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
       {'title': 'CA Crédit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
       {'title': 'Suivi Crédit', 'icon': Icons.request_quote_outlined, 'color': Colors.redAccent, 'screen': const SuiviCreditScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
-      {'title': 'Stat TVA', 'icon': Icons.pie_chart, 'color': Colors.orange, 'screen': const StatTvaScreen()}, // AJOUT
+      {'title': 'Stat TVA', 'icon': Icons.pie_chart, 'color': Colors.orange, 'screen': const StatTvaScreen()},
     ];
 
     final List<Map<String, dynamic>> page2Items = [
       {'title': 'Analyse Article', 'icon': Icons.pie_chart_outline_rounded, 'color': Colors.indigo, 'screen': const AnalyseArticleScreen()},
       {'title': 'Fiche Article', 'icon': Icons.article_outlined, 'color': Colors.cyan, 'screen': const FicheArticleScreen()},
-      //{'title': 'Mes Articles', 'icon': Icons.inventory, 'color': Colors.blueGrey, 'screen': const MesArticlesScreen()},
       {'title': 'Evolution Stock', 'icon': Icons.ssid_chart_outlined, 'color': Colors.brown, 'screen': const EvolutionStockScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
       {'title': 'Suivi Ajustements', 'icon': Icons.rule_folder_outlined, 'color': Colors.deepPurple, 'screen': const SuiviAjustementScreen()},
@@ -78,14 +74,13 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Achats Fourn.', 'icon': Icons.shopping_cart_checkout_outlined, 'color': Colors.deepOrange, 'screen': const AchatsFournisseursScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
       {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
-
     ];
 
     final List<List<Map<String, dynamic>>> allPages = [page1Items, page2Items, page3Items];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(officineName),
+        title: const Text("Accueil"), // MODIFICATION
         actions: [
           Tooltip(
             message: ipProvider.useLocalIp ? 'Passer en mode Distant' : 'Passer en mode Local',
@@ -116,7 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          _buildWelcomeCard(context, ipProvider, userName),
+          // MODIFICATION
+          _buildWelcomeCard(context, ipProvider, currentUser?.fullName ?? 'Utilisateur'),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
             child: Text(
@@ -138,7 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          // Indicateurs de page (points)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(allPages.length, (index) => _buildPageIndicator(index == _currentPage)),
@@ -149,7 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget pour la grille de fonctionnalités d'une page
   Widget _buildFeatureGrid(List<Map<String, dynamic>> items) {
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -173,7 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget pour les points indicateurs de page
   Widget _buildPageIndicator(bool isActive) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
@@ -189,7 +182,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildWelcomeCard(BuildContext context, IpConfigProvider ipProvider, String userName) {
     final theme = Theme.of(context);
+    final officine = context.watch<AuthProvider>().officine; // MODIFICATION
+
     return Container(
+      width: double.infinity, // Pour que la carte prenne toute la largeur
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
@@ -204,11 +200,20 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Bienvenu(e) $userName',
+            'Bienvenue $userName', // MODIFICATION
             style: GoogleFonts.lato(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          // AJOUT: Affichage du nom de la pharmacie
+          if (officine != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                officine.nomComplet,
+                style: GoogleFonts.lato(fontSize: 16, color: Colors.white.withOpacity(0.9)),
+              ),
+            ),
         ],
       ),
     );
