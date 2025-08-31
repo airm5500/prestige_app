@@ -121,19 +121,22 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // MODIFICATION: Remplacement du bouton par une icône
                   IconButton(
-                    icon: const Icon(Icons.download),
+                    icon: const Icon(Icons.folder_open_outlined),
+                    color: Theme.of(context).primaryColor,
+                    tooltip: 'Ouvrir la suggestion',
+                    onPressed: () => _openSuggestion(suggestion),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.download_outlined),
                     tooltip: 'Exporter en CSV',
                     onPressed: () => _exportSuggestion(suggestion),
                   ),
                   IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red.shade400),
+                    icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
                     tooltip: 'Supprimer',
                     onPressed: () => _deleteSuggestion(suggestion.id),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _openSuggestion(suggestion),
-                    child: const Text('Ouvrir'),
                   ),
                 ],
               ),
