@@ -56,6 +56,19 @@ mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
     );
   }
 
+  // AJOUT: Raccourci pour les appels GET V3
+  Future<dynamic> apiGetV3(String endpoint, {Map<String, String>? queryParams}) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return safeApiCall(
+            () => apiService.getV3(
+          context,
+          endpoint,
+          queryParams: queryParams,
+          onSessionInvalid: () => authProvider.forceLogout(),
+        )
+    );
+  }
+
   // --- AJOUT: Raccourci pour les appels DELETE ---
   Future<dynamic> apiDelete(String endpoint) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);

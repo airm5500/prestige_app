@@ -112,6 +112,31 @@ class ApiService {
     }
   }
 
+  // AJOUT: Nouvelle méthode pour les requêtes GET V3
+  Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+    final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    final ip = ipProvider.useLocalIp ? ipProvider.localIp : ipProvider.remoteIp;
+    final port = ipProvider.port;
+    final appName = ipProvider.appName;
+    final baseUrl = 'http://$ip:$port/$appName${AppConstants.apiV3BasePath}';
+
+    var uri = Uri.parse('$baseUrl$endpoint');
+
+    if (queryParams != null) {
+      uri = uri.replace(queryParameters: queryParams);
+    }
+    debugPrint('API GET V3 Request: $uri');
+
+    try {
+      final response = await http.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
+      return _handleResponse(response, onSessionInvalid);
+    } on SocketException {
+      throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
+    } catch (e) {
+      throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
+    }
+  }
+
   // --- AJOUT: Nouvelle méthode pour les requêtes DELETE ---
   Future<Map<String, dynamic>> delete(BuildContext context, String endpoint, {VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);

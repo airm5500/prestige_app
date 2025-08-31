@@ -25,7 +25,8 @@ import 'suivi_credit_screen.dart';
 //import 'mes_articles_screen.dart';
 import 'annulation_vente_screen.dart';
 import 'suivi_ajustement_screen.dart';
-import 'retours_fournisseurs_screen.dart'; // Import the new screen
+import 'retours_fournisseurs_screen.dart';
+import 'stat_tva_screen.dart'; // AJOUT
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
       {'title': 'Suivi Crédit', 'icon': Icons.request_quote_outlined, 'color': Colors.redAccent, 'screen': const SuiviCreditScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
-      {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
+      {'title': 'Stat TVA', 'icon': Icons.pie_chart, 'color': Colors.orange, 'screen': const StatTvaScreen()}, // AJOUT
     ];
 
     final List<Map<String, dynamic>> page2Items = [

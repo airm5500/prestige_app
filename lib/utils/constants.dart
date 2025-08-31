@@ -18,6 +18,7 @@ class AppConstants {
 
   // API Base Path
   static const String apiBasePath = '/api/v1';
+  static const String apiV3BasePath = '/api/v3'; // AJOUT
 
   // API Endpoints
   static const String authEndpoint = '/user/auth';
@@ -43,7 +44,7 @@ class AppConstants {
   static const String retoursFournisseursEndpoint = '/produit/retours-data';
   static const String retourFournisseurDetailEndpoint = '/retourfournisseur/retours-items';
   static const String grossistesEndpoint = '/grossiste/all';
-
+  static const String statTvaEndpoint = '/tvas'; // AJOUT
 
   // Default Values
   static const String defaultLocalIp = '';
