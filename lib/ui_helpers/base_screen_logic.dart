@@ -69,6 +69,18 @@ mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
     );
   }
 
+  Future<dynamic> apiPost(String endpoint, Map<String, dynamic> body) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return safeApiCall(
+            () => apiService.post(
+          context,
+          endpoint,
+          body,
+          onSessionInvalid: () => authProvider.forceLogout(),
+        )
+    );
+  }
+
   // --- AJOUT: Raccourci pour les appels DELETE ---
   Future<dynamic> apiDelete(String endpoint) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);

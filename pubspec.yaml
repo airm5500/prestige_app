@@ -13,30 +13,36 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+
+  # --- Versions Mises à Jour ---
   http: ^1.2.1
-  intl: ^0.20.0
+  intl: ^0.20.2 # CORRECTION: Version compatible avec le SDK Flutter
   shared_preferences: ^2.2.3
   provider: ^6.1.2
   fl_chart: ^0.68.0
-  cupertino_icons: ^1.0.6
   google_fonts: ^6.2.1
-  printing: ^5.11.1
-  pdf: ^3.10.8
-  fluttertoast: ^8.2.6 # AJOUT: Pour les notifications "toast"
-  shimmer: ^3.0.0 # AJOUT: Pour l'effet de chargement
+  printing: ^5.14.2
+  pdf: ^3.11.0
+  fluttertoast: ^8.2.6
+  shimmer: ^3.0.0
+
+  # --- Dépendances pour l'export ---
+  csv: ^6.0.0
+  path_provider: ^2.1.3
+  share_plus: ^10.0.1
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  flutter_launcher_icons: ^0.13.1 # Package pour les icônes
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icons/
-# IMPORTANT: Ce bloc doit être à la racine du fichier (pas d'indentation)
-# et les lignes à l'intérieur doivent avoir deux espaces d'indentation.
+
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true

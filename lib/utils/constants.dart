@@ -49,6 +49,14 @@ class AppConstants {
   static const String suivi2080Endpoint = '/statfamillearticle/vingtQuatreVingt';
   static const String suiviPeremptionEndpoint = '/fichearticle/perimes';
 
+  static const String suggestionListEndpoint = '/suggestion/list';
+  static const String suggestionSetPendingEndpoint = '/suggestion/set-pending';
+  static const String suggestionListItemsEndpoint = '/suggestion/list/items';
+  static const String suggestionAmountEndpoint = '/suggestion/amount';
+  static const String suggestionUpdateQteEndpoint = '/suggestion/item/update-qte-cmde';
+  static const String suggestionDeleteItemEndpoint = '/suggestion/item';
+  static const String suggestionDeleteEndpoint = '/suggestion/suggestion';
+
   // Default Values
   static const String defaultLocalIp = '';
   static const String defaultRemoteIp = '';

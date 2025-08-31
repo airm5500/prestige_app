@@ -29,6 +29,7 @@ import 'retours_fournisseurs_screen.dart';
 import 'stat_tva_screen.dart';
 import 'suivi_20_80_screen.dart';
 import 'suivi_peremption_screen.dart';
+import 'suggestion_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Map<String, dynamic>> page3Items = [
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
       {'title': 'Achats Fourn.', 'icon': Icons.shopping_cart_checkout_outlined, 'color': Colors.deepOrange, 'screen': const AchatsFournisseursScreen()},
+      {'title': 'Suggestions', 'icon': Icons.lightbulb_outline, 'color': Colors.orange, 'screen': const SuggestionListScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
       {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
     ];
