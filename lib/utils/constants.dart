@@ -46,6 +46,7 @@ class AppConstants {
   static const String grossistesEndpoint = '/grossiste/all';
   static const String statTvaEndpoint = '/tvas'; // AJOUT
   static const String avoirsFournisseursEndpoint = '/avoirs-fournisseurs';
+  static const String suivi2080Endpoint = '/statfamillearticle/vingtQuatreVingt';
 
   // Default Values
   static const String defaultLocalIp = '';
