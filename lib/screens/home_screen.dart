@@ -22,7 +22,6 @@ import 'tableau_bord_analyse_menu_screen.dart';
 import 'evolution_stock_screen.dart';
 import 'analyse_article_screen.dart';
 import 'suivi_credit_screen.dart';
-//import 'mes_articles_screen.dart';
 import 'annulation_vente_screen.dart';
 import 'suivi_ajustement_screen.dart';
 import 'retours_fournisseurs_screen.dart';
@@ -30,6 +29,8 @@ import 'stat_tva_screen.dart';
 import 'suivi_20_80_screen.dart';
 import 'suivi_peremption_screen.dart';
 import 'suggestion_list_screen.dart';
+import 'rapport_activite_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,43 +53,45 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final ipProvider = Provider.of<IpConfigProvider>(context);
-
     final AppUser? currentUser = authProvider.user;
 
-    // --- CORRECTION: Organisation des fonctionnalités en pages ---
-    final List<Map<String, dynamic>> page1Items = [
+    // MODIFICATION: Création d'une seule liste contenant toutes les fonctionnalités
+    final List<Map<String, dynamic>> allItems = [
+      // Page 1
       {'title': 'CA Comptant', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
       {'title': 'CA Crédit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
+      {'title': 'Rapport d\'Activité', 'icon': Icons.summarize_outlined, 'color': Colors.cyan, 'screen': const RapportActiviteScreen()},
       {'title': 'Suivi Crédit', 'icon': Icons.request_quote_outlined, 'color': Colors.redAccent, 'screen': const SuiviCreditScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
-      {'title': 'Suivi Péremption', 'icon': Icons.warning_amber_rounded, 'color': Colors.red.shade700, 'screen': const SuiviPeremptionScreen()},
+
+      // Page 2
       {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
       {'title': 'Stat TVA', 'icon': Icons.pie_chart, 'color': Colors.orange, 'screen': const StatTvaScreen()},
-    ];
-
-    final List<Map<String, dynamic>> page2Items = [
       {'title': 'Analyse Article', 'icon': Icons.pie_chart_outline_rounded, 'color': Colors.indigo, 'screen': const AnalyseArticleScreen()},
       {'title': 'Fiche Article', 'icon': Icons.article_outlined, 'color': Colors.cyan, 'screen': const FicheArticleScreen()},
       {'title': 'Suivi 20/80', 'icon': Icons.star_border_purple500_outlined, 'color': Colors.amber, 'screen': const Suivi2080Screen()},
-      //{'title': 'Mes Articles', 'icon': Icons.inventory, 'color': Colors.blueGrey, 'screen': const MesArticlesScreen()},
+      {'title': 'Suivi Péremption', 'icon': Icons.warning_amber_rounded, 'color': Colors.red.shade700, 'screen': const SuiviPeremptionScreen()},
+
+      // Page 3
       {'title': 'Evolution Stock', 'icon': Icons.ssid_chart_outlined, 'color': Colors.brown, 'screen': const EvolutionStockScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
       {'title': 'Suivi Ajustements', 'icon': Icons.rule_folder_outlined, 'color': Colors.deepPurple, 'screen': const SuiviAjustementScreen()},
-    ];
-
-    final List<Map<String, dynamic>> page3Items = [
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
       {'title': 'Achats Fourn.', 'icon': Icons.shopping_cart_checkout_outlined, 'color': Colors.deepOrange, 'screen': const AchatsFournisseursScreen()},
+      {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
+
+      // Page 4
       {'title': 'Suggestions', 'icon': Icons.lightbulb_outline, 'color': Colors.orange, 'screen': const SuggestionListScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
-      {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
     ];
 
-    // MODIFICATION: Ajustement du nombre de pages et de la grille
-    // On met 7 items sur la première page, et on ajuste la grille
-    final List<List<Map<String, dynamic>>> allPages = [page1Items.sublist(0, 6), [page1Items.last, ...page2Items.sublist(0, 5)], [page2Items.last, ...page3Items]];
-
+    // MODIFICATION: Logique de pagination dynamique
+    const int itemsPerPage = 6;
+    final List<List<Map<String, dynamic>>> allPages = [];
+    for (int i = 0; i < allItems.length; i += itemsPerPage) {
+      allPages.add(allItems.sublist(i, i + itemsPerPage > allItems.length ? allItems.length : i + itemsPerPage));
+    }
 
     return Scaffold(
       appBar: AppBar(
