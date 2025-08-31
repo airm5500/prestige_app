@@ -87,4 +87,17 @@ class DateFormatter {
       return null;
     }
   }
+
+  // AJOUT: Parse la chaîne DD/MM/YYYY HH:mm
+  static DateTime? parseDDMMYYYYHHMM(String? dateString) {
+    if (dateString == null || dateString.isEmpty) {
+      return null;
+    }
+    try {
+      return DateFormat('dd/MM/yyyy HH:mm').parse(dateString);
+    } catch (e) {
+      debugPrint('Error parsing date string (dd/MM/yyyy HH:mm): $dateString. Error: $e');
+      return null;
+    }
+  }
 }

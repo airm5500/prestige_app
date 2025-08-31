@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/fournisseur_model.dart';
+import 'package:prestige_app/screens/liste_produits_retour_screen.dart';
 import 'package:prestige_app/screens/retour_fournisseur_detail_screen.dart';
 import '../models/retour_fournisseur_model.dart';
 import '../utils/constants.dart';
@@ -20,7 +21,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
   List<RetourFournisseur> _retours = [];
   List<Fournisseur> _fournisseurs = [];
   Fournisseur? _selectedFournisseur;
-  String _filtre = 'WITH';
+  String _filtre = 'TOUT'; // MODIFICATION: Valeur par défaut
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
   final TextEditingController _searchController = TextEditingController();
@@ -44,7 +45,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
     final queryParams = {
       'query': _searchController.text,
       'fourId': _selectedFournisseur?.fournisseurId ?? '',
-      'filtre': _filtre,
+      'filtre': _filtre == 'TOUT' ? '' : _filtre, // MODIFICATION: Gère le filtre "TOUT"
       'dtEnd': DateFormatter.toApiFormat(_endDate),
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'page': '1',
@@ -110,6 +111,8 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                         decoration: const InputDecoration(labelText: 'Filtre'),
                         value: _filtre,
                         items: const [
+                          // MODIFICATION: Ajout de l'option "Tout"
+                          DropdownMenuItem(value: 'TOUT', child: Text('Tout')),
                           DropdownMenuItem(value: 'WITH', child: Text('Avec réponse')),
                           DropdownMenuItem(value: 'WITHOUT', child: Text('Sans réponse')),
                         ],
@@ -131,11 +134,40 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                   ),
                 ),
                 const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.search),
-                  label: const Text('Rechercher'),
-                  onPressed: isLoading ? null : _loadRetours,
-                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.search),
+                        label: const Text('Rechercher'),
+                        onPressed: isLoading ? null : _loadRetours,
+                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // AJOUT: Bouton "Liste Produits"
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.list_alt),
+                        label: const Text('Liste Produits'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ListeProduitsRetourScreen(
+                                startDate: _startDate,
+                                endDate: _endDate,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(45),
+                          backgroundColor: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -167,9 +199,40 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Réf. Retour: ${retour.strRefRetourFrs}'),
-                            Text('Réf. Livraison: ${retour.strRefLivraison}'),
-                            Text('Date: ${retour.dtCreated != null ? DateFormatter.toDisplayFormat(retour.dtCreated!) : 'N/A'}'),
-                            Text('Montant: ${currencyFormat.format(retour.montantRetour)}'),
+                            // MODIFICATION: Style des détails
+                            RichText(
+                              text: TextSpan(
+                                style: DefaultTextStyle.of(context).style,
+                                children: <TextSpan>[
+                                  const TextSpan(text: 'Réf. Livraison: '),
+                                  TextSpan(text: retour.strRefLivraison, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                            RichText(
+                              text: TextSpan(
+                                style: DefaultTextStyle.of(context).style,
+                                children: <TextSpan>[
+                                  const TextSpan(text: 'Date: '),
+                                  TextSpan(
+                                    text: retour.dtCreated != null ? DateFormatter.toDisplayFormat(retour.dtCreated!) : 'N/A',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            RichText(
+                              text: TextSpan(
+                                style: DefaultTextStyle.of(context).style,
+                                children: <TextSpan>[
+                                  const TextSpan(text: 'Montant: '),
+                                  TextSpan(
+                                    text: currencyFormat.format(retour.montantRetour),
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                         trailing: ElevatedButton(
