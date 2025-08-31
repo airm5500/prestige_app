@@ -2,10 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:prestige_app/screens/ratios_mensuels_screen.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
-import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../ui_helpers/base_screen_logic.dart';
 
 class TableauBordRatioScreen extends StatefulWidget {
   const TableauBordRatioScreen({super.key});
@@ -14,9 +15,7 @@ class TableauBordRatioScreen extends StatefulWidget {
   State<TableauBordRatioScreen> createState() => _TableauBordRatioScreenState();
 }
 
-// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
 class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with BaseScreenLogic<TableauBordRatioScreen> {
-
   List<TableauBordAchatsVentes> _dataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
@@ -27,8 +26,6 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
   String _resultVenteNormee = "";
   final FocusNode _venteFocusNode = FocusNode();
   final FocusNode _achatFocusNode = FocusNode();
-
-  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   @override
   void initState() {
@@ -57,7 +54,6 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
   }
 
   Future<void> _loadData() async {
-    // On réinitialise la liste avant chaque appel
     setState(() {
       _dataList = [];
     });
@@ -67,16 +63,13 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    // Utilisation de la méthode centralisée 'apiGet'
     final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
 
-    // On traite uniquement le cas où l'appel a réussi et retourne des données
     if (mounted && data is List) {
       setState(() {
         _dataList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
       });
     }
-    // La gestion du chargement et des erreurs est automatique !
   }
 
   void _calculerAchatNorme() {
@@ -102,7 +95,6 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
       setState(() => _resultVenteNormee = "");
     }
   }
-
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
     final DateTime? picked = await showDatePicker(
@@ -177,8 +169,25 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
                 ElevatedButton.icon(
                   icon: const Icon(Icons.analytics_outlined),
                   label: const Text('Afficher les Données'),
-                  onPressed: isLoading ? null : _loadData, // Utilise isLoading du mixin
+                  onPressed: isLoading ? null : _loadData,
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
+                ),
+                const SizedBox(height: 10),
+                // MODIFICATION: Bouton pour voir les ratios mensuels en relief
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: const Text("Voir les Ratios Mensuels de l'Année"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RatiosMensuelsScreen()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(45), // Prend toute la largeur
+                    backgroundColor: Theme.of(context).colorScheme.secondary, // Couleur d'accentuation
+                    foregroundColor: Colors.white, // Texte blanc
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(

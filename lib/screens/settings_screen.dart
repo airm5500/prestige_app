@@ -182,11 +182,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 TextFormField(
                   controller: _timeoutController,
-                  decoration: const InputDecoration(labelText: 'Délai de déconnexion (minutes)', prefixIcon: Icon(Icons.timer_outlined)),
+                  // MODIFICATION: Ajout du helperText
+                  decoration: const InputDecoration(
+                    labelText: 'Délai de déconnexion (minutes)',
+                    prefixIcon: Icon(Icons.timer_outlined),
+                    helperText: 'Saisir 0 pour désactiver le délai.',
+                  ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) return 'Le délai est requis.';
-                    if (int.tryParse(value.trim()) == null) return 'Valeur invalide.';
+                    final int? val = int.tryParse(value.trim());
+                    if (val == null || val < 0) return 'Valeur invalide.';
                     return null;
                   },
                 ),

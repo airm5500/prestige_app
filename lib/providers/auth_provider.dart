@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
-import '../models/officine_model.dart'; // AJOUT
+import '../models/officine_model.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
@@ -15,7 +15,7 @@ class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
 
   AppUser? _user;
-  Officine? _officine; // AJOUT
+  Officine? _officine;
   bool _isLoggedIn = false;
   bool _isLoading = true;
   String? _errorMessage;
@@ -24,7 +24,7 @@ class AuthProvider with ChangeNotifier {
   Stream<String> get events => _eventController.stream;
 
   AppUser? get user => _user;
-  Officine? get officine => _officine; // AJOUT
+  Officine? get officine => _officine;
   bool get isLoggedIn => _isLoggedIn;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -53,6 +53,9 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> checkSessionTimeout(int timeoutInMinutes) async {
+    // MODIFICATION: Si le délai est 0 ou moins, on désactive la vérification.
+    if (timeoutInMinutes <= 0) return;
+
     if (!_isLoggedIn) return;
 
     final prefs = await SharedPreferences.getInstance();
@@ -87,7 +90,6 @@ class AuthProvider with ChangeNotifier {
         _user = AppUser.fromJson(response);
         _isLoggedIn = true;
 
-        // Après une connexion réussie, on met à jour les infos de l'officine
         await fetchAndStoreOfficineInfo(context);
 
         await _saveUserData(_user!);
@@ -106,14 +108,12 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // AJOUT: Récupère et stocke les infos de l'officine
   Future<void> fetchAndStoreOfficineInfo(BuildContext context) async {
     try {
       final data = await _apiService.get(context, AppConstants.officineEndpoint, onSessionInvalid: forceLogout);
       if (data is List && data.isNotEmpty) {
         _officine = Officine.fromJson(data[0]);
         final prefs = await SharedPreferences.getInstance();
-        // On stocke le nom complet pour l'afficher sur l'écran de connexion
         await prefs.setString('officine_name', _officine!.nomComplet);
         notifyListeners();
       }
@@ -165,7 +165,6 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    // On ne supprime pas le nom de l'officine pour le garder sur l'écran de connexion
     await prefs.remove(AppConstants.userDataKey);
   }
 
