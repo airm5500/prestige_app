@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ip_config_provider.dart';
+import 'providers/home_settings_provider.dart'; // Assurez-vous que cet import est présent
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
@@ -21,6 +22,8 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => IpConfigProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        // CORRECTION : La ligne manquante est ici
+        ChangeNotifierProvider(create: (_) => HomeSettingsProvider()),
       ],
       child: const PrestigeApp(),
     ),
@@ -122,7 +125,7 @@ class PrestigeApp extends StatelessWidget {
   }
 }
 
-// Widget pour observer le cycle de vie de l'application
+// ... (le reste du fichier ne change pas)
 class AppLifecycleObserver extends StatefulWidget {
   final Widget child;
   const AppLifecycleObserver({super.key, required this.child});
@@ -138,7 +141,6 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // On écoute les événements de déconnexion ici
     _eventSubscription = Provider.of<AuthProvider>(context, listen: false).events.listen((message) {
       if (mounted) {
         showDialog(
@@ -162,7 +164,7 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _eventSubscription?.cancel(); // Ne pas oublier d'annuler l'écoute
+    _eventSubscription?.cancel();
     super.dispose();
   }
 
@@ -176,12 +178,10 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
 
     switch (state) {
       case AppLifecycleState.resumed:
-      // L'utilisateur revient sur l'application
         debugPrint("App resumed");
         await authProvider.checkSessionTimeout(ipConfigProvider.sessionTimeout);
         break;
       case AppLifecycleState.paused:
-      // L'utilisateur quitte l'application
         debugPrint("App paused");
         if (authProvider.isLoggedIn) {
           final prefs = await SharedPreferences.getInstance();
@@ -201,23 +201,18 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
   }
 }
 
-
-// Widget qui décide quel écran afficher au démarrage
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, child) {
-        // Affiche l'écran de démarrage pendant le chargement initial
         if (auth.isLoading) {
           return const SplashScreen();
         }
-        // Si l'utilisateur est connecté, affiche l'écran d'accueil
         if (auth.isLoggedIn) {
           return const HomeScreen();
         }
-        // Sinon, vérifie la configuration des IP
         else {
           return const IpConfigCheck();
         }
@@ -226,7 +221,6 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-// Widget séparé pour vérifier la configuration IP avant de montrer l'écran de connexion
 class IpConfigCheck extends StatelessWidget {
   const IpConfigCheck({super.key});
   @override

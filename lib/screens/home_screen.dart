@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:prestige_app/providers/home_settings_provider.dart';
+import 'package:prestige_app/screens/personalize_home_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../models/user_model.dart';
@@ -53,49 +55,63 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final ipProvider = Provider.of<IpConfigProvider>(context);
+    final homeSettings = Provider.of<HomeSettingsProvider>(context);
     final AppUser? currentUser = authProvider.user;
 
-    // MODIFICATION: Création d'une seule liste contenant toutes les fonctionnalités
-    final List<Map<String, dynamic>> allItems = [
-      // Page 1
+    final List<Map<String, dynamic>> allFeatures = [
       {'title': 'CA Comptant', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
       {'title': 'CA Crédit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
       {'title': 'Rapport d\'Activité', 'icon': Icons.summarize_outlined, 'color': Colors.cyan, 'screen': const RapportActiviteScreen()},
       {'title': 'Suivi Crédit', 'icon': Icons.request_quote_outlined, 'color': Colors.redAccent, 'screen': const SuiviCreditScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
-
-      // Page 2
       {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},
       {'title': 'Stat TVA', 'icon': Icons.pie_chart, 'color': Colors.orange, 'screen': const StatTvaScreen()},
       {'title': 'Analyse Article', 'icon': Icons.pie_chart_outline_rounded, 'color': Colors.indigo, 'screen': const AnalyseArticleScreen()},
       {'title': 'Fiche Article', 'icon': Icons.article_outlined, 'color': Colors.cyan, 'screen': const FicheArticleScreen()},
       {'title': 'Suivi 20/80', 'icon': Icons.star_border_purple500_outlined, 'color': Colors.amber, 'screen': const Suivi2080Screen()},
       {'title': 'Suivi Péremption', 'icon': Icons.warning_amber_rounded, 'color': Colors.red.shade700, 'screen': const SuiviPeremptionScreen()},
-
-      // Page 3
       {'title': 'Evolution Stock', 'icon': Icons.ssid_chart_outlined, 'color': Colors.brown, 'screen': const EvolutionStockScreen()},
       {'title': 'Valorisation', 'icon': Icons.inventory_2_outlined, 'color': Colors.purple, 'screen': const ValorisationScreen()},
       {'title': 'Suivi Ajustements', 'icon': Icons.rule_folder_outlined, 'color': Colors.deepPurple, 'screen': const SuiviAjustementScreen()},
       {'title': 'Fournisseurs', 'icon': Icons.people_alt_outlined, 'color': Colors.teal, 'screen': const FournisseursScreen()},
       {'title': 'Achats Fourn.', 'icon': Icons.shopping_cart_checkout_outlined, 'color': Colors.deepOrange, 'screen': const AchatsFournisseursScreen()},
       {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
-
-      // Page 4
       {'title': 'Suggestions', 'icon': Icons.lightbulb_outline, 'color': Colors.orange, 'screen': const SuggestionListScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
     ];
 
-    // MODIFICATION: Logique de pagination dynamique
+    // CORRECTION: Logique de tri et de filtrage robuste
+    // 1. On crée une copie de toutes les fonctionnalités
+    List<Map<String, dynamic>> sortedFeatures = List.from(allFeatures);
+
+    // 2. On trie cette liste complète en fonction de l'ordre sauvegardé
+    if (homeSettings.featureOrder.isNotEmpty) {
+      final orderMap = { for (var i = 0; i < homeSettings.featureOrder.length; i++) homeSettings.featureOrder[i] : i };
+      sortedFeatures.sort((a, b) {
+        final indexA = orderMap[a['title']] ?? allFeatures.length;
+        final indexB = orderMap[b['title']] ?? allFeatures.length;
+        return indexA.compareTo(indexB);
+      });
+    }
+
+    // 3. On crée une deuxième liste pour l'affichage en filtrant les éléments désactivés
+    final List<Map<String, dynamic>> enabledAndSortedFeatures = sortedFeatures
+        .where((item) => !homeSettings.disabledFeatures.contains(item['title']))
+        .toList();
+
+    // 4. On pagine la liste finale à afficher
     const int itemsPerPage = 6;
     final List<List<Map<String, dynamic>>> allPages = [];
-    for (int i = 0; i < allItems.length; i += itemsPerPage) {
-      allPages.add(allItems.sublist(i, i + itemsPerPage > allItems.length ? allItems.length : i + itemsPerPage));
+    if (enabledAndSortedFeatures.isNotEmpty) {
+      for (int i = 0; i < enabledAndSortedFeatures.length; i += itemsPerPage) {
+        allPages.add(enabledAndSortedFeatures.sublist(i, i + itemsPerPage > enabledAndSortedFeatures.length ? enabledAndSortedFeatures.length : i + itemsPerPage));
+      }
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Accueil"),
+        title: const Text("Prestige Mobile - v3"),
         actions: [
           Tooltip(
             message: ipProvider.useLocalIp ? 'Passer en mode Distant' : 'Passer en mode Local',
@@ -114,6 +130,19 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.settings_applications_outlined),
             tooltip: 'Configuration IP',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Personnaliser l\'accueil',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  // On passe la liste complète et triée à l'écran de personnalisation
+                  builder: (context) => PersonalizeHomeScreen(allItems: sortedFeatures),
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -135,7 +164,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Expanded(
-            child: PageView.builder(
+            child: allPages.isEmpty
+                ? const Center(child: Text("Aucune fonctionnalité activée.\nCliquez sur l'icône ✏️ pour en activer.", textAlign: TextAlign.center,))
+                : PageView.builder(
               controller: _pageController,
               itemCount: allPages.length,
               onPageChanged: (index) {
@@ -148,10 +179,11 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(allPages.length, (index) => _buildPageIndicator(index == _currentPage)),
-          ),
+          if (allPages.isNotEmpty)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(allPages.length, (index) => _buildPageIndicator(index == _currentPage)),
+            ),
           const SizedBox(height: 16),
         ],
       ),
