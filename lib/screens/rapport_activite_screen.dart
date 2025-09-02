@@ -23,6 +23,7 @@ class RapportActiviteScreen extends StatefulWidget {
 class _RapportActiviteScreenState extends State<RapportActiviteScreen> with BaseScreenLogic<RapportActiviteScreen> {
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
+  int? _selectedMonth; // AJOUT
 
   DashboardRecap? _dashboardData;
   List<CreditRecap> _credits = [];
@@ -30,7 +31,6 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
   List<ReglementRecap> _reglements = [];
 
   Future<void> _loadRapport() async {
-    // CORRECTION: Activation manuelle du loader pour gérer les appels multiples
     setState(() {
       isLoading = true;
       _dashboardData = null;
@@ -47,7 +47,6 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
       };
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // CORRECTION: On appelle directement le service pour éviter la gestion du loader par le mixin
       final results = await Future.wait([
         apiService.get(context, AppConstants.dashboardRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
         apiService.get(context, AppConstants.creditsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
@@ -79,7 +78,6 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
       }
     } finally {
       if (mounted) {
-        // CORRECTION: On désactive le loader manuellement à la fin de toutes les opérations
         setState(() => isLoading = false);
       }
     }
@@ -95,7 +93,14 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
             padding: const EdgeInsets.all(12.0),
             child: Column(
               children: [
-                _buildDatePicker(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: _buildDatePicker(context)),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 1, child: _buildMonthPicker()),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.bar_chart),
@@ -240,39 +245,72 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
             _endDate = picked;
             if (_startDate.isAfter(_endDate)) _startDate = _endDate;
           }
+          _selectedMonth = null;
         });
       }
     }
   }
 
   Widget _buildDatePicker(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadRapport();
+        }
+      },
     );
   }
 }

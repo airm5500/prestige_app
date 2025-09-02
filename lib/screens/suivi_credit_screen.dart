@@ -21,6 +21,7 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
   final TextEditingController _searchController = TextEditingController();
+  int? _selectedMonth;
 
   @override
   void initState() {
@@ -43,15 +44,13 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'dtEnd': DateFormatter.toApiFormat(_endDate),
-      // Le filtre par 'query' est maintenant géré localement pour plus de souplesse
     };
 
-    //final data = await apiGet(AppConstants.suiviCreditEndpoint, queryParams: queryParams, apiContext: ApiContext.prestige);
     final data = await apiGet(AppConstants.suiviCreditEndpoint, queryParams: queryParams);
     if (mounted && data is Map<String, dynamic> && data['data'] is List) {
       setState(() {
         _dataList = (data['data'] as List).map((item) => SuiviCredit.fromJson(item)).toList();
-        _filterLocally(); // Appliquer le filtre initial
+        _filterLocally();
       });
     }
   }
@@ -82,33 +81,66 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
           _endDate = picked;
           if (_startDate.isAfter(_endDate)) _startDate = _endDate;
         }
+        _selectedMonth = null;
       });
     }
   }
 
   Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(onPressed: () => _selectDate(context, true), child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(onPressed: () => _selectDate(context, false), child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
-            ],
-          ),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(onPressed: () => _selectDate(context, true), child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(onPressed: () => _selectDate(context, false), child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadData();
+        }
+      },
     );
   }
 
@@ -126,8 +158,14 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
             padding: const EdgeInsets.all(12.0),
             child: Column(
               children: [
-                _buildDatePicker(context),
-                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: _buildDatePicker(context)),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 1, child: _buildMonthPicker()),
+                  ],
+                ),
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -169,7 +207,6 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
           else if (_filteredDataList.isEmpty)
               Expanded(child: Center(child: Text(_dataList.isNotEmpty ? 'Aucun résultat pour votre filtre.' : 'Aucune donnée à afficher.')))
             else
-            // CORRECTION: Remplacement du DataTable par une ListView de Cards
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _loadData,
@@ -212,7 +249,6 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
     );
   }
 
-  // Widget helper pour afficher une ligne de détail
   Widget _buildDetailRow(String label, String value, {bool highlight = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
