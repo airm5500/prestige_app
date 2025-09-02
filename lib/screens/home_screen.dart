@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final AppUser? currentUser = authProvider.user;
 
     final List<Map<String, dynamic>> allFeatures = [
-      {'title': 'CA Comptant', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
+      {'title': 'Détail CA', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
       {'title': 'CA Crédit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
       {'title': 'Rapport d\'Activité', 'icon': Icons.summarize_outlined, 'color': Colors.cyan, 'screen': const RapportActiviteScreen()},

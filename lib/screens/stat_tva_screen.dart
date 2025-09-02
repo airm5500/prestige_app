@@ -20,9 +20,9 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
   String _typeVente = 'TOUT';
+  int? _selectedMonth;
 
   Future<void> _loadStats() async {
-    // On réinitialise la liste avant chaque appel
     setState(() {
       _stats = [];
     });
@@ -33,7 +33,6 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
       'typeVente': _typeVente,
     };
 
-    // CORRECTION: Utilisation de la méthode centralisée pour l'API V3
     final data = await apiGetV3(AppConstants.statTvaEndpoint, queryParams: queryParams);
 
     if (mounted && data is Map && data['data'] is List) {
@@ -48,8 +47,6 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Statistiques TVA'),
@@ -60,7 +57,15 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
             padding: const EdgeInsets.all(12.0),
             child: Column(
               children: [
-                _buildDatePicker(context),
+                // MODIFICATION: Réorganisation des filtres
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: _buildDatePicker(context)),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 1, child: _buildMonthPicker()),
+                  ],
+                ),
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Type de Vente'),
                   value: _typeVente,
@@ -115,8 +120,8 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        ..._buildLegend(currencyFormat),
+                        const SizedBox(height: 24),
+                        _buildSummaryTable(),
                       ],
                     ),
                   ),
@@ -143,25 +148,51 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
     }).toList();
   }
 
-  List<Widget> _buildLegend(NumberFormat currencyFormat) {
-    return _stats.map((stat) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Row(
+  Widget _buildSummaryTable() {
+    final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: '', decimalDigits: 0);
+    final totalHt = _stats.fold<double>(0, (prev, stat) => prev + stat.totalHt);
+    final totalTva = _stats.fold<double>(0, (prev, stat) => prev + stat.totalTva);
+    final totalTtc = _stats.fold<double>(0, (prev, stat) => prev + stat.totalTtc);
+
+    const cellStyle = TextStyle(fontSize: 13.0);
+    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 13.0);
+    const totalStyle = TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 13.0);
+
+    return Table(
+      columnWidths: const {
+        0: IntrinsicColumnWidth(),
+        1: FlexColumnWidth(),
+        2: FlexColumnWidth(),
+        3: FlexColumnWidth(),
+      },
+      border: TableBorder(horizontalInside: BorderSide(color: Colors.grey.shade300, width: 1)),
+      children: [
+        const TableRow(
           children: [
-            Container(
-              width: 16,
-              height: 16,
-              color: _getColorForTaux(stat.taux),
-            ),
-            const SizedBox(width: 8),
-            Text('TVA ${stat.taux}%:'),
-            const Spacer(),
-            Text(currencyFormat.format(stat.totalTtc), style: const TextStyle(fontWeight: FontWeight.bold)),
+            Padding(padding: EdgeInsets.all(8.0), child: Text('Taux', style: headerStyle)),
+            Padding(padding: EdgeInsets.all(8.0), child: Text('HT', style: headerStyle, textAlign: TextAlign.right)),
+            Padding(padding: EdgeInsets.all(8.0), child: Text('TVA', style: headerStyle, textAlign: TextAlign.right)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text('TTC', style: headerStyle, textAlign: TextAlign.right)),
           ],
         ),
-      );
-    }).toList();
+        ..._stats.map((stat) => TableRow(
+          children: [
+            Padding(padding: const EdgeInsets.all(8.0), child: Text('${stat.taux} %', style: cellStyle)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text(currencyFormat.format(stat.totalHt), textAlign: TextAlign.right, style: cellStyle)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text(currencyFormat.format(stat.totalTva), textAlign: TextAlign.right, style: cellStyle)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text(currencyFormat.format(stat.totalTtc), textAlign: TextAlign.right, style: cellStyle)),
+          ],
+        )),
+        TableRow(
+          children: [
+            const Padding(padding: EdgeInsets.all(8.0), child: Text('TOTAL:', style: totalStyle)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text(currencyFormat.format(totalHt), style: totalStyle, textAlign: TextAlign.right)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text(currencyFormat.format(totalTva), style: totalStyle, textAlign: TextAlign.right)),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text(currencyFormat.format(totalTtc), style: totalStyle, textAlign: TextAlign.right)),
+          ],
+        ),
+      ],
+    );
   }
 
   Color _getColorForTaux(int taux) {
@@ -195,40 +226,73 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
             _endDate = picked;
             if (_startDate.isAfter(_endDate)) _startDate = _endDate;
           }
+          _selectedMonth = null;
         });
       }
     }
   }
 
   Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'), // Libellé simplifié
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadStats(); // Recherche automatique
+        }
+      },
     );
   }
 }
