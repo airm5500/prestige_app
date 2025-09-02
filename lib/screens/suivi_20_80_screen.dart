@@ -19,6 +19,7 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
   final TextEditingController _limitController = TextEditingController(text: '50');
+  int? _selectedMonth;
 
   @override
   void dispose() {
@@ -27,6 +28,10 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
   }
 
   Future<void> _loadData() async {
+    setState(() {
+      _dataList = [];
+    });
+
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'dtEnd': DateFormatter.toApiFormat(_endDate),
@@ -51,7 +56,6 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
     }
   }
 
-  // AJOUT: Widget d'aide pour construire les lignes de détail
   Widget _buildDetailRow(String label, String value, {TextStyle? valueStyle}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -64,6 +68,94 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: isStartDate ? _startDate : _endDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      locale: const Locale('fr', 'FR'),
+    );
+    if (picked != null) {
+      if (mounted) {
+        setState(() {
+          if (isStartDate) {
+            _startDate = picked;
+            if (_endDate.isBefore(_startDate)) _endDate = _startDate;
+          } else {
+            _endDate = picked;
+            if (_startDate.isAfter(_endDate)) _startDate = _endDate;
+          }
+          _selectedMonth = null;
+        });
+      }
+    }
+  }
+
+  Widget _buildDatePicker(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadData();
+        }
+      },
     );
   }
 
@@ -81,7 +173,14 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
             padding: const EdgeInsets.all(12.0),
             child: Column(
               children: [
-                _buildDatePicker(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: _buildDatePicker(context)),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 1, child: _buildMonthPicker()),
+                  ],
+                ),
                 TextFormField(
                   controller: _limitController,
                   decoration: const InputDecoration(
@@ -130,7 +229,6 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
                             Text(item.libelle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                             const SizedBox(height: 8),
                             _buildDetailRow('CIP', item.cip),
-                            // MODIFICATION: Application des styles demandés
                             _buildDetailRow(
                               'Quantité Vendue',
                               '${item.quantiteVendue}',
@@ -155,61 +253,6 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
               ),
         ],
       ),
-    );
-  }
-
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStartDate ? _startDate : _endDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      locale: const Locale('fr', 'FR'),
-    );
-    if (picked != null) {
-      if (mounted) {
-        setState(() {
-          if (isStartDate) {
-            _startDate = picked;
-            if (_endDate.isBefore(_startDate)) _endDate = _startDate;
-          } else {
-            _endDate = picked;
-            if (_startDate.isAfter(_endDate)) _startDate = _endDate;
-          }
-        });
-      }
-    }
-  }
-
-  Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

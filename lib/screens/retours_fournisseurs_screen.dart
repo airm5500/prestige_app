@@ -1,10 +1,15 @@
 // lib/screens/retours_fournisseurs_screen.dart
 
+import 'dart:io';
+import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:prestige_app/models/fournisseur_model.dart';
+import 'package:prestige_app/models/suggestion_item_model.dart';
 import 'package:prestige_app/screens/liste_produits_retour_screen.dart';
 import 'package:prestige_app/screens/retour_fournisseur_detail_screen.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/retour_fournisseur_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
@@ -21,10 +26,11 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
   List<RetourFournisseur> _retours = [];
   List<Fournisseur> _fournisseurs = [];
   Fournisseur? _selectedFournisseur;
-  String _filtre = 'TOUT'; // MODIFICATION: Valeur par défaut
+  String _filtre = 'TOUT';
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
   final TextEditingController _searchController = TextEditingController();
+  int? _selectedMonth;
 
   @override
   void initState() {
@@ -42,10 +48,14 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
   }
 
   Future<void> _loadRetours() async {
+    setState(() {
+      _retours = [];
+    });
+
     final queryParams = {
       'query': _searchController.text,
       'fourId': _selectedFournisseur?.fournisseurId ?? '',
-      'filtre': _filtre == 'TOUT' ? '' : _filtre, // MODIFICATION: Gère le filtre "TOUT"
+      'filtre': _filtre == 'TOUT' ? '' : _filtre,
       'dtEnd': DateFormatter.toApiFormat(_endDate),
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'page': '1',
@@ -65,6 +75,94 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
     }
   }
 
+  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: isStartDate ? _startDate : _endDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      locale: const Locale('fr', 'FR'),
+    );
+    if (picked != null) {
+      if (mounted) {
+        setState(() {
+          if (isStartDate) {
+            _startDate = picked;
+            if (_endDate.isBefore(_startDate)) _endDate = _startDate;
+          } else {
+            _endDate = picked;
+            if (_startDate.isAfter(_endDate)) _startDate = _endDate;
+          }
+          _selectedMonth = null;
+        });
+      }
+    }
+  }
+
+  Widget _buildDatePicker(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadRetours();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0);
@@ -79,7 +177,14 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
             padding: const EdgeInsets.all(12.0),
             child: Column(
               children: [
-                _buildDatePicker(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: _buildDatePicker(context)),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 1, child: _buildMonthPicker()),
+                  ],
+                ),
                 Row(
                   children: [
                     Expanded(
@@ -111,7 +216,6 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                         decoration: const InputDecoration(labelText: 'Filtre'),
                         value: _filtre,
                         items: const [
-                          // MODIFICATION: Ajout de l'option "Tout"
                           DropdownMenuItem(value: 'TOUT', child: Text('Tout')),
                           DropdownMenuItem(value: 'WITH', child: Text('Avec réponse')),
                           DropdownMenuItem(value: 'WITHOUT', child: Text('Sans réponse')),
@@ -145,7 +249,6 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // AJOUT: Bouton "Liste Produits"
                     Expanded(
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.list_alt),
@@ -199,7 +302,6 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Réf. Retour: ${retour.strRefRetourFrs}'),
-                            // MODIFICATION: Style des détails
                             RichText(
                               text: TextSpan(
                                 style: DefaultTextStyle.of(context).style,
@@ -253,65 +355,6 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
               ),
         ],
       ),
-    );
-  }
-
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStartDate ? _startDate : _endDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      locale: const Locale('fr', 'FR'),
-    );
-    if (picked != null) {
-      if (mounted) {
-        setState(() {
-          if (isStartDate) {
-            _startDate = picked;
-            if (_endDate.isBefore(_startDate)) {
-              _endDate = _startDate;
-            }
-          } else {
-            _endDate = picked;
-            if (_startDate.isAfter(_endDate)) {
-              _startDate = _endDate;
-            }
-          }
-        });
-      }
-    }
-  }
-
-  Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

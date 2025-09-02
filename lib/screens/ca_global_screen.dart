@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/ca_global_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
-import '../ui_helpers/base_screen_logic.dart'; // Importer notre logique centralisée
+import '../ui_helpers/base_screen_logic.dart';
 
 class CaGlobalScreen extends StatefulWidget {
   const CaGlobalScreen({super.key});
@@ -14,18 +14,14 @@ class CaGlobalScreen extends StatefulWidget {
   State<CaGlobalScreen> createState() => _CaGlobalScreenState();
 }
 
-// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
 class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<CaGlobalScreen> {
 
   List<CaGlobal> _caGlobalDataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
-
-  // Les variables 'isLoading' et 'errorMessage' viennent maintenant du mixin.
-  // Plus besoin de les déclarer ici !
+  int? _selectedMonth;
 
   Future<void> _loadCaGlobal() async {
-    // On réinitialise la liste avant chaque appel
     setState(() {
       _caGlobalDataList = [];
     });
@@ -35,14 +31,11 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    // Utilisation de la méthode centralisée 'apiGet'
     final data = await apiGet(AppConstants.caAllEndpoint, queryParams: queryParams);
 
-    // On traite uniquement le cas où l'appel a réussi et retourne des données
     if (mounted && data is List) {
       var tempList = data.map((item) => CaGlobal.fromJson(item)).toList();
 
-      // TRI: Ajout du tri par date ascendante
       tempList.sort((a, b) {
         if (a.mvtDate == null && b.mvtDate == null) return 0;
         if (a.mvtDate == null) return 1;
@@ -54,7 +47,6 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
         _caGlobalDataList = tempList;
       });
     }
-    // La gestion de l'état de chargement et des erreurs est automatique !
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -75,40 +67,73 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
             _endDate = picked;
             if (_startDate.isAfter(_endDate)) _startDate = _endDate;
           }
+          _selectedMonth = null;
         });
       }
     }
   }
 
   Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadCaGlobal();
+        }
+      },
     );
   }
 
@@ -195,7 +220,6 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,12 +240,19 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
                   padding: const EdgeInsets.all(12.0),
                   child: Column(
                     children: [
-                      _buildDatePicker(context),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 2, child: _buildDatePicker(context)),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 1, child: _buildMonthPicker()),
+                        ],
+                      ),
                       const SizedBox(height: 10),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.assessment_outlined),
                         label: const Text('Afficher le CA Global'),
-                        onPressed: isLoading ? null : _loadCaGlobal, // Utilise 'isLoading' du mixin
+                        onPressed: isLoading ? null : _loadCaGlobal,
                         style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                       ),
                     ],

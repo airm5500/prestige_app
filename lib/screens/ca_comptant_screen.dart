@@ -34,11 +34,10 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
   List<CaComptant> _caComptantDataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
+  int? _selectedMonth;
   final List<Color> _pieColors = [
     Colors.blue.shade400, Colors.green.shade400, Colors.orange.shade400, Colors.purple.shade400, Colors.red.shade400, Colors.teal.shade400, Colors.pink.shade300
   ];
-
-  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadCaComptant() async {
     setState(() => _caComptantDataList = []);
@@ -80,40 +79,73 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
             _endDate = picked;
             if (_startDate.isAfter(_endDate)) _startDate = _endDate;
           }
+          _selectedMonth = null;
         });
       }
     }
   }
 
   Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, true),
-                child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(
-                onPressed: () => _selectDate(context, false),
-                child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+          });
+          _loadCaComptant();
+        }
+      },
     );
   }
 
@@ -289,7 +321,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
     List<FlSpot> spotsCredit = [];
     List<FlSpot> spotsMobile = [];
     List<FlSpot> spotsCB = [];
-    double maxY = 0; // CORRECTION: `minY` est retiré d'ici, et défini à 0 dans le graphique.
+    double maxY = 0;
 
     for (int i = 0; i < _caComptantDataList.length; i++) {
       final item = _caComptantDataList[i];
@@ -350,7 +382,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
             borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade400)),
             minX: 0,
             maxX: (_caComptantDataList.length == 1 ? 1 : (_caComptantDataList.length -1)).toDouble().clamp(0, double.infinity),
-            minY: 0, // minY est toujours 0
+            minY: 0,
             maxY: maxY == 0 ? 10 : maxY * 1.1,
             lineBarsData: [
               _lineChartBarData(spotsEsp, _pieColors[0], 'Espèces'),
@@ -393,7 +425,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('CA Comptant')),
+      appBar: AppBar(title: const Text('Détail CA')),
       body: RefreshIndicator(
         onRefresh: _loadCaComptant,
         child: SingleChildScrollView(
@@ -407,9 +439,16 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
                   padding: const EdgeInsets.all(12.0),
                   child: Column(
                     children: [
-                      _buildDatePicker(context),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 2, child: _buildDatePicker(context)),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 1, child: _buildMonthPicker()),
+                        ],
+                      ),
                       const SizedBox(height: 10),
-                      ElevatedButton.icon(icon: const Icon(Icons.bar_chart_outlined), label: const Text('Afficher le CA Comptant'), onPressed: isLoading ? null : _loadCaComptant, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45))),
+                      ElevatedButton.icon(icon: const Icon(Icons.bar_chart_outlined), label: const Text('Afficher le Détail CA'), onPressed: isLoading ? null : _loadCaComptant, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45))),
                     ],
                   ),
                 ),
@@ -445,7 +484,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
                             children: [
-                              Text('Répartition du CA Comptant (Période)', style: theme.textTheme.titleMedium?.copyWith(color: theme.primaryColorDark)),
+                              Text('Répartition du CA (Période)', style: theme.textTheme.titleMedium?.copyWith(color: theme.primaryColorDark)),
                               const SizedBox(height: 16),
                               _buildPieChartSection(),
                               const SizedBox(height: 24),
@@ -482,7 +521,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
                 else
                   const Center(child: Padding(
                     padding: EdgeInsets.only(top:30.0),
-                    child: Text('Aucun CA comptant trouvé pour la période sélectionnée.', textAlign: TextAlign.center),
+                    child: Text('Aucun CA trouvé pour la période sélectionnée.', textAlign: TextAlign.center),
                   )),
             ],
           ),

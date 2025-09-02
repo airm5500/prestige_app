@@ -1,10 +1,11 @@
 // lib/screens/tableau_bord_analyse_menu_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
-import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../ui_helpers/base_screen_logic.dart';
 import 'evolution_comparative_screen.dart';
 import 'evolution_achats_screen.dart';
 import 'evolution_ventes_screen.dart';
@@ -16,18 +17,15 @@ class TableauBordAnalyseMenuScreen extends StatefulWidget {
   State<TableauBordAnalyseMenuScreen> createState() => _TableauBordAnalyseMenuScreenState();
 }
 
-// On ajoute 'with BaseScreenLogic' pour hériter des fonctionnalités
 class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScreen> with BaseScreenLogic<TableauBordAnalyseMenuScreen> {
 
   List<TableauBordAchatsVentes> _dataList = [];
   DateTime _startDate = DateFormatter.getDefaultStartDate();
   DateTime _endDate = DateFormatter.getDefaultEndDate();
   bool _dataLoaded = false;
-
-  // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
+  int? _selectedMonth;
 
   Future<void> _loadDataForAnalyses() async {
-    // On réinitialise l'état avant chaque appel
     setState(() {
       _dataList = [];
       _dataLoaded = false;
@@ -38,7 +36,6 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
       'dtEnd': DateFormatter.toApiFormat(_endDate),
     };
 
-    // Utilisation de la méthode centralisée 'apiGet'
     final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
 
     if (mounted && data is List) {
@@ -59,7 +56,6 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
         }
       });
     }
-    // La gestion du chargement et des erreurs est automatique !
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -75,33 +71,68 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
         }
         _dataLoaded = false;
         _dataList = [];
+        _selectedMonth = null;
       });
     }
   }
 
   Widget _buildDatePicker(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de début:", style: TextStyle(fontSize: 12)),
-              TextButton(onPressed: () => _selectDate(context, true), child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Date de fin:", style: TextStyle(fontSize: 12)),
-              TextButton(onPressed: () => _selectDate(context, false), child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
-            ],
-          ),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de début:", style: TextStyle(fontSize: 12)),
+                  TextButton(onPressed: () => _selectDate(context, true), child: Text(DateFormatter.toDisplayFormat(_startDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Date de fin:", style: TextStyle(fontSize: 12)),
+                  TextButton(onPressed: () => _selectDate(context, false), child: Text(DateFormatter.toDisplayFormat(_endDate), style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMonthPicker() {
+    final now = DateTime.now();
+    final months = List.generate(now.month, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Mois'),
+      value: _selectedMonth,
+      hint: const Text('Choisir...'),
+      items: months.map((month) {
+        return DropdownMenuItem<int>(
+          value: month,
+          child: Text(DateFormat.MMMM('fr_FR').format(DateTime(now.year, month))),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedMonth = value;
+            final year = now.year;
+            _startDate = DateTime(year, value, 1);
+            _endDate = DateTime(year, value + 1, 0);
+            _dataLoaded = false;
+            _dataList = [];
+          });
+          _loadDataForAnalyses();
+        }
+      },
     );
   }
 
@@ -121,7 +152,14 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   children: [
-                    _buildDatePicker(context),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 2, child: _buildDatePicker(context)),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 1, child: _buildMonthPicker()),
+                      ],
+                    ),
                     const SizedBox(height: 10),
                     ElevatedButton.icon(icon: const Icon(Icons.refresh_outlined), label: const Text('Charger les Données pour Analyse'), onPressed: isLoading ? null : _loadDataForAnalyses, style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45))),
                   ],
