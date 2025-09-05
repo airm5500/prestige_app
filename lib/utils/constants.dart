@@ -60,6 +60,8 @@ class AppConstants {
   static const String creditsRecapEndpoint = '/recap/credits';
   static const String creditTotalsRecapEndpoint = '/recap/credits/totaux';
   static const String reglementsRecapEndpoint = '/recap/reglements';
+  static const String etatControleAchatEndpoint = '/etat-control-bon/list-annuelle'; // AJOUT
+  static const String groupeGrossisteEndpoint = '/groupegrossiste';
 
   // Default Values
   static const String defaultLocalIp = '';
