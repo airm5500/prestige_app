@@ -35,6 +35,7 @@ import 'rapport_activite_screen.dart';
 import 'etat_controle_achat_screen.dart';
 import 'analyse_saisie_bl_screen.dart';
 import 'fichier_journal_screen.dart';
+import 'marge_produits_vendus_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -68,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Rapport d\'Activité', 'icon': Icons.summarize_outlined, 'color': Colors.cyan, 'screen': const RapportActiviteScreen()},
       {'title': 'Fichier Journal', 'icon': Icons.history_edu_outlined, 'color': Colors.brown, 'screen': const FichierJournalScreen()},
       {'title': 'Etat Contrôle Achat', 'icon': Icons.fact_check_outlined, 'color': Colors.lightGreen, 'screen': const EtatControleAchatScreen()},
+      {'title': 'Marge Produits Vendus', 'icon': Icons.percent_outlined, 'color': Colors.teal, 'screen': const MargeProduitsVendusScreen()},
       {'title': 'Analyse Saisies BL', 'icon': Icons.document_scanner_outlined, 'color': Colors.indigoAccent, 'screen': const AnalyseSaisieBlScreen()},
       {'title': 'Suivi Crédit', 'icon': Icons.request_quote_outlined, 'color': Colors.redAccent, 'screen': const SuiviCreditScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
