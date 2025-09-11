@@ -33,6 +33,7 @@ import 'suivi_peremption_screen.dart';
 import 'suggestion_list_screen.dart';
 import 'rapport_activite_screen.dart';
 import 'etat_controle_achat_screen.dart';
+import 'analyse_saisie_bl_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -65,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
       {'title': 'Rapport d\'Activité', 'icon': Icons.summarize_outlined, 'color': Colors.cyan, 'screen': const RapportActiviteScreen()},
       {'title': 'Etat Contrôle Achat', 'icon': Icons.fact_check_outlined, 'color': Colors.lightGreen, 'screen': const EtatControleAchatScreen()},
+      {'title': 'Analyse Saisies BL', 'icon': Icons.document_scanner_outlined, 'color': Colors.indigoAccent, 'screen': const AnalyseSaisieBlScreen()},
       {'title': 'Suivi Crédit', 'icon': Icons.request_quote_outlined, 'color': Colors.redAccent, 'screen': const SuiviCreditScreen()},
       {'title': 'Tableau: Analyses', 'icon': Icons.analytics_outlined, 'color': Colors.pinkAccent, 'screen': const TableauBordAnalyseMenuScreen()},
       {'title': 'Tableau: Ratios', 'icon': Icons.compare_arrows_outlined, 'color': Colors.lime.shade700, 'screen': const TableauBordRatioScreen()},

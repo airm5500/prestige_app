@@ -62,6 +62,7 @@ class AppConstants {
   static const String reglementsRecapEndpoint = '/recap/reglements';
   static const String etatControleAchatEndpoint = '/etat-control-bon/list-annuelle'; // AJOUT
   static const String groupeGrossisteEndpoint = '/groupegrossiste';
+  static const String analyseSaisieBlEndpoint = '/etat-control-bon/list';
 
   // Default Values
   static const String defaultLocalIp = '';
