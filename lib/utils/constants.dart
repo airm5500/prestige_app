@@ -64,6 +64,10 @@ class AppConstants {
   static const String groupeGrossisteEndpoint = '/groupegrossiste';
   static const String analyseSaisieBlEndpoint = '/etat-control-bon/list';
 
+  static const String fichierJournalEndpoint = '/common/logs'; // AJOUT
+  static const String logFiltresEndpoint = '/common/log-filtres'; // AJOUT
+  static const String logUsersEndpoint = '/common/users'; // AJOUT
+
   // Default Values
   static const String defaultLocalIp = '';
   static const String defaultRemoteIp = '';
