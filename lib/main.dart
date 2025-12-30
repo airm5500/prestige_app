@@ -14,6 +14,7 @@ import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'utils/constants.dart';
+import 'services/api_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         // CORRECTION : La ligne manquante est ici
         ChangeNotifierProvider(create: (_) => HomeSettingsProvider()),
+        Provider(create: (_) => ApiService()),
       ],
       child: const PrestigeApp(),
     ),

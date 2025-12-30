@@ -36,7 +36,7 @@ import 'etat_controle_achat_screen.dart';
 import 'analyse_saisie_bl_screen.dart';
 import 'fichier_journal_screen.dart';
 import 'marge_produits_vendus_screen.dart';
-
+import 'etat_stock_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -87,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Retours Fournisseurs', 'icon': Icons.assignment_return_outlined, 'color': Colors.blueGrey, 'screen': const RetoursFournisseursScreen()},
       {'title': 'Suggestions', 'icon': Icons.lightbulb_outline, 'color': Colors.orange, 'screen': const SuggestionListScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
+      {'title': 'Etat de Stock', 'icon': Icons.inventory_2_outlined, 'color': Colors.blue, 'screen': const EtatStockScreen()},
     ];
 
     // CORRECTION: Logique de tri et de filtrage robuste

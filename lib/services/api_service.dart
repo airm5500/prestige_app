@@ -7,9 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../providers/ip_config_provider.dart';
 import '../utils/constants.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// Assurez-vous que ces fichiers existent bien dans votre projet
+import '../models/common_data_model.dart';
+import '../models/etat_stock_article_model.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -20,18 +24,16 @@ class ApiService {
 
   String? _sessionCookie;
 
-  // --- CORRECTION: La fonction ping accepte maintenant le nom de l'application ---
+  // --- INFRASTRUCTURE DE BASE ---
+
   static Future<bool> ping(String ip, String port, String appName) async {
     if (ip.trim().isEmpty) {
       return false;
     }
-    // On construit l'URL de base pour le ping
     final url = Uri.parse('http://$ip:$port/$appName');
-
     try {
-      // http.head est léger car il ne télécharge que les en-têtes.
       await http.head(url).timeout(const Duration(seconds: 5));
-      return true; // Si la requête réussit, le serveur est accessible.
+      return true;
     } catch (e) {
       debugPrint("Ping to $url failed: $e");
       return false;
@@ -68,6 +70,8 @@ class ApiService {
     }
     return headers;
   }
+
+  // --- MÉTHODES GÉNÉRIQUES HTTP ---
 
   Future<Map<String, dynamic>> post(BuildContext context, String endpoint, Map<String, dynamic> body, {VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
@@ -112,7 +116,6 @@ class ApiService {
     }
   }
 
-  // AJOUT: Nouvelle méthode pour les requêtes GET V3
   Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final ip = ipProvider.useLocalIp ? ipProvider.localIp : ipProvider.remoteIp;
@@ -137,7 +140,6 @@ class ApiService {
     }
   }
 
-  // --- AJOUT: Nouvelle méthode pour les requêtes DELETE ---
   Future<Map<String, dynamic>> delete(BuildContext context, String endpoint, {VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final baseUrl = ipProvider.activeBaseUrl;
@@ -169,17 +171,162 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
       try {
+        // Décodage UTF8 manuel pour éviter les problèmes d'accent
         final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decodedBody is Map<String, dynamic> && decodedBody['success'] == false && decodedBody.containsKey('message') && decodedBody['message'] == 'Veuillez vous connecter') {
+
+        // Vérification spécifique de certains backends qui renvoient 200 OK mais success:false
+        if (decodedBody is Map<String, dynamic> &&
+            decodedBody['success'] == false &&
+            decodedBody.containsKey('message') &&
+            decodedBody['message'] == 'Veuillez vous connecter') {
           onSessionInvalid?.call();
           throw Exception("Session invalide ou expirée. Veuillez vous reconnecter.");
         }
         return decodedBody;
       } catch (e) {
-        throw Exception('Réponse invalide du serveur.');
+        debugPrint("Erreur de décodage JSON: $e");
+        throw Exception('Réponse invalide du serveur (JSON incorrect).');
       }
     } else {
+      debugPrint("Erreur Serveur ${response.statusCode}: ${response.body}");
       throw Exception('Erreur du serveur (${response.statusCode}).');
+    }
+  }
+
+  // --- MÉTHODES MÉTIER SPÉCIFIQUES (ETAT DE STOCK) ---
+
+  // Récupérer la liste des rayons (Emplacements)
+  Future<List<CommonData>> getRayons(BuildContext context) async {
+    try {
+      debugPrint("--- [ApiService] APPEL API RAYONS ---");
+      final response = await get(
+        context,
+        '/common/rayons',
+        queryParams: {
+          'limit': '9999',
+          'page': '1',
+          'start': '0',
+        },
+      );
+
+      debugPrint("--- [ApiService] Réponse Rayons brute: $response");
+
+      if (response != null) {
+        List<dynamic> listData = [];
+
+        // Gestion robuste des différents formats de réponse possibles
+        if (response is List) {
+          listData = response;
+        } else if (response is Map<String, dynamic>) {
+          if (response.containsKey('data') && response['data'] is List) {
+            listData = response['data'];
+          } else if (response.containsKey('items') && response['items'] is List) {
+            listData = response['items'];
+          }
+        }
+
+        debugPrint("--- [ApiService] Nombre de rayons trouvés: ${listData.length}");
+        return listData.map((e) => CommonData.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e, stackTrace) {
+      debugPrint('ERREUR CRITIQUE getRayons: $e');
+      debugPrint('Stacktrace: $stackTrace');
+      return [];
+    }
+  }
+
+  // Récupérer la liste des grossistes
+  Future<List<CommonData>> getGrossistes(BuildContext context) async {
+    try {
+      final response = await get(
+        context,
+        '/common/grossiste',
+        queryParams: {
+          'limit': '9999',
+          'page': '1',
+          'start': '0',
+        },
+      );
+
+      if (response != null) {
+        List<dynamic> listData = [];
+        if (response is List) {
+          listData = response;
+        } else if (response is Map<String, dynamic>) {
+          if (response.containsKey('data') && response['data'] is List) {
+            listData = response['data'];
+          }
+        }
+        return listData.map((e) => CommonData.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Erreur getGrossistes: $e');
+      return [];
+    }
+  }
+
+  // Recherche avec filtres multiples (Stock, Rayon, Query)
+  Future<Map<String, dynamic>> getEtatStockArticles(
+      BuildContext context, {
+        String query = '',
+        String codeRayon = '',
+        String codeGrossiste = '',
+        String stock = '',
+        String filtreStock = '',
+        int page = 1,
+        int limit = 15,
+      }) async {
+    try {
+      debugPrint("--- [ApiService] RECHERCHE STOCK --- Query: '$query', Rayon: '$codeRayon', Stock: '$stock', Op: '$filtreStock'");
+
+      final response = await get(
+        context,
+        '/fichearticle/comparaison',
+        queryParams: {
+          'query': query,
+          'codeRayon': codeRayon,
+          'codeGrossiste': codeGrossiste,
+          'seuil': '',
+          'stock': stock,
+          'filtreSeuil': '',
+          'filtreStock': filtreStock,
+          'codeFamile': '',
+          'page': page.toString(),
+          'start': ((page - 1) * limit).toString(),
+          'limit': limit.toString(),
+        },
+      );
+
+      // On ne loggue pas tout l'objet s'il est énorme, juste un aperçu ou la taille
+      if (response != null && response is Map<String, dynamic>) {
+        final rawList = response['data'];
+        final total = response['total'] ?? 0;
+
+        debugPrint("--- [ApiService] Réponse Stock: Total=$total");
+
+        List<EtatStockArticleModel> data = [];
+        if (rawList is List) {
+          debugPrint("--- [ApiService] Nombre d'articles dans la page: ${rawList.length}");
+          data = rawList.map((e) => EtatStockArticleModel.fromJson(e)).toList();
+        } else {
+          debugPrint("--- [ApiService] Attention: 'data' n'est pas une liste.");
+        }
+
+        return {
+          'total': total,
+          'data': data,
+        };
+      } else {
+        debugPrint("--- [ApiService] Réponse Stock vide ou format incorrect: $response");
+      }
+
+      return {'total': 0, 'data': <EtatStockArticleModel>[]};
+    } catch (e, stackTrace) {
+      debugPrint('ERREUR CRITIQUE getEtatStockArticles: $e');
+      debugPrint('Stacktrace: $stackTrace');
+      throw e;
     }
   }
 }
