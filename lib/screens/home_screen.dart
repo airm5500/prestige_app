@@ -38,6 +38,7 @@ import 'fichier_journal_screen.dart';
 import 'marge_produits_vendus_screen.dart';
 import 'etat_stock_screen.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
+import 'package:prestige_app/screens/visualisation_bl_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -91,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Suggestions', 'icon': Icons.lightbulb_outline, 'color': Colors.orange, 'screen': const SuggestionListScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
       {'title': 'Etat de Stock', 'icon': Icons.inventory_2_outlined, 'color': Colors.blue, 'screen': const EtatStockScreen()},
+      {'title': 'Visualisation BL', 'icon': Icons.receipt_outlined, 'color': Colors.teal, 'screen': const VisualisationBlScreen()}, // <--- NOUVELLE LIGNE
     ];
 
     // CORRECTION: Logique de tri et de filtrage robuste

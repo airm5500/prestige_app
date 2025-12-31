@@ -16,6 +16,7 @@ import '../models/common_data_model.dart';
 import '../models/etat_stock_article_model.dart';
 import '../models/suivi_peremption_model.dart';
 import '../models/licence_model.dart';
+import '../models/bon_livraison_model.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -410,4 +411,91 @@ class ApiService {
       throw Exception("Clé de licence invalide ou erreur serveur.");
     }
   }
+
+  // 1. Récupérer les Bons de Livraison
+  Future<Map<String, dynamic>> getBonLivraisons(
+      BuildContext context, {
+        String search = '',
+        String grossisteId = '',
+        String groupeId = '',
+        String userId = '',
+        String statut = '', // "checked" dans l'API
+        String dtStart = '',
+        String dtEnd = '',
+        int page = 1,
+        int limit = 20,
+      }) async {
+    try {
+      // Construction des paramètres de tri (codés en dur comme dans votre exemple)
+      final sortParam = jsonEncode([{"property":"fournisseurId","direction":"ASC"}]);
+
+      final response = await get(
+        context,
+        '/etat-control-bon/list',
+        queryParams: {
+          'search': search,
+          'grossisteId': grossisteId,
+          // L'API semble attendre 'groupeId' ou filtre par groupe via un autre paramètre?
+          // D'après votre demande, je l'ajoute, mais vérifiez si le paramètre s'appelle bien 'groupeId' côté serveur
+          // Si ce n'est pas le cas, il faudra peut-être filtrer côté client ou ajuster le nom.
+          'groupeId': groupeId,
+          'userId': userId, // Idem, vérifiez le nom exact du param 'checked' pour l'opérateur ou userId
+          'checked': statut, // TERMINE, NON_TRAITE, etc.
+          'dtStart': dtStart,
+          'dtEnd': dtEnd,
+          'page': page.toString(),
+          'start': ((page - 1) * limit).toString(),
+          'limit': limit.toString(),
+          'group': sortParam,
+          'sort': sortParam,
+        },
+      );
+
+      if (response != null && response is Map<String, dynamic>) {
+        return {
+          'total': response['total'] ?? 0,
+          'data': (response['data'] as List? ?? [])
+              .map((e) => BonLivraisonModel.fromJson(e))
+              .toList(),
+        };
+      }
+      return {'total': 0, 'data': <BonLivraisonModel>[]};
+    } catch (e) {
+      debugPrint("Erreur getBonLivraisons: $e");
+      return {'total': 0, 'data': <BonLivraisonModel>[]};
+    }
+  }
+
+  // 2. Récupérer les Groupes Grossistes
+  Future<List<CommonData>> getGroupeGrossistes(BuildContext context) async {
+    try {
+      final response = await get(context, '/groupegrossiste', queryParams: {'limit': '9999'});
+      if (response != null && response['data'] is List) {
+        return (response['data'] as List).map((e) => CommonData.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // 3. Récupérer les Utilisateurs
+  Future<List<CommonData>> getUsers(BuildContext context) async {
+    try {
+      final response = await get(context, '/common/users', queryParams: {'limit': '9999'});
+      if (response != null && response['data'] is List) {
+        return (response['data'] as List).map((e) {
+          // Mapping spécifique car l'API User renvoie "fullName" et "lgUSERID"
+          return CommonData(
+            id: e['lgUSERID']?.toString() ?? '',
+            libelle: e['fullName']?.toString() ?? '',
+          );
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
 }
