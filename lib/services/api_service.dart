@@ -14,6 +14,7 @@ import '../utils/constants.dart';
 // Assurez-vous que ces fichiers existent bien dans votre projet
 import '../models/common_data_model.dart';
 import '../models/etat_stock_article_model.dart';
+import '../models/suivi_peremption_model.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -327,6 +328,45 @@ class ApiService {
       debugPrint('ERREUR CRITIQUE getEtatStockArticles: $e');
       debugPrint('Stacktrace: $stackTrace');
       throw e;
+    }
+  }
+
+  // --- GESTION PEREMPTION ---
+  Future<SuiviPeremptionResponse?> getSuiviPeremption(
+      BuildContext context, {
+        String query = '',
+        String nbreMois = '',
+        String codeRayon = '',
+        String codeGrossiste = '',
+        String dtStart = '',
+        String dtEnd = '',
+        int page = 1,
+        int limit = 20,
+      }) async {
+    try {
+      final response = await get(
+        context,
+        '/fichearticle/perimes', // Assurez-vous que cela correspond à votre constante AppConstants.suiviPeremptionEndpoint
+        queryParams: {
+          'query': query,
+          'nbreMois': nbreMois,
+          'codeRayon': codeRayon,
+          'codeGrossiste': codeGrossiste,
+          'dtStart': dtStart,
+          'dtEnd': dtEnd,
+          'page': page.toString(),
+          'start': ((page - 1) * limit).toString(),
+          'limit': limit.toString(),
+        },
+      );
+
+      if (response != null && response is Map<String, dynamic>) {
+        return SuiviPeremptionResponse.fromJson(response);
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Erreur getSuiviPeremption: $e");
+      return null;
     }
   }
 }
