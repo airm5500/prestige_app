@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart'; // Nécessaire pour les permissions
+import 'package:device_info_plus/device_info_plus.dart';     // Nécessaire pour la version Android
 import 'package:prestige_app/models/suggestion_item_model.dart';
 import 'package:prestige_app/models/suggestion_model.dart';
 import 'package:prestige_app/screens/suggestion_detail_screen.dart';
-import 'package:share_plus/share_plus.dart';
+// import 'package:share_plus/share_plus.dart'; // Plus besoin de share_plus ici
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../utils/date_formatter.dart';
@@ -69,25 +71,90 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
     }
   }
 
+  // MODIFICATION : Ajout du timestamp pour garantir un fichier unique à chaque export
   Future<void> _exportSuggestion(Suggestion suggestion) async {
+    // 1. Récupération des données API
     final itemsData = await apiGet(AppConstants.suggestionListItemsEndpoint, queryParams: {'orderId': suggestion.id, 'limit': '9999'});
+
     if (mounted && itemsData is Map && itemsData['data'] is List) {
       final items = (itemsData['data'] as List).map((item) => SuggestionItem.fromJson(item)).toList();
 
+      // 2. Création du CSV
       List<List<dynamic>> rows = [];
-      rows.add(['cip', 'qte']); // Entête
+      rows.add(['cip', 'qte']);
       for (var item in items) {
         rows.add([item.cip, item.quantiteSuggeree]);
       }
 
       String csv = const ListToCsvConverter(fieldDelimiter: ';').convert(rows);
 
-      final directory = await getTemporaryDirectory();
-      final path = '${directory.path}/suggestion_${suggestion.name}.csv';
-      final file = File(path);
-      await file.writeAsString(csv);
+      // 3. Gestion des Permissions
+      bool hasPermission = false;
+      if (Platform.isAndroid) {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        if (androidInfo.version.sdkInt >= 33) {
+          hasPermission = true;
+        } else {
+          var status = await Permission.storage.request();
+          hasPermission = status.isGranted;
+        }
+      } else {
+        hasPermission = true;
+      }
 
-      Share.shareXFiles([XFile(path)], text: 'Suggestion de commande ${suggestion.name}');
+      if (hasPermission) {
+        try {
+          Directory? directory;
+          if (Platform.isAndroid) {
+            directory = Directory('/storage/emulated/0/Download');
+            if (!await directory.exists()) {
+              directory = await getExternalStorageDirectory();
+            }
+          } else {
+            directory = await getApplicationDocumentsDirectory();
+          }
+
+          if (directory != null) {
+            // Nettoyage du nom
+            final safeName = suggestion.name.replaceAll(RegExp(r'[^\w\s\.-]'), '');
+
+            // --- AJOUT CLÉ : On ajoute l'heure exacte au nom du fichier ---
+            // Cela empêche l'écrasement et force l'apparition du fichier
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final fileName = 'suggestion_${safeName}_$timestamp.csv';
+            // Exemple de résultat : suggestion_Commande1_1704895623.csv
+            // -------------------------------------------------------------
+
+            final path = '${directory.path}/$fileName';
+
+            final file = File(path);
+            // On force l'écriture immédiate sur le disque avec flush: true
+            await file.writeAsString(csv, flush: true);
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Fichier enregistré : $fileName'), // On affiche juste le nom pour que ce soit lisible
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission refusée'), backgroundColor: Colors.orange),
+          );
+        }
+      }
     }
   }
 
@@ -121,7 +188,6 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // MODIFICATION: Remplacement du bouton par une icône
                   IconButton(
                     icon: const Icon(Icons.folder_open_outlined),
                     color: Theme.of(context).primaryColor,
@@ -130,7 +196,7 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
                   ),
                   IconButton(
                     icon: const Icon(Icons.download_outlined),
-                    tooltip: 'Exporter en CSV',
+                    tooltip: 'Télécharger en CSV', // Tooltip mis à jour
                     onPressed: () => _exportSuggestion(suggestion),
                   ),
                   IconButton(
