@@ -15,6 +15,7 @@ import '../utils/constants.dart';
 import '../models/common_data_model.dart';
 import '../models/etat_stock_article_model.dart';
 import '../models/suivi_peremption_model.dart';
+import '../models/licence_model.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -367,6 +368,46 @@ class ApiService {
     } catch (e) {
       debugPrint("Erreur getSuiviPeremption: $e");
       return null;
+    }
+  }
+
+  // --- GESTION LICENCE ---
+
+  // Vérifier la licence existante
+  Future<LicenceModel?> findLicence(BuildContext context) async {
+    try {
+      final response = await get(
+        context,
+        '/licence/find',
+      );
+
+      if (response != null && response is Map<String, dynamic>) {
+        return LicenceModel.fromJson(response);
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Erreur findLicence: $e");
+      // Si 404 ou erreur, on considère qu'il n'y a pas de licence valide
+      return null;
+    }
+  }
+
+  // Enregistrer une nouvelle licence
+  // Note: L'URL demandée est /licence/save/{KEY}
+  Future<bool> registerLicence(BuildContext context, String licenceKey) async {
+    try {
+      // Ici on utilise get car l'URL contient la donnée, mais cela pourrait être un post selon votre back-end strict.
+      // D'après votre description : http://localhost:8080/prestige/api/v1/licence/save/KEY
+      final response = await get(
+        context,
+        '/licence/save/$licenceKey',
+      );
+
+      // On suppose que l'API renvoie la licence ou un succès si ça marche
+      return response != null;
+    } catch (e) {
+      debugPrint("Erreur registerLicence: $e");
+      throw Exception("Clé de licence invalide ou erreur serveur.");
     }
   }
 }

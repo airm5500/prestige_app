@@ -37,6 +37,7 @@ import 'analyse_saisie_bl_screen.dart';
 import 'fichier_journal_screen.dart';
 import 'marge_produits_vendus_screen.dart';
 import 'etat_stock_screen.dart';
+import 'package:prestige_app/providers/licence_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -61,6 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final ipProvider = Provider.of<IpConfigProvider>(context);
     final homeSettings = Provider.of<HomeSettingsProvider>(context);
     final AppUser? currentUser = authProvider.user;
+    final licenceProvider = Provider.of<LicenceProvider>(context);
+    final int daysLeft = licenceProvider.licence?.daysRemaining ?? 0;
 
     final List<Map<String, dynamic>> allFeatures = [
       {'title': 'Détail CA', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
@@ -165,6 +168,33 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           _buildWelcomeCard(context, ipProvider, currentUser?.fullName ?? 'Utilisateur'),
+          // --- COMPTEUR DE LICENCE (Utilise daysLeft défini plus haut) ---
+          if (daysLeft < 365)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: daysLeft < 30 ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: daysLeft < 30 ? Colors.red : Colors.green),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.verified_user, size: 16, color: daysLeft < 30 ? Colors.red : Colors.green),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Licence valide : $daysLeft jours restants",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: daysLeft < 30 ? Colors.red[800] : Colors.green[800],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
             child: Text(
@@ -239,6 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final officine = context.watch<AuthProvider>().officine;
 
+
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -268,6 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.lato(fontSize: 16, color: Colors.white.withOpacity(0.9)),
               ),
             ),
+
         ],
       ),
     );

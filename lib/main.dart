@@ -8,13 +8,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ip_config_provider.dart';
-import 'providers/home_settings_provider.dart'; // Assurez-vous que cet import est présent
+import 'providers/home_settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'utils/constants.dart';
 import 'services/api_service.dart';
+import 'package:prestige_app/providers/licence_provider.dart';
+import 'package:prestige_app/screens/licence_registration_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,9 +25,9 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => IpConfigProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        // CORRECTION : La ligne manquante est ici
         ChangeNotifierProvider(create: (_) => HomeSettingsProvider()),
         Provider(create: (_) => ApiService()),
+        ChangeNotifierProvider(create: (_) => LicenceProvider()),
       ],
       child: const PrestigeApp(),
     ),
@@ -127,7 +129,6 @@ class PrestigeApp extends StatelessWidget {
   }
 }
 
-// ... (le reste du fichier ne change pas)
 class AppLifecycleObserver extends StatefulWidget {
   final Widget child;
   const AppLifecycleObserver({super.key, required this.child});
@@ -175,14 +176,21 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
     super.didChangeAppLifecycleState(state);
 
     if (!mounted) return;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final ipConfigProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    // On récupère le provider de licence pour vérifier au réveil de l'app
+    final licenceProvider = Provider.of<LicenceProvider>(context, listen: false);
 
     switch (state) {
       case AppLifecycleState.resumed:
         debugPrint("App resumed");
+        // 1. Vérif session
         await authProvider.checkSessionTimeout(ipConfigProvider.sessionTimeout);
+        // 2. Vérif licence (si la date a changé pendant que l'app était en pause)
+        licenceProvider.revalidateLocalStatus();
         break;
+
       case AppLifecycleState.paused:
         debugPrint("App paused");
         if (authProvider.isLoggedIn) {
@@ -199,41 +207,70 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, child) {
-        if (auth.isLoading) {
-          return const SplashScreen();
+    // C'est ICI qu'on surveille le statut global de la licence.
+    // Si la licence expire pendant l'utilisation (ou au réveil), on remplace l'écran actuel par l'écran de blocage.
+    return Consumer<LicenceProvider>(
+      builder: (context, licenceProvider, child) {
+        if (licenceProvider.status == LicenceStatus.expired) {
+          return const LicenceRegistrationScreen();
         }
-        if (auth.isLoggedIn) {
-          return const HomeScreen();
-        }
-        else {
-          return const IpConfigCheck();
-        }
+        // Sinon on affiche l'écran normal (AuthWrapper)
+        return widget.child;
       },
     );
   }
 }
 
-class IpConfigCheck extends StatelessWidget {
-  const IpConfigCheck({super.key});
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
   @override
   Widget build(BuildContext context) {
+    // Cette partie gère le flux de démarrage initial (IP -> Licence -> Auth)
     return Consumer<IpConfigProvider>(
       builder: (context, ipProvider, child) {
-        if (ipProvider.isAppConfigured) {
-          return const LoginScreen();
-        } else {
+        // 1. Vérif IP
+        if (!ipProvider.isAppConfigured) {
           return const SettingsScreen();
         }
+
+        // 2. Vérif Licence
+        return Consumer<LicenceProvider>(
+          builder: (context, licenceProvider, child) {
+
+            // Premier lancement : on lance la vérif
+            if (licenceProvider.status == LicenceStatus.unknown) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                licenceProvider.checkLicence(context);
+              });
+              return const SplashScreen();
+            }
+
+            if (licenceProvider.status == LicenceStatus.checking) {
+              return const SplashScreen();
+            }
+
+            // Si licence invalide -> Ecran d'enregistrement
+            if (licenceProvider.status == LicenceStatus.notFound ||
+                licenceProvider.status == LicenceStatus.expired) {
+              return const LicenceRegistrationScreen();
+            }
+
+            // 3. Vérif Auth (si licence OK)
+            return Consumer<AuthProvider>(
+              builder: (context, auth, child) {
+                if (auth.isLoading) {
+                  return const SplashScreen();
+                }
+                if (auth.isLoggedIn) {
+                  return const HomeScreen();
+                } else {
+                  return const LoginScreen();
+                }
+              },
+            );
+          },
+        );
       },
     );
   }
