@@ -172,7 +172,7 @@ class EvolutionComparaisonScreen extends StatelessWidget {
     } else {
       text = const Text('', style: style);
     }
-    return SideTitleWidget(axisSide: meta.axisSide, space: 8.0, child: text);
+    return SideTitleWidget(meta: meta, space: 8.0, child: text);
   }
 
   Widget _leftTitleWidgets(double value, TitleMeta meta, double chartMaxY) {

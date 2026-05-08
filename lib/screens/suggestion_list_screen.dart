@@ -1,7 +1,8 @@
 // lib/screens/suggestion_list_screen.dart
 
 import 'dart:io';
-import 'package:csv/csv.dart';
+//import 'package:csv/csv.dart';
+import 'package:csv/csv.dart' show ListToCsvConverter;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart'; // Nécessaire pour les permissions
@@ -86,7 +87,8 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
         rows.add([item.cip, item.quantiteSuggeree]);
       }
 
-      String csv = const ListToCsvConverter(fieldDelimiter: ';').convert(rows);
+     //String csv = ListToCsvConverter().convert(rows, fieldDelimiter: ';');
+      String csv = rows.map((row) => row.join(';')).join('\n');
 
       // 3. Gestion des Permissions
       bool hasPermission = false;

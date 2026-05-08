@@ -6,10 +6,11 @@ plugins {
 
 android {
     namespace = "com.example.prestige_app"
-    compileSdk = 35 // Recommandé
+    compileSdk = 36 // Recommandé
     ndkVersion = flutter.ndkVersion
 
-    ndkVersion = "27.0.12077973"
+    //ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -22,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.prestige_app"
-        minSdk = 21 // Recommandé
+        minSdk = flutter.minSdkVersion // Recommandé
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         //versionName = flutter.versionName

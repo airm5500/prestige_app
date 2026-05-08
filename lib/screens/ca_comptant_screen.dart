@@ -409,7 +409,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
     } else {
       text = const Text('', style: style);
     }
-    return SideTitleWidget(axisSide: meta.axisSide, space: 8.0, child: text);
+    return SideTitleWidget(meta: meta, space: 8.0, child: text);
   }
 
   Widget leftTitleWidgets(double value, TitleMeta meta) {

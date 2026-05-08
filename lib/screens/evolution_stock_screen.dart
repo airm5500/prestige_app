@@ -244,7 +244,7 @@ class _EvolutionChart extends StatelessWidget {
     } else {
       text = const Text('', style: style);
     }
-    return SideTitleWidget(axisSide: meta.axisSide, space: 8.0, child: text);
+    return SideTitleWidget(meta: meta, space: 8.0, child: text);
   }
   Widget _leftTitleWidgets(double value, TitleMeta meta, double chartMaxY) {
     const style = TextStyle(color: Color(0xff67727d), fontWeight: FontWeight.bold, fontSize: 10);
