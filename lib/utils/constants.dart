@@ -68,6 +68,7 @@ class AppConstants {
   static const String logFiltresEndpoint = '/common/log-filtres'; // AJOUT
   static const String logUsersEndpoint = '/common/users'; // AJOUT
   static const String margeProduitsVendusEndpoint = '/datareporting/margeproduitsvendus';
+  static const String recapCaisseEndpoint = '/caisse/fetch-tickez';
 
   // Default Values
   static const String defaultLocalIp = '';

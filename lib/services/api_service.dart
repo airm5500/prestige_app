@@ -17,6 +17,7 @@ import '../models/etat_stock_article_model.dart';
 import '../models/suivi_peremption_model.dart';
 import '../models/licence_model.dart';
 import '../models/bon_livraison_model.dart';
+import '../models/recap_caisse_model.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -97,6 +98,35 @@ class ApiService {
       throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
     } catch (e) {
       throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
+    }
+  }
+
+  // --- NOUVELLE METHODE POUR LE RECAP DE CAISSE ---
+  Future<RecapCaisseResponse?> fetchRecapCaisse(BuildContext context, {
+    required String dtStart,
+    required String dtEnd,
+    required String hrStart,
+    required String hrEnd,
+    String description = 'ALL',
+    String userId = 'ALL',
+  }) async {
+    final Map<String, dynamic> body = {
+      "description": description,
+      "dtEnd": dtEnd,
+      "dtStart": dtStart,
+      "hrEnd": hrEnd,
+      "hrStart": hrStart,
+      "userId": userId
+    };
+
+    try {
+      final response = await post(context, AppConstants.recapCaisseEndpoint, body);
+      if (response != null) {
+        return RecapCaisseResponse.fromJson(response);
+      }
+      return null;
+    } catch (e) {
+      rethrow;
     }
   }
 
