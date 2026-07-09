@@ -73,7 +73,7 @@ class AppConstants {
   static const String defaultLocalIp = '';
   static const String defaultRemoteIp = '';
   static const String defaultPort = '8080';
-  static const String defaultAppName = 'laborex';
+  static const String defaultAppName = 'prestige';
   static const int defaultSessionTimeout = 30; // 30 minutes
 
   // Norme Ratio

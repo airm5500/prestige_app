@@ -1,5 +1,4 @@
 // lib/models/analyse_article_model.dart
-
 import 'package:fl_chart/fl_chart.dart';
 
 class AnalyseArticle {
@@ -13,7 +12,17 @@ class AnalyseArticle {
   final String? produitId;
   final String? quantiteMois;
   final int quantiteVendue;
-  final int? stock; // AJOUT: Champ pour le stock
+  final int? stock;
+
+  // Nouvelles données API
+  final String? classe;
+  final double moyenneJour;
+  final String? dateDernierAchat;
+  final String? dateDernierInventaire;
+  final String? dateDerniereVente;
+  final int? qteDernierAchat;
+  final int? qteDernierInventaire;
+  final int? qteDerniereVente;
 
   AnalyseArticle({
     required this.codeCip,
@@ -26,7 +35,15 @@ class AnalyseArticle {
     this.produitId,
     this.quantiteMois,
     required this.quantiteVendue,
-    this.stock, // AJOUT: au constructeur
+    this.stock,
+    this.classe,
+    this.moyenneJour = 0.0,
+    this.dateDernierAchat,
+    this.dateDernierInventaire,
+    this.dateDerniereVente,
+    this.qteDernierAchat,
+    this.qteDernierInventaire,
+    this.qteDerniereVente,
   });
 
   factory AnalyseArticle.fromJson(Map<String, dynamic> json) {
@@ -41,22 +58,28 @@ class AnalyseArticle {
       produitId: json['produitId'] as String?,
       quantiteMois: json['quantiteMois'] as String?,
       quantiteVendue: (json['quantiteVendue'] as num?)?.toInt() ?? 0,
-      stock: (json['stock'] as num?)?.toInt(), // AJOUT: Parsing du stock (peut être null)
+      stock: (json['stock'] as num?)?.toInt(),
+      // Parsing des nouvelles données avec sécurité pour éviter les erreurs si null
+      classe: json['classe'] as String?,
+      moyenneJour: (json['moyenneJour'] as num?)?.toDouble() ?? 0.0,
+      dateDernierAchat: json['dateDernierAchat'] as String?,
+      dateDernierInventaire: json['dateDernierInventaire'] as String?,
+      dateDerniereVente: json['dateDerniereVente'] as String?,
+      qteDernierAchat: (json['qteDernierAchat'] as num?)?.toInt(),
+      qteDernierInventaire: (json['qteDernierInventaire'] as num?)?.toInt(),
+      qteDerniereVente: (json['qteDerniereVente'] as num?)?.toInt(),
     );
   }
 
   // Helper pour parser la chaîne quantiteMois
   List<String> get ventesMensuelles {
     if (quantiteMois == null || quantiteMois!.isEmpty) return [];
-
     const Map<int, String> moisMap = {
       1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril', 5: 'Mai', 6: 'Juin',
       7: 'Juillet', 8: 'Août', 9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre',
     };
-
     List<String> result = [];
     final pairs = quantiteMois!.split(',');
-
     for (var pair in pairs) {
       final parts = pair.split(':');
       if (parts.length == 2) {
@@ -74,17 +97,14 @@ class AnalyseArticle {
     if (quantiteMois == null || quantiteMois!.isEmpty) {
       return [];
     }
-
     List<FlSpot> spots = [];
     final currentMonth = DateTime.now().month;
     final pairs = quantiteMois!.split(',');
-
     for (var pair in pairs) {
       final parts = pair.split(':');
       if (parts.length == 2) {
         final quantite = double.tryParse(parts[0].trim());
         final moisNum = double.tryParse(parts[1].trim());
-
         if (quantite != null && moisNum != null && moisNum <= currentMonth) {
           spots.add(FlSpot(moisNum, quantite));
         }

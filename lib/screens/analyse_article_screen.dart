@@ -1,10 +1,10 @@
 // lib/screens/analyse_article_screen.dart
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+
 import '../models/analyse_article_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
@@ -107,43 +107,57 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
           title: Text("Détails de l'Article", style: GoogleFonts.lato(color: theme.primaryColor, fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDetailRow('Code CIP', article.codeCip),
-                _buildDetailRow('Désignation', article.libelle),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _buildDetailRow('Prix d\'achat', currencyFormat.format(article.prixAchat)),
-                          _buildDetailRow('Prix de vente', currencyFormat.format(article.prixVente)),
-                          _buildDetailRow('Grossiste', article.grossiste ?? 'N/A'),
-                          _buildDetailRow('Moyenne sur 3 mois', article.moyenne.toStringAsFixed(2)),
-                          _buildDetailRow('Emplacement', article.emplacement ?? 'N/A'),
-                          _buildDetailRow('Qté totale vendue', article.quantiteVendue.toString()),
-                        ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDetailRow('Code CIP', article.codeCip),
+                  _buildDetailRow('Désignation', article.libelle),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            _buildDetailRow('Prix d\'achat', currencyFormat.format(article.prixAchat)),
+                            _buildDetailRow('Prix de vente', currencyFormat.format(article.prixVente)),
+                            _buildDetailRow('Grossiste', article.grossiste ?? 'N/A'),
+                            _buildDetailRow('Moyenne sur 3 mois', article.moyenne.toStringAsFixed(2)),
+                            _buildDetailRow('Moyenne par jour', article.moyenneJour.toStringAsFixed(2)),
+                            _buildDetailRow('Qté totale vendue', article.quantiteVendue.toString()),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildStockBubble(context, article.stock),
-                  ],
-                ),
-                const Divider(height: 24),
-                Text('Évolution des ventes mensuelles:', style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor, fontSize: 15)),
-                const SizedBox(height: 15),
-                if (chartData.isEmpty)
-                  const Text('Aucune donnée de vente pour le graphique.')
-                else
-                  SizedBox(
-                    height: 120,
-                    child: _VentesEvolutionChart(spots: chartData),
-                  )
-              ],
+                      const SizedBox(width: 16),
+                      _buildStockBubble(context, article.stock),
+                    ],
+                  ),
+                  _buildDetailRow('Emplacement', article.emplacement ?? 'N/A'),
+
+                  const Divider(height: 24),
+
+                  Text('Historique des Mouvements:', style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor, fontSize: 15)),
+                  const SizedBox(height: 10),
+                  _buildDetailRow('Dernière Vente', '${article.dateDerniereVente ?? "N/A"} (Qté: ${article.qteDerniereVente ?? 0})'),
+                  _buildDetailRow('Dernier Achat', '${article.dateDernierAchat ?? "N/A"} (Qté: ${article.qteDernierAchat ?? 0})'),
+                  _buildDetailRow('Dernier Inventaire', '${article.dateDernierInventaire ?? "N/A"} (Qté: ${article.qteDernierInventaire ?? 0})'),
+
+                  const Divider(height: 24),
+
+                  Text('Évolution des ventes mensuelles:', style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor, fontSize: 15)),
+                  const SizedBox(height: 15),
+                  if (chartData.isEmpty)
+                    const Text('Aucune donnée de vente pour le graphique.')
+                  else
+                    SizedBox(
+                      height: 120,
+                      child: _VentesEvolutionChart(spots: chartData),
+                    )
+                ],
+              ),
             ),
           ),
           actions: <Widget>[
@@ -270,7 +284,28 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
                     shadowColor: Colors.black.withAlpha(26),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      title: Text(article.libelle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(article.libelle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                          if (article.classe != null && article.classe!.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.orange.shade300),
+                              ),
+                              child: Text(
+                                'Cl. ${article.classe}',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                              ),
+                            ),
+                        ],
+                      ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 6.0),
                         child: RichText(
@@ -315,6 +350,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
 
 class _VentesEvolutionChart extends StatelessWidget {
   final List<FlSpot> spots;
+
   const _VentesEvolutionChart({required this.spots});
 
   @override

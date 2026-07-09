@@ -498,4 +498,17 @@ class ApiService {
     }
   }
 
+  // --- NOUVELLE MÉTHODE : TICKET Z / RECAP CAISSE ---
+  Future<Map<String, dynamic>?> fetchTicketZ(BuildContext context, Map<String, dynamic> payload) async {
+    try {
+      debugPrint("--- [ApiService] APPEL TICKET Z ---");
+      // Utilisation du point de terminaison spécifié pour fetch-tickez
+      final response = await post(context, '/caisse/fetch-tickez', payload);
+      return response;
+    } catch (e) {
+      debugPrint("Erreur fetchTicketZ: $e");
+      throw Exception("Impossible de récupérer le Ticket Z. Vérifiez votre connexion et essayez à nouveau.");
+    }
+  }
+
 }

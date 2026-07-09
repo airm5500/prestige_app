@@ -40,6 +40,9 @@ import 'etat_stock_screen.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/visualisation_bl_screen.dart';
 
+// IMPORT DE LA NOUVELLE FONCTIONNALITE
+import 'recap_caisse_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -70,6 +73,10 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Détail CA', 'icon': Icons.payments_outlined, 'color': Colors.green, 'screen': const CaComptantScreen()},
       {'title': 'CA Crédit', 'icon': Icons.credit_card_outlined, 'color': Colors.blue, 'screen': const CaCreditScreen()},
       {'title': 'CA Global', 'icon': Icons.receipt_long_outlined, 'color': Colors.amber.shade700, 'screen': const CaGlobalScreen()},
+
+      // AJOUT DU NOUVEAU MENU ICI
+      {'title': 'Récap de caisse', 'icon': Icons.point_of_sale_outlined, 'color': Colors.indigo, 'screen': const RecapCaisseScreen()},
+
       {'title': 'Rapport d\'Activité', 'icon': Icons.summarize_outlined, 'color': Colors.cyan, 'screen': const RapportActiviteScreen()},
       {'title': 'Fichier Journal', 'icon': Icons.history_edu_outlined, 'color': Colors.brown, 'screen': const FichierJournalScreen()},
       {'title': 'Etat Contrôle Achat', 'icon': Icons.fact_check_outlined, 'color': Colors.lightGreen, 'screen': const EtatControleAchatScreen()},
@@ -92,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Suggestions', 'icon': Icons.lightbulb_outline, 'color': Colors.orange, 'screen': const SuggestionListScreen()},
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
       {'title': 'Etat de Stock', 'icon': Icons.inventory_2_outlined, 'color': Colors.blue, 'screen': const EtatStockScreen()},
-      {'title': 'Visualisation BL', 'icon': Icons.receipt_outlined, 'color': Colors.teal, 'screen': const VisualisationBlScreen()}, // <--- NOUVELLE LIGNE
+      {'title': 'Visualisation BL', 'icon': Icons.receipt_outlined, 'color': Colors.teal, 'screen': const VisualisationBlScreen()},
     ];
 
     // CORRECTION: Logique de tri et de filtrage robuste
