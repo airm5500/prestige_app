@@ -26,7 +26,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         //versionName = flutter.versionName
-        versionName = "2.2.0"
+        versionName = "2.3.0"
     }
 
     applicationVariants.all {
