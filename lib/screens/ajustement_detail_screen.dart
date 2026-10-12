@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/ajustement_detail_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class AjustementDetailScreen extends StatefulWidget {
   final String ajustementId;
@@ -28,6 +29,7 @@ class _AjustementDetailScreenState extends State<AjustementDetailScreen> with Ba
   }
 
   Future<void> _loadDetails() async {
+    reessai = _loadDetails; // « Réessayer » relance ce chargement
     // CORRECTION: Ajout des paramètres de pagination
     final queryParams = {
       'ajustementId': widget.ajustementId,
@@ -73,6 +75,8 @@ class _AjustementDetailScreenState extends State<AjustementDetailScreen> with Ba
         onRefresh: _loadDetails,
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
+            : loadError != null
+            ? LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
             : errorMessage != null
             ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
             : Column(

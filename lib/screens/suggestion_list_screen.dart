@@ -13,6 +13,7 @@ import 'package:prestige_app/screens/suggestion_detail_screen.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../utils/date_formatter.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class SuggestionListScreen extends StatefulWidget {
   const SuggestionListScreen({super.key});
@@ -31,6 +32,7 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
   }
 
   Future<void> _loadSuggestions() async {
+    reessai = _loadSuggestions; // « Réessayer » relance ce chargement
     final data = await apiGet(AppConstants.suggestionListEndpoint, queryParams: {'limit': '50'});
     if (mounted && data is Map && data['data'] is List) {
       setState(() {
@@ -66,7 +68,16 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
     );
 
     if (confirm == true) {
-      await apiDelete('${AppConstants.suggestionDeleteEndpoint}/$suggestionId');
+      final r = await apiDelete('${AppConstants.suggestionDeleteEndpoint}/$suggestionId');
+      if (!mounted) return;
+      if (r == null) {
+        // Échec : la suggestion n'est PAS supprimée, on le dit (au lieu de recharger en silence).
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text('Suggestion non supprimée : ${errorMessage ?? 'erreur inconnue'}'),
+        ));
+        return;
+      }
       await _loadSuggestions();
     }
   }
@@ -172,6 +183,8 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : loadError != null
+          ? LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
           : errorMessage != null
           ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
           : ListView.builder(

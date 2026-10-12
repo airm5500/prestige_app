@@ -6,6 +6,7 @@ import '../models/ca_global_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class CaGlobalScreen extends StatefulWidget {
   const CaGlobalScreen({super.key});
@@ -22,6 +23,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
   int? _selectedMonth;
 
   Future<void> _loadCaGlobal() async {
+    reessai = _loadCaGlobal; // « Réessayer » relance ce chargement
     setState(() {
       _caGlobalDataList = [];
     });
@@ -265,6 +267,8 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
                   padding: EdgeInsets.symmetric(vertical: 30.0),
                   child: Center(child: CircularProgressIndicator()),
                 )
+              else if (loadError != null)
+                LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
               else if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(16.0),

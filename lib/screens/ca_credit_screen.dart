@@ -6,6 +6,7 @@ import '../models/ca_credit_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../widgets/erreurs_chargement.dart';
 
 class CaCreditScreen extends StatefulWidget {
   const CaCreditScreen({super.key});
@@ -39,6 +40,7 @@ class _CaCreditScreenState extends State<CaCreditScreen> with BaseScreenLogic<Ca
   }
 
   Future<void> _loadCaCredit() async {
+    reessai = _loadCaCredit; // « Réessayer » relance ce chargement
     // On réinitialise les listes avant chaque appel
     setState(() {
       _caCreditData = [];
@@ -170,6 +172,8 @@ class _CaCreditScreenState extends State<CaCreditScreen> with BaseScreenLogic<Ca
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(
               child: SingleChildScrollView(

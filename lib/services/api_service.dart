@@ -17,6 +17,72 @@ import '../models/etat_stock_article_model.dart';
 import '../models/suivi_peremption_model.dart';
 import '../models/licence_model.dart';
 import '../models/bon_livraison_model.dart';
+import '../models/licence_lookup.dart';
+
+export '../models/licence_lookup.dart';
+
+/// Nature d'un échec d'appel au serveur (≠ liste vide).
+enum NatureErreur {
+  /// Aucun serveur ne répond (Wi-Fi, données mobiles, adresse, serveur éteint).
+  reseau,
+
+  /// Le serveur n'a pas répondu à temps.
+  delai,
+
+  /// Erreur interne du serveur (HTTP 5xx).
+  serveur,
+
+  /// Session expirée (HTTP 401 ou « Veuillez vous connecter ») : reconnexion.
+  session,
+
+  /// Droit manquant (HTTP 403).
+  droit,
+
+  /// Demande refusée (autre code HTTP 4xx).
+  refus,
+
+  /// Réponse illisible.
+  reponse,
+}
+
+/// Échec de chargement (à distinguer d'une liste vide). Même nom et même usage que dans prestige_vente_app.
+class ApiLoadException implements Exception {
+  final String message;
+  final NatureErreur nature;
+  final int? code;
+  const ApiLoadException(this.message, {this.nature = NatureErreur.reseau, this.code});
+
+  static const messageReseau = 'Serveur injoignable. Vérifiez le Wi-Fi ou les données mobiles puis réessayez.';
+  static const messageDelai = 'Le serveur met trop de temps à répondre. Vérifiez le réseau puis réessayez.';
+  static const messageSession = 'Session expirée. Reconnectez-vous.';
+  static const messageDroit = 'Accès refusé : ce compte n\'a pas le droit de consulter ces données.';
+  static const messageReponse = 'Réponse inattendue du serveur.';
+  static const messageCertificat = 'Connexion sécurisée (HTTPS) impossible : certificat du serveur refusé.';
+  static const messageAdresse = 'Adresse du serveur incorrecte. Vérifiez la configuration.';
+
+  /// Même échec, précisé par ce qui n'a pas pu être chargé (« … (rayons non chargés) »).
+  ApiLoadException pour(String quoi) {
+    switch (nature) {
+      case NatureErreur.reseau:
+        return ApiLoadException(message == messageReseau
+            ? 'Serveur injoignable ($quoi non chargés). Vérifiez le Wi-Fi ou les données mobiles puis réessayez.'
+            : message, nature: nature, code: code);
+      case NatureErreur.delai:
+        return ApiLoadException('Le serveur met trop de temps à répondre ($quoi non chargés). Vérifiez le réseau puis réessayez.',
+            nature: nature, code: code);
+      case NatureErreur.serveur:
+        return ApiLoadException('Erreur du serveur (code $code) lors du chargement des $quoi.', nature: nature, code: code);
+      case NatureErreur.session:
+      case NatureErreur.droit:
+      case NatureErreur.refus:
+      case NatureErreur.reponse:
+        return this;
+    }
+  }
+
+  @override
+  String toString() => message;
+}
 
 class ApiService {
   ApiService._privateConstructor();
@@ -77,29 +143,35 @@ class ApiService {
   }
 
   // --- MÉTHODES GÉNÉRIQUES HTTP ---
+  //
+  // Tout échec lève une [ApiLoadException] dont la [NatureErreur] distingue : serveur injoignable,
+  // délai dépassé, erreur du serveur (5xx), session expirée (401 → reconnexion), droit manquant (403),
+  // demande refusée (autre 4xx) et réponse illisible. Une réponse vide ou une liste vide n'est JAMAIS
+  // une erreur : c'est une vraie absence de données. Les messages reprennent ceux de prestige_vente_app.
+
+  static const delaiPost = Duration(seconds: 20);
+  static const delaiGet = Duration(seconds: 45);
+
+  /// Appelé à chaque session expirée détectée (en plus du `onSessionInvalid` de l'appel) :
+  /// AuthProvider s'y abonne pour revenir à l'écran de connexion, même depuis un écran qui ne passe pas
+  /// de `onSessionInvalid`.
+  static VoidCallback? surSessionExpiree;
 
   Future<Map<String, dynamic>> post(BuildContext context, String endpoint, Map<String, dynamic> body, {VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final url = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     JournalApp.debug(JournalApp.requete('POST', url));
 
-    try {
-      final response = await client.post(
-        url,
-        headers: _getHeaders(),
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 20));
-
-      if (endpoint == AppConstants.authEndpoint && response.headers['set-cookie'] != null) {
-        await setSessionCookie(response.headers['set-cookie']!);
-      }
-
-      return _handleResponse(response, onSessionInvalid);
-    } on SocketException {
-      throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
-    } catch (e) {
-      throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
+    final response = await _envoyer(() => client.post(url, headers: _getHeaders(), body: jsonEncode(body)), delaiPost);
+    if (endpoint == AppConstants.authEndpoint && response.headers['set-cookie'] != null) {
+      await setSessionCookie(response.headers['set-cookie']!);
     }
+    final decoded = _handleResponse(response, onSessionInvalid);
+    if (decoded == null) return <String, dynamic>{};
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
+    }
+    return decoded;
   }
 
   Future<dynamic> get(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
@@ -110,15 +182,8 @@ class ApiService {
       uri = uri.replace(queryParameters: queryParams);
     }
     JournalApp.debug(JournalApp.requete('GET', uri));
-
-    try {
-      final response = await client.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
-      return _handleResponse(response, onSessionInvalid);
-    } on SocketException {
-      throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
-    } catch (e) {
-      throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
-    }
+    final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delaiGet);
+    return _handleResponse(response, onSessionInvalid);
   }
 
   Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
@@ -134,15 +199,8 @@ class ApiService {
       uri = uri.replace(queryParameters: queryParams);
     }
     JournalApp.debug(JournalApp.requete('GET', uri));
-
-    try {
-      final response = await client.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
-      return _handleResponse(response, onSessionInvalid);
-    } on SocketException {
-      throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
-    } catch (e) {
-      throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
-    }
+    final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delaiGet);
+    return _handleResponse(response, onSessionInvalid);
   }
 
   Future<Map<String, dynamic>> delete(BuildContext context, String endpoint, {VoidCallback? onSessionInvalid}) async {
@@ -151,121 +209,113 @@ class ApiService {
     final url = Uri.parse('$baseUrl$endpoint');
     JournalApp.debug(JournalApp.requete('DELETE', url));
 
-    try {
-      final response = await client.delete(
-        url,
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 45));
+    final response = await _envoyer(() => client.delete(url, headers: _getHeaders()), delaiGet);
+    final decoded = _handleResponse(response, onSessionInvalid);
+    if (decoded == null) return <String, dynamic>{};
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
+    }
+    return decoded;
+  }
 
-      return _handleResponse(response, onSessionInvalid);
-    } on SocketException {
-      throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
+  /// Envoie la requête ; les échecs réseau et les délais deviennent des [ApiLoadException].
+  static Future<http.Response> _envoyer(Future<http.Response> Function() requete, Duration delai) async {
+    try {
+      return await requete().timeout(delai);
     } on TimeoutException {
-      throw Exception('Le serveur n\'a pas répondu à temps. Veuillez réessayer.');
-    } catch (e) {
-      throw Exception('Une erreur inconnue est survenue: ${e.toString()}');
+      throw const ApiLoadException(ApiLoadException.messageDelai, nature: NatureErreur.delai);
+    } on HandshakeException {
+      throw const ApiLoadException(ApiLoadException.messageCertificat, nature: NatureErreur.reseau);
+    } on SocketException {
+      throw const ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau);
+    } on http.ClientException {
+      throw const ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau);
+    } on HttpException {
+      throw const ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau);
+    } on ArgumentError {
+      // Adresse du serveur mal formée.
+      throw const ApiLoadException(ApiLoadException.messageAdresse, nature: NatureErreur.reseau);
     }
   }
 
   dynamic _handleResponse(http.Response response, VoidCallback? onSessionInvalid) {
-    if (response.statusCode == 401 || (response.body.contains("Veuillez vous connecter") && response.statusCode != 200)) {
-      onSessionInvalid?.call();
-      throw Exception("Session invalide ou expirée. Veuillez vous reconnecter.");
+    final code = response.statusCode;
+    if (code == 401 || (code != 200 && response.body.contains("Veuillez vous connecter"))) {
+      _sessionExpiree(onSessionInvalid);
+    }
+    if (code == 403) {
+      JournalApp.debug('Accès refusé HTTP 403');
+      throw const ApiLoadException(ApiLoadException.messageDroit, nature: NatureErreur.droit, code: 403);
     }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
+    if (code >= 200 && code < 300) {
+      if (response.body.trim().isEmpty) return null;
+      final dynamic decodedBody;
       try {
         // Décodage UTF8 manuel pour éviter les problèmes d'accent
-        final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-
-        // Vérification spécifique de certains backends qui renvoient 200 OK mais success:false
-        if (decodedBody is Map<String, dynamic> &&
-            decodedBody['success'] == false &&
-            decodedBody.containsKey('message') &&
-            decodedBody['message'] == 'Veuillez vous connecter') {
-          onSessionInvalid?.call();
-          throw Exception("Session invalide ou expirée. Veuillez vous reconnecter.");
-        }
-        return decodedBody;
-      } catch (e) {
+        decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
+      } catch (_) {
         JournalApp.debug('Réponse illisible (JSON incorrect)');
-        throw Exception('Réponse invalide du serveur (JSON incorrect).');
+        throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
       }
-    } else {
-      JournalApp.debug('Erreur serveur HTTP ${response.statusCode}');
-      throw Exception('Erreur du serveur (${response.statusCode}).');
+      // Certains services répondent 200 avec success:false « Veuillez vous connecter ».
+      if (decodedBody is Map &&
+          decodedBody['success'] == false &&
+          (decodedBody['message'] == 'Veuillez vous connecter' || decodedBody['msg'] == 'Veuillez vous connecter')) {
+        _sessionExpiree(onSessionInvalid);
+      }
+      return decodedBody;
+    }
+    JournalApp.debug('Erreur serveur HTTP $code');
+    if (code >= 500) {
+      throw ApiLoadException('Erreur du serveur (code $code). Réessayez dans un instant.', nature: NatureErreur.serveur, code: code);
+    }
+    throw ApiLoadException('Le serveur a refusé la demande (code $code).', nature: NatureErreur.refus, code: code);
+  }
+
+  Never _sessionExpiree(VoidCallback? onSessionInvalid) {
+    // D'abord le traitement global (déconnexion AVEC message), puis celui de l'appel.
+    surSessionExpiree?.call();
+    onSessionInvalid?.call();
+    throw const ApiLoadException(ApiLoadException.messageSession, nature: NatureErreur.session, code: 401);
+  }
+
+  /// Liste `{data: [...]}` ou `[...]` : une liste vide n'est renvoyée que si le serveur a bien répondu ;
+  /// tout échec lève [ApiLoadException] (≠ « aucun résultat »), précisé par [quoi].
+  static List<T> _liste<T>(dynamic response, String quoi, T Function(Map<String, dynamic>) parse) {
+    if (response == null) return <T>[];
+    final dynamic data = response is Map ? (response['data'] ?? response['items']) : response;
+    if (data == null) return <T>[];
+    if (data is! List) throw ApiLoadException('Réponse inattendue du serveur pour les $quoi.', nature: NatureErreur.reponse);
+    try {
+      return [for (final e in data) parse(Map<String, dynamic>.from(e as Map))];
+    } catch (_) {
+      throw ApiLoadException('Données des $quoi illisibles.', nature: NatureErreur.reponse);
+    }
+  }
+
+  /// Exécute [appel] ; un échec est requalifié avec [quoi] (« … ($quoi non chargés) »).
+  static Future<T> _charger<T>(String quoi, Future<T> Function() appel) async {
+    try {
+      return await appel();
+    } on ApiLoadException catch (e) {
+      throw e.pour(quoi);
     }
   }
 
   // --- MÉTHODES MÉTIER SPÉCIFIQUES (ETAT DE STOCK) ---
 
-  // Récupérer la liste des rayons (Emplacements)
-  Future<List<CommonData>> getRayons(BuildContext context) async {
-    try {
-      final response = await get(
-        context,
-        '/common/rayons',
-        queryParams: {
-          'limit': '9999',
-          'page': '1',
-          'start': '0',
-        },
-      );
+  // Récupérer la liste des rayons (Emplacements). Échec : ApiLoadException (≠ liste vide).
+  Future<List<CommonData>> getRayons(BuildContext context) => _charger('rayons', () async {
+        final response = await get(context, '/common/rayons', queryParams: {'limit': '9999', 'page': '1', 'start': '0'});
+        return _liste(response, 'rayons', CommonData.fromJson);
+      });
 
-      if (response != null) {
-        List<dynamic> listData = [];
-
-        // Gestion robuste des différents formats de réponse possibles
-        if (response is List) {
-          listData = response;
-        } else if (response is Map<String, dynamic>) {
-          if (response.containsKey('data') && response['data'] is List) {
-            listData = response['data'];
-          } else if (response.containsKey('items') && response['items'] is List) {
-            listData = response['items'];
-          }
-        }
-
-        return listData.map((e) => CommonData.fromJson(e)).toList();
-      }
-      return [];
-    } catch (e) {
-      JournalApp.debug('getRayons : ${e.runtimeType}');
-      return [];
-    }
-  }
-
-  // Récupérer la liste des grossistes
-  Future<List<CommonData>> getGrossistes(BuildContext context) async {
-    try {
-      final response = await get(
-        context,
-        '/common/grossiste',
-        queryParams: {
-          'limit': '9999',
-          'page': '1',
-          'start': '0',
-        },
-      );
-
-      if (response != null) {
-        List<dynamic> listData = [];
-        if (response is List) {
-          listData = response;
-        } else if (response is Map<String, dynamic>) {
-          if (response.containsKey('data') && response['data'] is List) {
-            listData = response['data'];
-          }
-        }
-        return listData.map((e) => CommonData.fromJson(e)).toList();
-      }
-      return [];
-    } catch (e) {
-      JournalApp.debug('getGrossistes : ${e.runtimeType}');
-      return [];
-    }
-  }
+  // Récupérer la liste des grossistes. Échec : ApiLoadException (≠ liste vide).
+  Future<List<CommonData>> getGrossistes(BuildContext context) => _charger('grossistes', () async {
+        final response = await get(context, '/common/grossiste', queryParams: {'limit': '9999', 'page': '1', 'start': '0'});
+        return _liste(response is Map ? {'data': response['data']} : response, 'grossistes', CommonData.fromJson);
+      });
 
   // Recherche avec filtres multiples (Stock, Rayon, Query)
   Future<Map<String, dynamic>> getEtatStockArticles(
@@ -277,54 +327,33 @@ class ApiService {
         String filtreStock = '',
         int page = 1,
         int limit = 15,
-      }) async {
-    try {
-      final response = await get(
-        context,
-        '/fichearticle/comparaison',
-        queryParams: {
-          'query': query,
-          'codeRayon': codeRayon,
-          'codeGrossiste': codeGrossiste,
-          'seuil': '',
-          'stock': stock,
-          'filtreSeuil': '',
-          'filtreStock': filtreStock,
-          'codeFamile': '',
-          'page': page.toString(),
-          'start': ((page - 1) * limit).toString(),
-          'limit': limit.toString(),
-        },
-      );
-
-      // On ne loggue pas tout l'objet s'il est énorme, juste un aperçu ou la taille
-      if (response != null && response is Map<String, dynamic>) {
-        final rawList = response['data'];
-        final total = response['total'] ?? 0;
-
-        List<EtatStockArticleModel> data = [];
-        if (rawList is List) {
-          data = rawList.map((e) => EtatStockArticleModel.fromJson(e)).toList();
-        } else {
-          JournalApp.debug("Etat de stock : 'data' n'est pas une liste");
-        }
-
+      }) => _charger('articles', () async {
+        final response = await get(
+          context,
+          '/fichearticle/comparaison',
+          queryParams: {
+            'query': query,
+            'codeRayon': codeRayon,
+            'codeGrossiste': codeGrossiste,
+            'seuil': '',
+            'stock': stock,
+            'filtreSeuil': '',
+            'filtreStock': filtreStock,
+            'codeFamile': '',
+            'page': page.toString(),
+            'start': ((page - 1) * limit).toString(),
+            'limit': limit.toString(),
+          },
+        );
+        if (response == null) return {'total': 0, 'data': <EtatStockArticleModel>[]};
+        if (response is! Map) throw const ApiLoadException('Réponse inattendue du serveur pour les articles.', nature: NatureErreur.reponse);
         return {
-          'total': total,
-          'data': data,
+          'total': response['total'] ?? 0,
+          'data': _liste(response, 'articles', EtatStockArticleModel.fromJson),
         };
-      } else {
-        JournalApp.debug('Etat de stock : réponse vide ou format incorrect');
-      }
+      });
 
-      return {'total': 0, 'data': <EtatStockArticleModel>[]};
-    } catch (e) {
-      JournalApp.debug('getEtatStockArticles : ${e.runtimeType}');
-      rethrow;
-    }
-  }
-
-  // --- GESTION PEREMPTION ---
+  // --- GESTION PEREMPTION --- (échec : ApiLoadException ; réponse vide du serveur : null = aucun produit)
   Future<SuiviPeremptionResponse?> getSuiviPeremption(
       BuildContext context, {
         String query = '',
@@ -335,75 +364,92 @@ class ApiService {
         String dtEnd = '',
         int page = 1,
         int limit = 20,
-      }) async {
-    try {
-      final response = await get(
-        context,
-        '/fichearticle/perimes', // Assurez-vous que cela correspond à votre constante AppConstants.suiviPeremptionEndpoint
-        queryParams: {
-          'query': query,
-          'nbreMois': nbreMois,
-          'codeRayon': codeRayon,
-          'codeGrossiste': codeGrossiste,
-          'dtStart': dtStart,
-          'dtEnd': dtEnd,
-          'page': page.toString(),
-          'start': ((page - 1) * limit).toString(),
-          'limit': limit.toString(),
-        },
-      );
-
-      if (response != null && response is Map<String, dynamic>) {
-        return SuiviPeremptionResponse.fromJson(response);
-      }
-      return null;
-    } catch (e) {
-      JournalApp.debug('getSuiviPeremption : ${e.runtimeType}');
-      return null;
-    }
-  }
+      }) => _charger('produits périmés', () async {
+        final response = await get(
+          context,
+          AppConstants.suiviPeremptionEndpoint,
+          queryParams: {
+            'query': query,
+            'nbreMois': nbreMois,
+            'codeRayon': codeRayon,
+            'codeGrossiste': codeGrossiste,
+            'dtStart': dtStart,
+            'dtEnd': dtEnd,
+            'page': page.toString(),
+            'start': ((page - 1) * limit).toString(),
+            'limit': limit.toString(),
+          },
+        );
+        if (response == null) return null;
+        if (response is! Map<String, dynamic>) {
+          throw const ApiLoadException('Réponse inattendue du serveur pour les produits périmés.', nature: NatureErreur.reponse);
+        }
+        try {
+          return SuiviPeremptionResponse.fromJson(response);
+        } catch (_) {
+          throw const ApiLoadException('Données des produits périmés illisibles.', nature: NatureErreur.reponse);
+        }
+      });
 
   // --- GESTION LICENCE ---
 
-  // Vérifier la licence existante
-  Future<LicenceModel?> findLicence(BuildContext context) async {
+  /// Vérification de licence qui distingue la cause d'un échec (même principe que prestige_vente_app) :
+  /// serveur injoignable / erreur du serveur ≠ licence absente (réponse vide du serveur) ≠ licence trouvée.
+  Future<LicenceLookup> lookupLicence(BuildContext context) async {
     try {
-      final response = await get(
-        context,
-        '/licence/find',
-      );
-
-      if (response != null && response is Map<String, dynamic>) {
-        return LicenceModel.fromJson(response);
+      final response = await get(context, '/licence/find');
+      if (response == null) return const LicenceLookup.noLicence();
+      if (response is! Map<String, dynamic>) {
+        return const LicenceLookup.failure(LicenceIssue.unexpectedResponse, 'Réponse inattendue du serveur.');
       }
-      return null;
-    } catch (e) {
-      JournalApp.debug('findLicence : ${e.runtimeType}');
-      // Si 404 ou erreur, on considère qu'il n'y a pas de licence valide
-      return null;
+      final licence = LicenceModel.fromJson(response);
+      if (licence.id.isEmpty && licence.dateEnd.isEmpty) return const LicenceLookup.noLicence();
+      return LicenceLookup.found(licence);
+    } on ApiLoadException catch (e) {
+      switch (e.nature) {
+        case NatureErreur.reseau:
+        case NatureErreur.delai:
+          return LicenceLookup.failure(LicenceIssue.unreachable, e.message);
+        case NatureErreur.refus:
+          // 404 : l'application Prestige n'est pas déployée à cette adresse (nom ou port incorrect).
+          return LicenceLookup.failure(e.code == 404 ? LicenceIssue.appNotFound : LicenceIssue.serverError, e.message);
+        case NatureErreur.reponse:
+          return LicenceLookup.failure(LicenceIssue.unexpectedResponse, e.message);
+        case NatureErreur.serveur:
+        case NatureErreur.session:
+        case NatureErreur.droit:
+          return LicenceLookup.failure(LicenceIssue.serverError, e.message);
+      }
     }
+  }
+
+  // Vérifier la licence existante (ancienne méthode : null seulement si aucune licence ; échec : exception).
+  Future<LicenceModel?> findLicence(BuildContext context) async {
+    final r = await lookupLicence(context);
+    if (r.isConnectionProblem) throw ApiLoadException(r.detail ?? ApiLoadException.messageReseau);
+    return r.licence;
   }
 
   // Enregistrer une nouvelle licence
   // Note: L'URL demandée est /licence/save/{KEY}
   Future<bool> registerLicence(BuildContext context, String licenceKey) async {
     try {
-      // Ici on utilise get car l'URL contient la donnée, mais cela pourrait être un post selon votre back-end strict.
-      // D'après votre description : http://localhost:8080/prestige/api/v1/licence/save/KEY
+      // GET (route serveur existante) : la clé fait partie de l'URL ; elle n'est jamais journalisée.
       final response = await get(
         context,
-        '/licence/save/$licenceKey',
+        '/licence/save/${Uri.encodeComponent(licenceKey)}',
       );
 
       // On suppose que l'API renvoie la licence ou un succès si ça marche
       return response != null;
-    } catch (e) {
-      JournalApp.debug('registerLicence : ${e.runtimeType}');
-      throw Exception("Clé de licence invalide ou erreur serveur.");
+    } on ApiLoadException catch (e) {
+      JournalApp.debug('registerLicence : ${e.nature.name}');
+      if (e.nature == NatureErreur.reseau || e.nature == NatureErreur.delai) throw e;
+      throw const ApiLoadException("Clé de licence invalide ou erreur serveur.", nature: NatureErreur.refus);
     }
   }
 
-  // 1. Récupérer les Bons de Livraison
+  // 1. Récupérer les Bons de Livraison. Échec : ApiLoadException (≠ « aucun BL »).
   Future<Map<String, dynamic>> getBonLivraisons(
       BuildContext context, {
         String search = '',
@@ -415,79 +461,52 @@ class ApiService {
         String dtEnd = '',
         int page = 1,
         int limit = 20,
-      }) async {
-    try {
-      // Construction des paramètres de tri (codés en dur comme dans votre exemple)
-      final sortParam = jsonEncode([{"property":"fournisseurId","direction":"ASC"}]);
+      }) => _charger('bons de livraison', () async {
+        // Construction des paramètres de tri (codés en dur comme dans votre exemple)
+        final sortParam = jsonEncode([{"property":"fournisseurId","direction":"ASC"}]);
 
-      final response = await get(
-        context,
-        '/etat-control-bon/list',
-        queryParams: {
-          'search': search,
-          'grossisteId': grossisteId,
-          // L'API semble attendre 'groupeId' ou filtre par groupe via un autre paramètre?
-          // D'après votre demande, je l'ajoute, mais vérifiez si le paramètre s'appelle bien 'groupeId' côté serveur
-          // Si ce n'est pas le cas, il faudra peut-être filtrer côté client ou ajuster le nom.
-          'groupeId': groupeId,
-          'userId': userId, // Idem, vérifiez le nom exact du param 'checked' pour l'opérateur ou userId
-          'checked': statut, // TERMINE, NON_TRAITE, etc.
-          'dtStart': dtStart,
-          'dtEnd': dtEnd,
-          'page': page.toString(),
-          'start': ((page - 1) * limit).toString(),
-          'limit': limit.toString(),
-          'group': sortParam,
-          'sort': sortParam,
-        },
-      );
-
-      if (response != null && response is Map<String, dynamic>) {
+        final response = await get(
+          context,
+          '/etat-control-bon/list',
+          queryParams: {
+            'search': search,
+            'grossisteId': grossisteId,
+            'groupeId': groupeId,
+            'userId': userId,
+            'checked': statut, // TERMINE, NON_TRAITE, etc.
+            'dtStart': dtStart,
+            'dtEnd': dtEnd,
+            'page': page.toString(),
+            'start': ((page - 1) * limit).toString(),
+            'limit': limit.toString(),
+            'group': sortParam,
+            'sort': sortParam,
+          },
+        );
+        if (response == null) return {'total': 0, 'data': <BonLivraisonModel>[]};
+        if (response is! Map) throw const ApiLoadException('Réponse inattendue du serveur pour les bons de livraison.', nature: NatureErreur.reponse);
         return {
           'total': response['total'] ?? 0,
-          'data': (response['data'] as List? ?? [])
-              .map((e) => BonLivraisonModel.fromJson(e))
-              .toList(),
+          'data': _liste(response, 'bons de livraison', BonLivraisonModel.fromJson),
         };
-      }
-      return {'total': 0, 'data': <BonLivraisonModel>[]};
-    } catch (e) {
-      JournalApp.debug('getBonLivraisons : ${e.runtimeType}');
-      return {'total': 0, 'data': <BonLivraisonModel>[]};
-    }
-  }
+      });
 
-  // 2. Récupérer les Groupes Grossistes
-  Future<List<CommonData>> getGroupeGrossistes(BuildContext context) async {
-    try {
-      final response = await get(context, '/groupegrossiste', queryParams: {'limit': '9999'});
-      if (response != null && response['data'] is List) {
-        return (response['data'] as List).map((e) => CommonData.fromJson(e)).toList();
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
+  // 2. Récupérer les Groupes Grossistes. Échec : ApiLoadException (≠ liste vide).
+  Future<List<CommonData>> getGroupeGrossistes(BuildContext context) => _charger('groupes de grossistes', () async {
+        final response = await get(context, '/groupegrossiste', queryParams: {'limit': '9999'});
+        return _liste(response is Map ? {'data': response['data']} : response, 'groupes de grossistes', CommonData.fromJson);
+      });
 
-  // 3. Récupérer les Utilisateurs
-  Future<List<CommonData>> getUsers(BuildContext context) async {
-    try {
-      final response = await get(context, '/common/users', queryParams: {'limit': '9999'});
-      if (response != null && response['data'] is List) {
-        return (response['data'] as List).map((e) {
-          // Mapping spécifique car l'API User renvoie "fullName" et "lgUSERID"
-          return CommonData(
-            id: e['lgUSERID']?.toString() ?? '',
-            libelle: e['fullName']?.toString() ?? '',
-          );
-        }).toList();
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
+  // 3. Récupérer les Utilisateurs. Échec : ApiLoadException (≠ liste vide).
+  Future<List<CommonData>> getUsers(BuildContext context) => _charger('utilisateurs', () async {
+        final response = await get(context, '/common/users', queryParams: {'limit': '9999'});
+        // Mapping spécifique car l'API User renvoie "fullName" et "lgUSERID"
+        return _liste(
+          response is Map ? {'data': response['data']} : response,
+          'utilisateurs',
+          (e) => CommonData(id: e['lgUSERID']?.toString() ?? '', libelle: e['fullName']?.toString() ?? ''),
+        );
+      });
 
   // --- NOUVELLE MÉTHODE : TICKET Z / RECAP CAISSE ---
   Future<Map<String, dynamic>?> fetchTicketZ(BuildContext context, Map<String, dynamic> payload) async {
@@ -495,9 +514,10 @@ class ApiService {
       // Utilisation du point de terminaison spécifié pour fetch-tickez
       final response = await post(context, '/caisse/fetch-tickez', payload);
       return response;
-    } catch (e) {
-      JournalApp.debug('fetchTicketZ : ${e.runtimeType}');
-      throw Exception("Impossible de récupérer le Ticket Z. Vérifiez votre connexion et essayez à nouveau.");
+    } on ApiLoadException catch (e) {
+      JournalApp.debug('fetchTicketZ : ${e.nature.name}');
+      // Message précis (serveur injoignable, délai, session…) au lieu d'un message unique.
+      throw e.pour('ticket Z');
     }
   }
 

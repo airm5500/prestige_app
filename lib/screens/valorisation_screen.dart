@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../utils/color_extensions.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../widgets/erreurs_chargement.dart';
 
 class ValorisationScreen extends StatefulWidget {
   const ValorisationScreen({super.key});
@@ -24,6 +25,7 @@ class _ValorisationScreenState extends State<ValorisationScreen> with BaseScreen
   // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadValorisation() async {
+    reessai = _loadValorisation; // « Réessayer » relance ce chargement
     // On réinitialise les données avant chaque appel
     setState(() {
       _valorisationData = null;
@@ -105,6 +107,8 @@ class _ValorisationScreenState extends State<ValorisationScreen> with BaseScreen
             const SizedBox(height: 20),
             if (isLoading)
               const Center(child: CircularProgressIndicator())
+            else if (loadError != null)
+              LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
             else if (errorMessage != null)
               Padding(
                 padding: const EdgeInsets.all(16.0),

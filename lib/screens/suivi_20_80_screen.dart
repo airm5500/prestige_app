@@ -6,6 +6,7 @@ import 'package:prestige_app/models/suivi_20_80_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class Suivi2080Screen extends StatefulWidget {
   const Suivi2080Screen({super.key});
@@ -28,6 +29,7 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
   }
 
   Future<void> _loadData() async {
+    reessai = _loadData; // « Réessayer » relance ce chargement
     setState(() {
       _dataList = [];
     });
@@ -201,6 +203,8 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(
               child: Center(

@@ -5,6 +5,7 @@ import 'package:prestige_app/models/etat_stock_article_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 import '../services/journal_app.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class EtatStockScreen extends StatefulWidget {
   const EtatStockScreen({Key? key}) : super(key: key);
@@ -32,6 +33,10 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
   List<EtatStockArticleModel> _articles = [];
   bool _isLoading = false;
   bool _hasSearched = false;
+
+  // Échecs de chargement (≠ « Aucun résultat trouvé ») : affichés avec « Réessayer ».
+  String? _filtresErreur;
+  String? _rechercheErreur;
 
   // Pagination
   int _currentPage = 1;
@@ -76,8 +81,10 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
 
   Future<void> _loadInitialData() async {
     final apiService = Provider.of<ApiService>(context, listen: false);
+    if (_filtresErreur != null) setState(() => _filtresErreur = null);
     try {
       final rayons = await apiService.getRayons(context);
+      if (!mounted) return;
       final grossistes = await apiService.getGrossistes(context);
 
       if (mounted) {
@@ -88,6 +95,7 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
       }
     } catch (e) {
       JournalApp.debug('Etat de stock, filtres : ${e.runtimeType}');
+      if (mounted) setState(() => _filtresErreur = e is ApiLoadException ? e.message : ApiLoadException.messageReponse);
     }
   }
 
@@ -106,6 +114,7 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
       setState(() {
         _isLoading = true;
         _hasSearched = true;
+        _rechercheErreur = null;
         _currentPage = 1;
         _articles.clear();
       });
@@ -138,12 +147,20 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final message = e is ApiLoadException ? e.message : 'Erreur: $e';
         setState(() {
           _isLoading = false;
+          if (loadMore) {
+            _currentPage--; // la page n'a pas été chargée : elle sera redemandée
+          } else {
+            _rechercheErreur = message;
+          }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        if (loadMore) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
       }
     }
   }
@@ -384,10 +401,14 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
 
           const Divider(),
 
+          if (_filtresErreur != null) LoadErrorBanner(message: _filtresErreur!, onRetry: _loadInitialData),
+
           // 3. Liste des résultats
           Expanded(
             child: _isLoading && _articles.isEmpty
                 ? const Center(child: CircularProgressIndicator())
+                : _rechercheErreur != null
+                ? LoadErrorView(message: _rechercheErreur!, onRetry: () => _searchArticles())
                 : !_hasSearched
                 ? Center(
               child: Column(

@@ -140,11 +140,25 @@ class AppLifecycleObserver extends StatefulWidget {
 
 class _AppLifecycleObserverState extends State<AppLifecycleObserver> with WidgetsBindingObserver {
   StreamSubscription? _eventSubscription;
+  AuthProvider? _auth;
+  bool _etaitConnecte = false;
+
+  /// Déconnexion (session expirée, délai d'inactivité, bouton) : les écrans ouverts par-dessus l'accueil
+  /// sont fermés pour revenir à l'écran de connexion.
+  void _surChangementConnexion() {
+    final connecte = _auth?.isLoggedIn ?? false;
+    if (_etaitConnecte && !connecte && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+    _etaitConnecte = connecte;
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _auth = Provider.of<AuthProvider>(context, listen: false)..addListener(_surChangementConnexion);
+    _etaitConnecte = _auth!.isLoggedIn;
     _eventSubscription = Provider.of<AuthProvider>(context, listen: false).events.listen((message) {
       if (mounted) {
         showDialog(
@@ -168,6 +182,7 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _auth?.removeListener(_surChangementConnexion);
     _eventSubscription?.cancel();
     super.dispose();
   }

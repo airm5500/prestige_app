@@ -14,6 +14,7 @@ import '../models/retour_fournisseur_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class RetoursFournisseursScreen extends StatefulWidget {
   const RetoursFournisseursScreen({super.key});
@@ -39,6 +40,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
   }
 
   Future<void> _fetchGrossistes() async {
+    reessai = _fetchGrossistes; // « Réessayer » relance ce chargement
     final data = await apiGet(AppConstants.grossistesEndpoint);
     if (mounted && data is Map && data['data'] is List) {
       setState(() {
@@ -48,6 +50,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
   }
 
   Future<void> _loadRetours() async {
+    reessai = _loadRetours; // « Réessayer » relance ce chargement
     setState(() {
       _retours = [];
     });
@@ -277,6 +280,8 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(
               child: Center(

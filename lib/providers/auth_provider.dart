@@ -30,7 +30,12 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  /// Message affiché quand le serveur signale une session expirée (HTTP 401).
+  static const messageSessionExpiree = 'Votre session a expiré. Reconnectez-vous pour continuer.';
+
   AuthProvider() {
+    // Toute session expirée détectée par ApiService ramène à l'écran de connexion, avec un message.
+    ApiService.surSessionExpiree = () => forceLogout(motif: messageSessionExpiree);
     _prepareApp();
   }
 
@@ -88,7 +93,7 @@ class AuthProvider with ChangeNotifier {
       final response = await _apiService.post(context, AppConstants.authEndpoint, {
         "login": username,
         "password": password,
-      }, onSessionInvalid: forceLogout);
+      });
       if (response['success'] == true) {
         _user = AppUser.fromJson(response);
         _isLoggedIn = true;
@@ -113,7 +118,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> fetchAndStoreOfficineInfo(BuildContext context) async {
     try {
-      final data = await _apiService.get(context, AppConstants.officineEndpoint, onSessionInvalid: forceLogout);
+      final data = await _apiService.get(context, AppConstants.officineEndpoint);
       if (data is List && data.isNotEmpty) {
         _officine = Officine.fromJson(data[0]);
         final prefs = await SharedPreferences.getInstance();
@@ -125,7 +130,8 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  void forceLogout() {
+  /// Déconnexion locale. [motif] : message affiché (session expirée), aucun pour une déconnexion voulue.
+  void forceLogout({String? motif}) {
     if (!_isLoggedIn) return;
     JournalApp.debug('Déconnexion forcée (session invalide)');
     _user = null;
@@ -133,6 +139,7 @@ class AuthProvider with ChangeNotifier {
     _apiService.clearSessionCookie();
     _clearUserData();
     notifyListeners();
+    if (motif != null && !_eventController.isClosed) _eventController.add(motif);
   }
 
   Future<void> logout(BuildContext context) async {

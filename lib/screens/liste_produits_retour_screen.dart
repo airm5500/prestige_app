@@ -6,6 +6,7 @@ import 'package:prestige_app/models/avoir_fournisseur_produit_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class ListeProduitsRetourScreen extends StatefulWidget {
   final DateTime startDate;
@@ -27,6 +28,7 @@ class _ListeProduitsRetourScreenState extends State<ListeProduitsRetourScreen> w
   }
 
   Future<void> _loadProduits() async {
+    reessai = _loadProduits; // « Réessayer » relance ce chargement
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(widget.startDate),
       'dtEnd': DateFormatter.toApiFormat(widget.endDate),
@@ -54,6 +56,8 @@ class _ListeProduitsRetourScreenState extends State<ListeProduitsRetourScreen> w
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : loadError != null
+          ? LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
           : errorMessage != null
           ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
           : _produits.isEmpty

@@ -8,6 +8,7 @@ import 'package:prestige_app/models/log_user_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class FichierJournalScreen extends StatefulWidget {
   const FichierJournalScreen({super.key});
@@ -33,6 +34,7 @@ class _FichierJournalScreenState extends State<FichierJournalScreen> with BaseSc
   }
 
   Future<void> _fetchFilters() async {
+    reessai = _fetchFilters; // « Réessayer » relance ce chargement
     final results = await Future.wait([
       apiGet(AppConstants.logFiltresEndpoint),
       apiGet(AppConstants.logUsersEndpoint),
@@ -50,6 +52,7 @@ class _FichierJournalScreenState extends State<FichierJournalScreen> with BaseSc
   }
 
   Future<void> _loadLogs() async {
+    reessai = _loadLogs; // « Réessayer » relance ce chargement
     setState(() {
       _logs = [];
     });
@@ -117,6 +120,8 @@ class _FichierJournalScreenState extends State<FichierJournalScreen> with BaseSc
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(child: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
           else if (_logs.isEmpty)

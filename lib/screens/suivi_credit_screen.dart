@@ -6,6 +6,7 @@ import '../models/suivi_credit_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class SuiviCreditScreen extends StatefulWidget {
   const SuiviCreditScreen({super.key});
@@ -36,6 +37,7 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
   }
 
   Future<void> _loadData() async {
+    reessai = _loadData; // « Réessayer » relance ce chargement
     setState(() {
       _dataList = [];
       _filteredDataList = [];
@@ -186,6 +188,8 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(
               child: Center(

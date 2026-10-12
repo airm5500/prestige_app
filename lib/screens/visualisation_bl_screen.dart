@@ -6,6 +6,7 @@ import 'package:prestige_app/models/common_data_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 import '../services/journal_app.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class VisualisationBlScreen extends StatefulWidget {
   const VisualisationBlScreen({Key? key}) : super(key: key);
@@ -45,6 +46,10 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
   List<BonLivraisonModel> _bls = [];
   int _totalBl = 0;
   bool _isLoading = false;
+
+  // Échecs de chargement (≠ « Aucun Bon de Livraison trouvé ») : affichés avec « Réessayer ».
+  String? _filtresErreur;
+  String? _listeErreur;
 
   // Pagination
   int _currentPage = 1;
@@ -92,9 +97,12 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
 
   Future<void> _loadFilters() async {
     final api = Provider.of<ApiService>(context, listen: false);
+    if (_filtresErreur != null) setState(() => _filtresErreur = null);
     try {
       final g = await api.getGrossistes(context);
+      if (!mounted) return;
       final gr = await api.getGroupeGrossistes(context);
+      if (!mounted) return;
       final u = await api.getUsers(context);
 
       if (mounted) {
@@ -106,6 +114,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
       }
     } catch (e) {
       JournalApp.debug('Visualisation BL, filtres : ${e.runtimeType}');
+      if (mounted) setState(() => _filtresErreur = e is ApiLoadException ? e.message : ApiLoadException.messageReponse);
     }
   }
 
@@ -115,6 +124,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
     if (!loadMore) {
       setState(() {
         _isLoading = true;
+        _listeErreur = null;
         _totalHT = 0;
         _totalTVA = 0;
         _totalTTC = 0;
@@ -154,7 +164,20 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        final message = e is ApiLoadException ? e.message : 'Erreur: $e';
+        setState(() {
+          _isLoading = false;
+          if (loadMore) {
+            _currentPage--; // la page n'a pas été chargée : elle sera redemandée
+          } else {
+            _bls = [];
+            _totalBl = 0;
+            _listeErreur = message;
+          }
+        });
+        if (loadMore) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
     }
   }
 
@@ -420,10 +443,14 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
           ),
           const Divider(height: 1),
 
+          if (_filtresErreur != null) LoadErrorBanner(message: _filtresErreur!, onRetry: _loadFilters),
+
           // 4. Liste
           Expanded(
             child: _isLoading && _bls.isEmpty
                 ? const Center(child: CircularProgressIndicator())
+                : _listeErreur != null
+                ? LoadErrorView(message: _listeErreur!, onRetry: () => _fetchData())
                 : _bls.isEmpty
                 ? const Center(child: Text("Aucun Bon de Livraison trouvé"))
                 : ListView.builder(

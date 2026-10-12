@@ -7,6 +7,7 @@ import '../models/ca_comptant_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../widgets/erreurs_chargement.dart';
 
 extension ColorExtensionOnColorForCaComptantScreen on Color {
   Color darker([double amount = .2]) {
@@ -40,6 +41,7 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
   ];
 
   Future<void> _loadCaComptant() async {
+    reessai = _loadCaComptant; // « Réessayer » relance ce chargement
     setState(() => _caComptantDataList = []);
 
     final queryParams = {
@@ -459,6 +461,8 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
                   padding: EdgeInsets.symmetric(vertical: 30.0),
                   child: Center(child: CircularProgressIndicator()),
                 )
+              else if (loadError != null)
+                LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
               else if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(16.0),

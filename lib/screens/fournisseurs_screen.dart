@@ -54,6 +54,9 @@ class _FournisseursScreenState extends State<FournisseursScreen> with BaseScreen
           });
         }
         return fournisseurs;
+      } else if (data == null && loadError != null) {
+        // Échec réseau / serveur / session : message précis (≠ « format incorrect »).
+        throw loadError!;
       } else {
         throw Exception('Format de données incorrect reçu du serveur.');
       }
@@ -130,7 +133,9 @@ class _FournisseursScreenState extends State<FournisseursScreen> with BaseScreen
                           Icon(Icons.error_outline, color: Colors.red[700], size: 50),
                           const SizedBox(height: 10),
                           Text(
-                            'Erreur: ${snapshot.error.toString().replaceFirst("Exception: ", "")}',
+                            snapshot.error is ApiLoadException
+                                ? (snapshot.error as ApiLoadException).message
+                                : 'Erreur: ${snapshot.error.toString().replaceFirst("Exception: ", "")}',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.red[700], fontSize: 16),
                           ),

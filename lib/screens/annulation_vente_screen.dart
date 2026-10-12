@@ -9,6 +9,7 @@ import '../models/vente_detail_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class AnnulationVenteScreen extends StatefulWidget {
   const AnnulationVenteScreen({super.key});
@@ -24,6 +25,7 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
   final TextEditingController _searchController = TextEditingController();
 
   Future<void> _loadVentes() async {
+    reessai = _loadVentes; // « Réessayer » relance ce chargement
     final query = _searchController.text.trim();
     if (query.isEmpty) {
       Fluttertoast.showToast(msg: "Veuillez entrer un numéro de vente à rechercher.");
@@ -147,6 +149,8 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
             ),
           ),
           if (isLoading) const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null) Expanded(child: Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center))))
           else if (_ventes.isEmpty) const Expanded(child: Center(child: Text('Veuillez lancer une recherche.')))
             else Expanded(

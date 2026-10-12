@@ -6,6 +6,7 @@ import 'package:prestige_app/models/marge_produit_vendu_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class MargeProduitsVendusScreen extends StatefulWidget {
   const MargeProduitsVendusScreen({super.key});
@@ -36,6 +37,7 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
   }
 
   Future<void> _loadData() async {
+    reessai = _loadData; // « Réessayer » relance ce chargement
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'dtEnd': DateFormatter.toApiFormat(_endDate),
@@ -153,6 +155,8 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(child: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
           else if (_dataList.isEmpty)

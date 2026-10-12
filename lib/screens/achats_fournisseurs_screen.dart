@@ -9,6 +9,7 @@ import '../models/fournisseur_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class AchatsFournisseursScreen extends StatefulWidget {
   const AchatsFournisseursScreen({super.key});
@@ -44,6 +45,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
   }
 
   Future<void> _fetchFournisseursForFilter() async {
+    reessai = _fetchFournisseursForFilter; // « Réessayer » relance ce chargement
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
       final data = await apiService.get(
@@ -66,6 +68,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
   }
 
   Future<void> _loadAchats() async {
+    reessai = _loadAchats; // « Réessayer » relance ce chargement
     setState(() {
       _achats = [];
       _filteredAchats = [];
@@ -396,6 +399,8 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(
               child: SingleChildScrollView(

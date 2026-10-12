@@ -7,6 +7,7 @@ import 'package:prestige_app/models/stat_tva_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class StatTvaScreen extends StatefulWidget {
   const StatTvaScreen({super.key});
@@ -23,6 +24,7 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
   int? _selectedMonth;
 
   Future<void> _loadStats() async {
+    reessai = _loadStats; // « Réessayer » relance ce chargement
     setState(() {
       _stats = [];
     });
@@ -92,6 +94,8 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(
               child: Center(

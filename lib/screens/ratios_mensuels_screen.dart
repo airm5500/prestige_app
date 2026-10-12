@@ -6,6 +6,7 @@ import '../models/tableau_bord_achats_ventes_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class MonthlyRatioData {
   final int month;
@@ -37,6 +38,7 @@ class _RatiosMensuelsScreenState extends State<RatiosMensuelsScreen> with BaseSc
   }
 
   Future<void> _loadMonthlyData() async {
+    reessai = _loadMonthlyData; // « Réessayer » relance ce chargement
     final now = DateTime.now();
     final startDate = DateTime(now.year, 1, 1);
     final endDate = now;
@@ -83,6 +85,8 @@ class _RatiosMensuelsScreenState extends State<RatiosMensuelsScreen> with BaseSc
         onRefresh: _loadMonthlyData,
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
+            : loadError != null
+            ? LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
             : errorMessage != null
             ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center)))
             : _monthlyData.isEmpty

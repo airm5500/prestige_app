@@ -7,6 +7,7 @@ import '../models/common_data_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class SuiviAjustementScreen extends StatefulWidget {
   const SuiviAjustementScreen({super.key});
@@ -39,6 +40,7 @@ class _SuiviAjustementScreenState extends State<SuiviAjustementScreen> with Base
   }
 
   Future<void> _fetchTypesAjustement() async {
+    reessai = _fetchTypesAjustement; // « Réessayer » relance ce chargement
     final data = await apiGet(AppConstants.typeAjustementsEndpoint);
     if (mounted && data is Map<String, dynamic> && data['data'] is List) {
       setState(() {
@@ -48,6 +50,7 @@ class _SuiviAjustementScreenState extends State<SuiviAjustementScreen> with Base
   }
 
   Future<void> _loadData() async {
+    reessai = _loadData; // « Réessayer » relance ce chargement
     setState(() => _dataList = []);
 
     // CORRECTION: Ajout des paramètres de pagination
@@ -143,6 +146,8 @@ class _SuiviAjustementScreenState extends State<SuiviAjustementScreen> with Base
             ),
           ),
           if (isLoading) const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null) Expanded(child: Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)))))
           else if (_dataList.isEmpty) const Expanded(child: Center(child: Text('Aucune donnée à afficher.')))
             else Expanded(

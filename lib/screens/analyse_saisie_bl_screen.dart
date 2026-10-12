@@ -6,6 +6,7 @@ import 'package:prestige_app/models/bon_livraison_stat_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class AnalyseSaisieBlScreen extends StatefulWidget {
   const AnalyseSaisieBlScreen({super.key});
@@ -23,6 +24,7 @@ class _AnalyseSaisieBlScreenState extends State<AnalyseSaisieBlScreen> with Base
   String _selectedStatus = 'Tous'; // AJOUT: Pour le filtre de statut
 
   Future<void> _loadData() async {
+    reessai = _loadData; // « Réessayer » relance ce chargement
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'dtEnd': DateFormatter.toApiFormat(_endDate),
@@ -110,6 +112,8 @@ class _AnalyseSaisieBlScreenState extends State<AnalyseSaisieBlScreen> with Base
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(child: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
           else if (_dataList.isEmpty)

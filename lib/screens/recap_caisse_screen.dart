@@ -6,6 +6,7 @@ import '../models/common_data_model.dart';
 import '../models/ticket_z_model.dart';
 import '../services/api_service.dart';
 import '../services/journal_app.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class RecapCaisseScreen extends StatefulWidget {
   const RecapCaisseScreen({super.key});
@@ -28,6 +29,9 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
   TicketZResponse? _data;
   List<CommonData> _usersList = [];
 
+  /// Liste des caissiers non chargée (≠ aucun caissier) : bandeau avec « Réessayer ».
+  String? _usersErreur;
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +39,7 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
   }
 
   Future<void> _loadUsers() async {
+    if (_usersErreur != null) setState(() => _usersErreur = null);
     try {
       final api = ApiService();
       final fetchedUsers = await api.getUsers(context);
@@ -49,8 +54,10 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
     } catch (e) {
       JournalApp.debug('Récap caisse, utilisateurs : ${e.runtimeType}');
       // On conserve au moins l'option ALL en cas d'erreur
+      if (!mounted) return;
       setState(() {
         _usersList = [CommonData(id: 'ALL', libelle: 'Tous les utilisateurs')];
+        _usersErreur = e is ApiLoadException ? e.message : ApiLoadException.messageReponse;
       });
     }
   }
@@ -160,6 +167,7 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
       body: Column(
         children: [
           _buildFiltersCard(theme),
+          if (_usersErreur != null) LoadErrorBanner(message: _usersErreur!, onRetry: _loadUsers),
           Expanded(
             child: _buildBodyContent(theme),
           ),
@@ -266,24 +274,8 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, color: Colors.red.shade400, size: 50),
-              const SizedBox(height: 12),
-              Text(
-                "Une erreur est survenue",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
-              ),
-              const SizedBox(height: 8),
-              Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54)),
-            ],
-          ),
-        ),
-      );
+      // Échec (réseau, délai, serveur, session…) : message précis et « Réessayer ».
+      return LoadErrorView(message: _errorMessage!, onRetry: _fetchTicketZ);
     }
 
     if (_data == null) {

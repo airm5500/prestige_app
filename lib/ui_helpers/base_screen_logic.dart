@@ -5,11 +5,20 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 
+export '../services/api_service.dart' show ApiLoadException, NatureErreur;
+
 // Un mixin qui fournit des fonctionnalités de base pour les écrans, Gestion commune des elements communs aux ecrans
 mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
   final ApiService apiService = ApiService();
   bool isLoading = false;
   String? errorMessage;
+
+  /// Échec du dernier appel au serveur (réseau, délai, erreur serveur, session, droit…) : les écrans
+  /// l'affichent avec « Réessayer » (LoadErrorView), à distinguer d'une vraie liste vide.
+  ApiLoadException? loadError;
+
+  /// Chargement relancé par « Réessayer » (chaque fonction de chargement de l'écran s'y inscrit).
+  VoidCallback? reessai;
 
   // Méthode générique pour exécuter des appels API en toute sécurité
   Future<dynamic> safeApiCall(Future<dynamic> Function() apiCall, {String? customErrorMessage}) async {
@@ -19,6 +28,7 @@ mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
     setState(() {
       isLoading = true;
       errorMessage = null;
+      loadError = null;
     });
 
     try {
@@ -29,7 +39,8 @@ mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
       if (mounted) {
         setState(() {
           // Affiche un message d'erreur personnalisé ou le message d'erreur de l'API
-          errorMessage = customErrorMessage ?? 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}';
+          loadError = e is ApiLoadException ? e : null;
+          errorMessage = customErrorMessage ?? (e is ApiLoadException ? e.message : 'Erreur: ${e.toString().replaceFirst("Exception: ", "")}');
         });
       }
       return null; // Retourne null en cas d'erreur

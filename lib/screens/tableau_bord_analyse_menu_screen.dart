@@ -9,6 +9,7 @@ import '../ui_helpers/base_screen_logic.dart';
 import 'evolution_comparative_screen.dart';
 import 'evolution_achats_screen.dart';
 import 'evolution_ventes_screen.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class TableauBordAnalyseMenuScreen extends StatefulWidget {
   const TableauBordAnalyseMenuScreen({super.key});
@@ -26,6 +27,7 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
   int? _selectedMonth;
 
   Future<void> _loadDataForAnalyses() async {
+    reessai = _loadDataForAnalyses; // « Réessayer » relance ce chargement
     setState(() {
       _dataList = [];
       _dataLoaded = false;
@@ -168,6 +170,8 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
             ),
             const SizedBox(height: 20),
             if (isLoading) const Center(child: CircularProgressIndicator())
+            else if (loadError != null)
+              LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
             else if (errorMessage != null) Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.error_outline, color: Colors.red[700], size: 40), const SizedBox(height: 8), Text(errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700], fontSize: 15))])))
             else if (!_dataLoaded && !isLoading) Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Text('Veuillez charger les données pour la période sélectionnée avant de consulter les analyses.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[700]))))
               else if (_dataLoaded) ...[

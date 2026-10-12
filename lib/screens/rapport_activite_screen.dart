@@ -12,6 +12,7 @@ import 'package:prestige_app/providers/auth_provider.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class RapportActiviteScreen extends StatefulWidget {
   const RapportActiviteScreen({super.key});
@@ -31,6 +32,7 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
   List<ReglementRecap> _reglements = [];
 
   Future<void> _loadRapport() async {
+    reessai = _loadRapport; // « Réessayer » relance ce chargement
     setState(() {
       isLoading = true;
       _dashboardData = null;
@@ -38,6 +40,7 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
       _creditTotals = null;
       _reglements = [];
       errorMessage = null;
+      loadError = null;
     });
 
     try {
@@ -73,6 +76,7 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
     } catch (e) {
       if (mounted) {
         setState(() {
+          loadError = e is ApiLoadException ? e : null;
           errorMessage = e.toString().replaceFirst("Exception: ", "");
         });
       }
@@ -113,6 +117,8 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
           ),
           if (isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null)
             Expanded(child: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
           else if (_dashboardData == null && _credits.isEmpty && _reglements.isEmpty)

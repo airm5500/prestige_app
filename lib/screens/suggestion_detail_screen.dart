@@ -7,6 +7,7 @@ import '../models/suggestion_item_model.dart';
 import '../models/suggestion_amount_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class SuggestionDetailScreen extends StatefulWidget {
   final Suggestion suggestion;
@@ -29,6 +30,7 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
 
   Future<void> _loadDetails() async {
     setState(() => _isPageLoading = true);
+    reessai = _loadDetails; // « Réessayer » relance ce chargement
     await _loadItems();
     await _loadAmount();
     if (mounted) {
@@ -58,7 +60,16 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
     final int? qte = int.tryParse(newQuantity);
     if (qte == null) return;
 
-    await apiPost(AppConstants.suggestionUpdateQteEndpoint, {'itemId': itemId, 'qte': qte});
+    final r = await apiPost(AppConstants.suggestionUpdateQteEndpoint, {'itemId': itemId, 'qte': qte});
+    if (!mounted) return;
+    if (r == null) {
+      // Échec (réseau, serveur, session…) : la quantité n'est PAS enregistrée, on le dit.
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red.shade700,
+        content: Text('Quantité non enregistrée sur le serveur : ${errorMessage ?? 'erreur inconnue'}'),
+      ));
+      return;
+    }
     await _loadAmount();
   }
 
@@ -76,7 +87,15 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
     );
 
     if (confirm == true) {
-      await apiDelete('${AppConstants.suggestionDeleteItemEndpoint}/$itemId');
+      final r = await apiDelete('${AppConstants.suggestionDeleteItemEndpoint}/$itemId');
+      if (!mounted) return;
+      if (r == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text('Article non supprimé : ${errorMessage ?? 'erreur inconnue'}'),
+        ));
+        return;
+      }
       await _loadDetails();
     }
   }
@@ -91,6 +110,7 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: [
+          if (loadError != null) LoadErrorBanner(message: loadError!.message, onRetry: () => reessai?.call()),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(8),

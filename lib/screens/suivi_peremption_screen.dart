@@ -9,6 +9,7 @@ import 'package:prestige_app/models/suivi_peremption_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 import '../services/journal_app.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class SuiviPeremptionScreen extends StatefulWidget {
   const SuiviPeremptionScreen({Key? key}) : super(key: key);
@@ -25,6 +26,9 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
   // Données
   SuiviPeremptionResponse? _dataResponse;
   bool _isLoading = false;
+
+  /// Échec de chargement (≠ « Aucun produit périmé… ») : affiché avec « Réessayer ».
+  String? _erreur;
 
   // Pagination
   int _currentPage = 1;
@@ -59,7 +63,10 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
     final api = Provider.of<ApiService>(context, listen: false);
 
     if (!loadMore) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        _erreur = null;
+      });
       _currentPage = 1;
     } else {
       _currentPage++;
@@ -90,8 +97,20 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
       JournalApp.debug('Suivi péremption : ${e.runtimeType}');
+      if (mounted) {
+        final message = e is ApiLoadException ? e.message : 'Erreur: $e';
+        setState(() {
+          _isLoading = false;
+          if (loadMore) {
+            _currentPage--; // la page n'a pas été chargée : elle sera redemandée
+          } else {
+            _dataResponse = null;
+            _erreur = message;
+          }
+        });
+        if (loadMore) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
     }
   }
 
@@ -333,6 +352,8 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
           Expanded(
             child: _isLoading && _dataResponse == null
                 ? const Center(child: CircularProgressIndicator())
+                : _erreur != null
+                ? LoadErrorView(message: _erreur!, onRetry: () => _fetchData())
                 : _dataResponse?.data.isEmpty ?? true
                 ? const Center(child: Text("Aucun produit périmé ou proche péremption trouvé."))
                 : ListView.separated(

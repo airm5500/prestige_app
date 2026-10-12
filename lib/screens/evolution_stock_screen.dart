@@ -16,6 +16,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../services/journal_app.dart';
+import '../widgets/erreurs_chargement.dart';
 
 extension ColorExtensionOnColorForEvolutionStock on Color {
   Color darker([double amount = .2]) {
@@ -49,6 +50,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseSc
   // Les variables 'isLoading' et 'errorMessage' sont maintenant gérées par le mixin.
 
   Future<void> _loadData() async {
+    reessai = _loadData; // « Réessayer » relance ce chargement
     // On réinitialise la liste avant chaque appel
     setState(() {
       _dataPoints = [];
@@ -179,6 +181,8 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseSc
             ),
           ),
           if (isLoading) const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
           else if (errorMessage != null) Expanded(child: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
           else if (_dataPoints.isEmpty) const Expanded(child: Center(child: Text('Aucune donnée à afficher. Veuillez sélectionner une période.')))
             else Expanded(child: Padding(padding: const EdgeInsets.all(16.0), child: _EvolutionChart(chartKey: _chartKey, dataPoints: _dataPoints))),

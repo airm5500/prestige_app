@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/retour_fournisseur_detail_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class RetourFournisseurDetailScreen extends StatefulWidget {
   final String retourId;
@@ -25,6 +26,7 @@ class _RetourFournisseurDetailScreenState extends State<RetourFournisseurDetailS
   }
 
   Future<void> _loadDetails() async {
+    reessai = _loadDetails; // « Réessayer » relance ce chargement
     final queryParams = {
       'retourId': widget.retourId,
       'page': '1',
@@ -54,6 +56,8 @@ class _RetourFournisseurDetailScreenState extends State<RetourFournisseurDetailS
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : loadError != null
+          ? LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call())
           : errorMessage != null
           ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
           : _details.isEmpty

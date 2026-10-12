@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/produit_model.dart'; // Utilise le modèle Produit
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../widgets/erreurs_chargement.dart';
 
 class FicheArticleScreen extends StatefulWidget {
   const FicheArticleScreen({super.key});
@@ -59,6 +60,7 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
   }
 
   Future<void> _rechercherProduits() async {
+    reessai = _rechercherProduits; // « Réessayer » relance ce chargement
     final searchTerm = _searchController.text.trim();
     if (searchTerm.isEmpty) return;
 
@@ -154,7 +156,9 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
               onSubmitted: (_) => _rechercherProduits(),
             ),
           ),
-          if (errorMessage != null)
+          if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
+          else if (errorMessage != null)
             Expanded(
               child: Center(
                 child: Padding(

@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../models/analyse_article_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
+import '../widgets/erreurs_chargement.dart';
 
 class AnalyseArticleScreen extends StatefulWidget {
   const AnalyseArticleScreen({super.key});
@@ -65,6 +66,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
   }
 
   Future<void> _rechercherArticles() async {
+    reessai = _rechercherArticles; // « Réessayer » relance ce chargement
     final searchTerm = _searchController.text.trim();
     if (searchTerm.isEmpty) return;
 
@@ -262,7 +264,9 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
               onSubmitted: (_) => _rechercherArticles(),
             ),
           ),
-          if (errorMessage != null)
+          if (loadError != null)
+            Expanded(child: LoadErrorView(message: loadError!.message, onRetry: () => reessai?.call()))
+          else if (errorMessage != null)
             Expanded(
               child: Center(
                 child: Padding(
