@@ -91,29 +91,140 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
     }
   }
 
+  // --- ANNULATION : protégée contre le double envoi ---
+  // La route serveur reste GET /vente/annulation/{id} (inchangée). Côté application :
+  // - une seule annulation en vol à la fois (boutons « Annuler » bloqués, indicateur sur la ligne) ;
+  // - confirmation explicite (montant, date ; fenêtre non fermable par erreur) ;
+  // - relecture de la vente AVANT l'envoi (déjà annulée → aucun envoi) et APRÈS (résultat vérifié) ;
+  // - sans réponse du serveur (délai, réseau), la demande n'est JAMAIS renvoyée automatiquement : l'état
+  //   réel de la vente est relu et affiché.
+
+  /// Identifiant de la vente dont l'annulation est en cours (une seule à la fois).
+  String? _annulationEnCours;
+
+  bool get annulationEnCours => _annulationEnCours != null;
+
+  void _message(String texte, {bool erreur = false, bool succes = false}) {
+    Fluttertoast.showToast(
+      msg: texte,
+      backgroundColor: succes ? Colors.green : (erreur ? Colors.red : Colors.orange.shade800),
+      toastLength: erreur ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT,
+    );
+  }
+
+  /// Relit l'état de la vente sur le serveur (même recherche que la liste). Échec : ApiLoadException.
+  Future<VenteStat?> _relireVente(VenteStat vente) async {
+    final data = await apiService.get(
+      context,
+      AppConstants.ventesStatsEndpoint,
+      queryParams: {
+        'dtStart': DateFormatter.toApiFormat(_startDate),
+        'dtEnd': DateFormatter.toApiFormat(_endDate),
+        'query': _searchController.text.trim(),
+        'start': '0',
+        'limit': '50',
+      },
+    );
+    if (data is! Map || data['data'] is! List) return null;
+    final ventes = (data['data'] as List).map((item) => VenteStat.fromJson(item)).toList();
+    if (mounted) setState(() => _ventes = ventes);
+    for (final v in ventes) {
+      if (v.lgPREENREGISTREMENTID == vente.lgPREENREGISTREMENTID) return v;
+    }
+    return null;
+  }
+
   Future<void> _annulerVente(VenteStat vente) async {
+    if (_annulationEnCours != null) return; // une seule requête en vol
+    final currencyFormat = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0);
     final bool? confirm = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text("Confirmation"),
-        content: Text("Voulez-vous vraiment annuler la vente N° ${vente.strREF} ?"),
+        content: Text(
+          "Voulez-vous vraiment annuler la vente N° ${vente.strREF} ?\n\n"
+          "${vente.dtCREATED} à ${vente.HEUREVENTE} — ${currencyFormat.format(vente.intPRICE)}\n\n"
+          "Cette annulation est définitive.",
+        ),
         actions: [
           TextButton(child: const Text('Non'), onPressed: () => Navigator.of(ctx).pop(false)),
           TextButton(child: const Text('Oui, Annuler'), onPressed: () => Navigator.of(ctx).pop(true)),
         ],
       ),
     );
+    if (confirm != true || !mounted || _annulationEnCours != null) return;
 
-    if (confirm == true) {
-      final result = await apiGet('${AppConstants.venteAnnulationEndpoint}/${vente.lgPREENREGISTREMENTID}');
-
-      if (mounted && result?['success'] == true) {
-        Fluttertoast.showToast(msg: "Vente annulée avec succès", backgroundColor: Colors.green);
-        _loadVentes();
-      } else {
-        final detailedError = errorMessage ?? result?['msg'] ?? "Erreur d'annulation de la vente";
-        Fluttertoast.showToast(msg: detailedError, backgroundColor: Colors.red, toastLength: Toast.LENGTH_LONG);
+    setState(() => _annulationEnCours = vente.lgPREENREGISTREMENTID);
+    try {
+      // 1. Relecture avant l'envoi : déjà annulée (double appui, autre poste) → aucun envoi.
+      final VenteStat? avant;
+      try {
+        avant = await _relireVente(vente);
+      } on ApiLoadException catch (e) {
+        _message("Annulation non envoyée : ${e.message}", erreur: true);
+        return;
       }
+      if (!mounted) return;
+      if (avant != null && avant.cancel) {
+        _message("La vente N° ${vente.strREF} est déjà annulée.");
+        return;
+      }
+
+      // 2. Envoi unique (route inchangée : GET /vente/annulation/{id}).
+      dynamic result;
+      ApiLoadException? echec;
+      try {
+        result = await apiService.get(context, '${AppConstants.venteAnnulationEndpoint}/${vente.lgPREENREGISTREMENTID}');
+      } on ApiLoadException catch (e) {
+        echec = e;
+      }
+      if (!mounted) return;
+      if (echec != null && echec.nature == NatureErreur.session) {
+        _message(echec.message, erreur: true); // retour à la connexion géré globalement
+        return;
+      }
+      final sansReponse = echec != null && (echec.nature == NatureErreur.reseau || echec.nature == NatureErreur.delai);
+      if (echec != null && !sansReponse) {
+        _message("Annulation refusée : ${echec.message}", erreur: true);
+        return;
+      }
+      final accepte = result is Map && result['success'] == true;
+      if (!sansReponse && !accepte) {
+        _message(result is Map && result['msg'] != null ? "${result['msg']}" : "Erreur d'annulation de la vente", erreur: true);
+        return;
+      }
+
+      // 3. Relecture du résultat (jamais de renvoi automatique).
+      VenteStat? apres;
+      try {
+        apres = await _relireVente(vente);
+      } on ApiLoadException {
+        _message(
+          sansReponse
+              ? "Pas de réponse du serveur et état de la vente impossible à vérifier. Relancez la recherche AVANT de réessayer."
+              : "Vente annulée (réponse du serveur), mais la liste n'a pas pu être relue. Relancez la recherche.",
+          erreur: sansReponse,
+          succes: !sansReponse,
+        );
+        return;
+      }
+      if (!mounted) return;
+      final annulee = apres?.cancel ?? false;
+      if (accepte) {
+        _message(annulee ? "Vente annulée avec succès" : "Le serveur a accepté l'annulation : vérifiez la vente dans Prestige.",
+            succes: annulee, erreur: !annulee);
+      } else {
+        _message(
+          annulee
+              ? "Pas de réponse du serveur, mais la vente N° ${vente.strREF} est bien annulée (vérifié)."
+              : "Pas de réponse du serveur : la vente N° ${vente.strREF} n'est pas annulée. Vous pouvez réessayer.",
+          succes: annulee,
+          erreur: !annulee,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _annulationEnCours = null);
     }
   }
 
@@ -142,7 +253,7 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
                 ElevatedButton.icon(
                   icon: const Icon(Icons.search_sharp),
                   label: const Text('Rechercher les Ventes'),
-                  onPressed: isLoading ? null : _loadVentes,
+                  onPressed: isLoading || annulationEnCours ? null : _loadVentes,
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(45)),
                 ),
               ],
@@ -167,7 +278,19 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(icon: const Icon(Icons.visibility), tooltip: 'Voir Détails', onPressed: () => _showDetails(vente)),
-                            IconButton(icon: Icon(Icons.cancel, color: vente.cancel ? Colors.grey : Colors.red.shade400), tooltip: 'Annuler', onPressed: vente.cancel ? null : () => _annulerVente(vente)),
+                            if (_annulationEnCours == vente.lgPREENREGISTREMENTID)
+                              const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+                              )
+                            else
+                              IconButton(
+                                key: Key('annuler_${vente.lgPREENREGISTREMENTID}'),
+                                icon: Icon(Icons.cancel, color: vente.cancel || annulationEnCours ? Colors.grey : Colors.red.shade400),
+                                tooltip: vente.cancel ? 'Vente déjà annulée' : 'Annuler',
+                                // Bloqué pendant une annulation en cours (une seule requête à la fois).
+                                onPressed: vente.cancel || annulationEnCours ? null : () => _annulerVente(vente),
+                              ),
                           ],
                         ),
                       ),
