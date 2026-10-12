@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ip_config_provider.dart';
 import 'providers/home_settings_provider.dart';
-import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
@@ -17,9 +16,11 @@ import 'utils/constants.dart';
 import 'services/api_service.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
+import 'interface_version.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await InterfaceVersion.load();
   runApp(
     MultiProvider(
       providers: [
@@ -263,7 +264,7 @@ class AuthWrapper extends StatelessWidget {
                   return const SplashScreen();
                 }
                 if (auth.isLoggedIn) {
-                  return const HomeScreen();
+                  return InterfaceVersion.home();
                 } else {
                   return const LoginScreen();
                 }

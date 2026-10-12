@@ -24,9 +24,9 @@ android {
         applicationId = "com.example.prestige_app"
         minSdk = 21 // Recommandé
         targetSdk = flutter.targetSdkVersion
+        // Une seule source pour le numéro de version : `version:` de pubspec.yaml (nom + numéro de build).
         versionCode = flutter.versionCode
-        //versionName = flutter.versionName
-        versionName = "2.3.0"
+        versionName = flutter.versionName
     }
 
     applicationVariants.all {
