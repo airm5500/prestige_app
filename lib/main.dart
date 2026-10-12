@@ -185,7 +185,6 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
 
     switch (state) {
       case AppLifecycleState.resumed:
-        debugPrint("App resumed");
         // 1. Vérif session
         await authProvider.checkSessionTimeout(ipConfigProvider.sessionTimeout);
         // 2. Vérif licence (si la date a changé pendant que l'app était en pause)
@@ -193,7 +192,6 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
         break;
 
       case AppLifecycleState.paused:
-        debugPrint("App paused");
         if (authProvider.isLoggedIn) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setInt(AppConstants.lastPausedTimeKey, DateTime.now().millisecondsSinceEpoch);

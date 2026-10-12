@@ -3,12 +3,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
 import '../providers/ip_config_provider.dart';
+import 'journal_app.dart';
 import 'stockage_securise.dart';
 import '../utils/constants.dart';
 // Assurez-vous que ces fichiers existent bien dans votre projet
@@ -41,7 +41,7 @@ class ApiService {
       await client.head(url).timeout(const Duration(seconds: 5));
       return true;
     } catch (e) {
-      debugPrint("Ping to $url failed: $e");
+      JournalApp.debug('Test de connexion échoué (${JournalApp.requete('HEAD', url)}) : ${e.runtimeType}');
       return false;
     }
   }
@@ -81,7 +81,7 @@ class ApiService {
   Future<Map<String, dynamic>> post(BuildContext context, String endpoint, Map<String, dynamic> body, {VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final url = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
-    debugPrint('API POST Request: $url');
+    JournalApp.debug(JournalApp.requete('POST', url));
 
     try {
       final response = await client.post(
@@ -109,7 +109,7 @@ class ApiService {
     if (queryParams != null) {
       uri = uri.replace(queryParameters: queryParams);
     }
-    debugPrint('API GET Request: $uri');
+    JournalApp.debug(JournalApp.requete('GET', uri));
 
     try {
       final response = await client.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
@@ -133,7 +133,7 @@ class ApiService {
     if (queryParams != null) {
       uri = uri.replace(queryParameters: queryParams);
     }
-    debugPrint('API GET V3 Request: $uri');
+    JournalApp.debug(JournalApp.requete('GET', uri));
 
     try {
       final response = await client.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
@@ -149,7 +149,7 @@ class ApiService {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final baseUrl = ipProvider.activeBaseUrl;
     final url = Uri.parse('$baseUrl$endpoint');
-    debugPrint('API DELETE Request: $url');
+    JournalApp.debug(JournalApp.requete('DELETE', url));
 
     try {
       final response = await client.delete(
@@ -189,11 +189,11 @@ class ApiService {
         }
         return decodedBody;
       } catch (e) {
-        debugPrint("Erreur de décodage JSON: $e");
+        JournalApp.debug('Réponse illisible (JSON incorrect)');
         throw Exception('Réponse invalide du serveur (JSON incorrect).');
       }
     } else {
-      debugPrint("Erreur Serveur ${response.statusCode}: ${response.body}");
+      JournalApp.debug('Erreur serveur HTTP ${response.statusCode}');
       throw Exception('Erreur du serveur (${response.statusCode}).');
     }
   }
@@ -203,7 +203,6 @@ class ApiService {
   // Récupérer la liste des rayons (Emplacements)
   Future<List<CommonData>> getRayons(BuildContext context) async {
     try {
-      debugPrint("--- [ApiService] APPEL API RAYONS ---");
       final response = await get(
         context,
         '/common/rayons',
@@ -213,8 +212,6 @@ class ApiService {
           'start': '0',
         },
       );
-
-      debugPrint("--- [ApiService] Réponse Rayons brute: $response");
 
       if (response != null) {
         List<dynamic> listData = [];
@@ -230,13 +227,11 @@ class ApiService {
           }
         }
 
-        debugPrint("--- [ApiService] Nombre de rayons trouvés: ${listData.length}");
         return listData.map((e) => CommonData.fromJson(e)).toList();
       }
       return [];
-    } catch (e, stackTrace) {
-      debugPrint('ERREUR CRITIQUE getRayons: $e');
-      debugPrint('Stacktrace: $stackTrace');
+    } catch (e) {
+      JournalApp.debug('getRayons : ${e.runtimeType}');
       return [];
     }
   }
@@ -267,7 +262,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      debugPrint('Erreur getGrossistes: $e');
+      JournalApp.debug('getGrossistes : ${e.runtimeType}');
       return [];
     }
   }
@@ -284,8 +279,6 @@ class ApiService {
         int limit = 15,
       }) async {
     try {
-      debugPrint("--- [ApiService] RECHERCHE STOCK --- Query: '$query', Rayon: '$codeRayon', Stock: '$stock', Op: '$filtreStock'");
-
       final response = await get(
         context,
         '/fichearticle/comparaison',
@@ -309,14 +302,11 @@ class ApiService {
         final rawList = response['data'];
         final total = response['total'] ?? 0;
 
-        debugPrint("--- [ApiService] Réponse Stock: Total=$total");
-
         List<EtatStockArticleModel> data = [];
         if (rawList is List) {
-          debugPrint("--- [ApiService] Nombre d'articles dans la page: ${rawList.length}");
           data = rawList.map((e) => EtatStockArticleModel.fromJson(e)).toList();
         } else {
-          debugPrint("--- [ApiService] Attention: 'data' n'est pas une liste.");
+          JournalApp.debug("Etat de stock : 'data' n'est pas une liste");
         }
 
         return {
@@ -324,14 +314,13 @@ class ApiService {
           'data': data,
         };
       } else {
-        debugPrint("--- [ApiService] Réponse Stock vide ou format incorrect: $response");
+        JournalApp.debug('Etat de stock : réponse vide ou format incorrect');
       }
 
       return {'total': 0, 'data': <EtatStockArticleModel>[]};
-    } catch (e, stackTrace) {
-      debugPrint('ERREUR CRITIQUE getEtatStockArticles: $e');
-      debugPrint('Stacktrace: $stackTrace');
-      throw e;
+    } catch (e) {
+      JournalApp.debug('getEtatStockArticles : ${e.runtimeType}');
+      rethrow;
     }
   }
 
@@ -369,7 +358,7 @@ class ApiService {
       }
       return null;
     } catch (e) {
-      debugPrint("Erreur getSuiviPeremption: $e");
+      JournalApp.debug('getSuiviPeremption : ${e.runtimeType}');
       return null;
     }
   }
@@ -389,7 +378,7 @@ class ApiService {
       }
       return null;
     } catch (e) {
-      debugPrint("Erreur findLicence: $e");
+      JournalApp.debug('findLicence : ${e.runtimeType}');
       // Si 404 ou erreur, on considère qu'il n'y a pas de licence valide
       return null;
     }
@@ -409,7 +398,7 @@ class ApiService {
       // On suppose que l'API renvoie la licence ou un succès si ça marche
       return response != null;
     } catch (e) {
-      debugPrint("Erreur registerLicence: $e");
+      JournalApp.debug('registerLicence : ${e.runtimeType}');
       throw Exception("Clé de licence invalide ou erreur serveur.");
     }
   }
@@ -463,7 +452,7 @@ class ApiService {
       }
       return {'total': 0, 'data': <BonLivraisonModel>[]};
     } catch (e) {
-      debugPrint("Erreur getBonLivraisons: $e");
+      JournalApp.debug('getBonLivraisons : ${e.runtimeType}');
       return {'total': 0, 'data': <BonLivraisonModel>[]};
     }
   }
@@ -503,12 +492,11 @@ class ApiService {
   // --- NOUVELLE MÉTHODE : TICKET Z / RECAP CAISSE ---
   Future<Map<String, dynamic>?> fetchTicketZ(BuildContext context, Map<String, dynamic> payload) async {
     try {
-      debugPrint("--- [ApiService] APPEL TICKET Z ---");
       // Utilisation du point de terminaison spécifié pour fetch-tickez
       final response = await post(context, '/caisse/fetch-tickez', payload);
       return response;
     } catch (e) {
-      debugPrint("Erreur fetchTicketZ: $e");
+      JournalApp.debug('fetchTicketZ : ${e.runtimeType}');
       throw Exception("Impossible de récupérer le Ticket Z. Vérifiez votre connexion et essayez à nouveau.");
     }
   }

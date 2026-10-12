@@ -2,12 +2,12 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/officine_model.dart';
 import '../services/api_service.dart';
+import '../services/journal_app.dart';
 import '../services/stockage_securise.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
@@ -121,13 +121,13 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint("Could not fetch officine info: $e");
+      JournalApp.debug('Officine non chargée : ${e.runtimeType}');
     }
   }
 
   void forceLogout() {
     if (!_isLoggedIn) return;
-    debugPrint("Forcing logout due to invalid session.");
+    JournalApp.debug('Déconnexion forcée (session invalide)');
     _user = null;
     _isLoggedIn = false;
     _apiService.clearSessionCookie();
@@ -139,7 +139,7 @@ class AuthProvider with ChangeNotifier {
     try {
       await _apiService.post(context, AppConstants.logoutEndpoint, {});
     } catch (e) {
-      debugPrint("Logout API call failed, but logging out locally anyway: $e");
+      JournalApp.debug('Déconnexion serveur impossible (${e.runtimeType}) : déconnexion locale');
     }
     forceLogout();
   }

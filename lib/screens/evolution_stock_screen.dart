@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/foundation.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
@@ -16,6 +15,7 @@ import '../models/evolution_stock_point_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../services/journal_app.dart';
 
 extension ColorExtensionOnColorForEvolutionStock on Color {
   Color darker([double amount = .2]) {
@@ -67,7 +67,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseSc
       int dayDifference = _endDate.difference(_startDate).inDays;
 
       if (data.length != dayDifference + 1) {
-        debugPrint('Warning: Mismatch between date range and data points received.');
+        JournalApp.debug('Evolution stock : nombre de points différent de la période');
       }
 
       for (int i = 0; i < data.length; i++) {
@@ -114,7 +114,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseSc
 
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
     } catch (e) {
-      debugPrint("Erreur lors de la génération du PDF: $e");
+      JournalApp.debug('Evolution stock, PDF : ${e.runtimeType}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de la préparation de l\'impression.')));
       }

@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:prestige_app/models/suivi_peremption_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
+import '../services/journal_app.dart';
 
 class SuiviPeremptionScreen extends StatefulWidget {
   const SuiviPeremptionScreen({Key? key}) : super(key: key);
@@ -90,7 +91,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
-      debugPrint("Erreur fetch: $e");
+      JournalApp.debug('Suivi péremption : ${e.runtimeType}');
     }
   }
 

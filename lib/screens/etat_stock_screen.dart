@@ -4,6 +4,7 @@ import 'package:prestige_app/models/common_data_model.dart';
 import 'package:prestige_app/models/etat_stock_article_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
+import '../services/journal_app.dart';
 
 class EtatStockScreen extends StatefulWidget {
   const EtatStockScreen({Key? key}) : super(key: key);
@@ -86,7 +87,7 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
         });
       }
     } catch (e) {
-      debugPrint("Erreur chargement init: $e");
+      JournalApp.debug('Etat de stock, filtres : ${e.runtimeType}');
     }
   }
 

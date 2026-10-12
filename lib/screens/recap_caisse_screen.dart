@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/common_data_model.dart';
 import '../models/ticket_z_model.dart';
 import '../services/api_service.dart';
+import '../services/journal_app.dart';
 
 class RecapCaisseScreen extends StatefulWidget {
   const RecapCaisseScreen({super.key});
@@ -46,7 +47,7 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
         });
       }
     } catch (e) {
-      debugPrint("Erreur lors du chargement des utilisateurs: $e");
+      JournalApp.debug('Récap caisse, utilisateurs : ${e.runtimeType}');
       // On conserve au moins l'option ALL en cas d'erreur
       setState(() {
         _usersList = [CommonData(id: 'ALL', libelle: 'Tous les utilisateurs')];

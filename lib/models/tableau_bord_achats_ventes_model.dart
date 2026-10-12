@@ -1,7 +1,7 @@
 // lib/models/tableau_bord_achats_ventes_model.dart
 
-import 'package:flutter/foundation.dart'; // Importer pour debugPrint
 import 'package:intl/intl.dart';
+import '../services/journal_app.dart';
 
 class TableauBordAchatsVentes {
   final DateTime? dateMvt; // Converti depuis String "DD/MM/YYYY"
@@ -20,8 +20,7 @@ class TableauBordAchatsVentes {
       // L'API retourne "DD/MM/YYYY"
       return DateFormat('dd/MM/yyyy', 'fr_FR').parseStrict(dateString);
     } catch (e) {
-      // CORRECTION: Remplacement de 'print' par 'debugPrint'
-      debugPrint('Erreur de parsing de dateMvt: $dateString - $e');
+      JournalApp.debug('Date illisible (dateMvt)');
       return null;
     }
   }

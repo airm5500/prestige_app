@@ -5,6 +5,7 @@ import 'package:prestige_app/models/bon_livraison_model.dart';
 import 'package:prestige_app/models/common_data_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
+import '../services/journal_app.dart';
 
 class VisualisationBlScreen extends StatefulWidget {
   const VisualisationBlScreen({Key? key}) : super(key: key);
@@ -104,7 +105,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
         });
       }
     } catch (e) {
-      debugPrint("Erreur chargement filtres: $e");
+      JournalApp.debug('Visualisation BL, filtres : ${e.runtimeType}');
     }
   }
 

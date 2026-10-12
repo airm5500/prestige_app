@@ -1,7 +1,7 @@
 // lib/utils/date_formatter.dart
 
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import '../services/journal_app.dart';
 
 class DateFormatter {
   // Format pour affichage: JJ-MM-AAAA
@@ -26,7 +26,7 @@ class DateFormatter {
       final day = int.parse(dateString.substring(6, 8));
       return DateTime(year, month, day);
     } catch (e) {
-      debugPrint('Error parsing date string: $dateString. Error: $e');
+      JournalApp.debug('Date illisible');
       return null;
     }
   }
@@ -70,7 +70,7 @@ class DateFormatter {
     try {
       return DateFormat('dd/MM/yyyy').parse(dateString);
     } catch (e) {
-      debugPrint('Error parsing date string (dd/MM/yyyy): $dateString. Error: $e');
+      JournalApp.debug('Date illisible');
       return null;
     }
   }
@@ -83,7 +83,7 @@ class DateFormatter {
     try {
       return DateTime.parse(dateString);
     } catch (e) {
-      debugPrint('Error parsing ISO date time string: $dateString. Error: $e');
+      JournalApp.debug('Date illisible');
       return null;
     }
   }
@@ -96,7 +96,7 @@ class DateFormatter {
     try {
       return DateFormat('dd/MM/yyyy HH:mm').parse(dateString);
     } catch (e) {
-      debugPrint('Error parsing date string (dd/MM/yyyy HH:mm): $dateString. Error: $e');
+      JournalApp.debug('Date illisible');
       return null;
     }
   }
