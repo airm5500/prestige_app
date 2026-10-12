@@ -10,6 +10,7 @@ import 'providers/auth_provider.dart';
 import 'providers/ip_config_provider.dart';
 import 'providers/home_settings_provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/serveur_injoignable_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'utils/constants.dart';
@@ -264,7 +265,13 @@ class AuthWrapper extends StatelessWidget {
               return const SplashScreen();
             }
 
-            // Si licence invalide -> Ecran d'enregistrement
+            // Serveur injoignable (ou erreur du serveur) : la licence n'est PAS en cause.
+            // Message + « Réessayer » + réessai automatique toutes les 10 s.
+            if (licenceProvider.status == LicenceStatus.error) {
+              return const ServeurInjoignableScreen();
+            }
+
+            // Licence réellement absente ou expirée (le serveur a répondu) -> Ecran d'enregistrement
             if (licenceProvider.status == LicenceStatus.notFound ||
                 licenceProvider.status == LicenceStatus.expired) {
               return const LicenceRegistrationScreen();

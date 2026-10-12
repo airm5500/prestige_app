@@ -2,40 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:prestige_app/models/licence_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 
-enum LicenceStatus { unknown, valid, expired, notFound, checking }
+/// `error` : le serveur n'a pas pu être interrogé (injoignable, délai, erreur) — la licence n'est PAS en cause.
+enum LicenceStatus { unknown, valid, expired, notFound, checking, error }
 
 class LicenceProvider extends ChangeNotifier {
   LicenceModel? _licence;
   LicenceStatus _status = LicenceStatus.unknown;
   String? _errorMessage;
+  LicenceLookup? _dernierEchec;
+  bool _verificationEnCours = false;
 
   LicenceModel? get licence => _licence;
   LicenceStatus get status => _status;
   String? get errorMessage => _errorMessage;
 
-  // Vérifier la licence au démarrage
-  Future<void> checkLicence(BuildContext context) async {
-    _status = LicenceStatus.checking;
+  /// Cause du dernier échec de vérification (serveur injoignable, application absente, erreur serveur).
+  LicenceLookup? get dernierEchec => _dernierEchec;
+
+  /// Une vérification est en cours (y compris un réessai silencieux).
+  bool get verificationEnCours => _verificationEnCours;
+
+  // Vérifier la licence au démarrage. Serveur injoignable ≠ licence introuvable (même principe que
+  // prestige_vente_app). [silencieux] : réessai depuis l'écran « serveur injoignable », qui reste affiché
+  // pendant la vérification (pas de retour à l'écran de démarrage).
+  Future<void> checkLicence(BuildContext context, {bool silencieux = false}) async {
+    if (_verificationEnCours) return;
+    _verificationEnCours = true;
+    if (!silencieux) _status = LicenceStatus.checking;
     notifyListeners();
 
     try {
       final apiService = ApiService(); // Ou via Provider si injecté
-      final result = await apiService.findLicence(context);
+      final result = await apiService.lookupLicence(context);
 
-      if (result != null) {
-        _licence = result;
+      if (result.isConnectionProblem) {
+        // Le serveur n'a pas répondu normalement : on ne conclut RIEN sur la licence.
+        _dernierEchec = result;
+        _status = LicenceStatus.error;
+      } else if (result.licence != null) {
+        _dernierEchec = null;
+        _licence = result.licence;
         if (_licence!.isValid) {
           _status = LicenceStatus.valid;
         } else {
           _status = LicenceStatus.expired;
         }
       } else {
+        _dernierEchec = null;
         _licence = null;
         _status = LicenceStatus.notFound;
       }
     } catch (e) {
-      _status = LicenceStatus.notFound;
-      _errorMessage = e.toString();
+      _dernierEchec = LicenceLookup.failure(LicenceIssue.unexpectedResponse, e.toString());
+      _status = LicenceStatus.error;
+    } finally {
+      _verificationEnCours = false;
     }
     notifyListeners();
   }

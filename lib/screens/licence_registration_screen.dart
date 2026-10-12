@@ -12,6 +12,12 @@ class LicenceRegistrationScreen extends StatefulWidget {
 }
 
 class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
+  static String _dateFin(LicenceProvider p) {
+    final fin = p.licence?.expiryDate;
+    if (fin == null) return '';
+    return ' le ${fin.day.toString().padLeft(2, '0')}/${fin.month.toString().padLeft(2, '0')}/${fin.year}';
+  }
+
   final TextEditingController _keyController = TextEditingController();
   bool _isSubmitting = false;
 
@@ -54,14 +60,20 @@ class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  isExpired ? "Votre licence a expiré." : "Licence requise",
+                  isExpired ? "Votre licence a expiré${_dateFin(licenceProvider)}." : "Licence requise",
+                  key: const Key('licence_titre'),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
+                // Le serveur a bien répondu : c'est la licence qui manque (une panne réseau a son propre écran).
                 Text(
                   isExpired
-                      ? "Veuillez saisir une nouvelle clé pour continuer à utiliser l'application."
-                      : "Bienvenue. Veuillez saisir votre clé de licence pour activer l'application.",
+                      ? "Le serveur Prestige a bien répondu : la licence de l'officine n'est plus valide. "
+                          "Contactez Prestige pour la renouveler, puis saisissez la nouvelle clé pour continuer à utiliser l'application."
+                      : "Le serveur Prestige a bien répondu : aucune licence n'est enregistrée. "
+                          "Contactez Prestige pour en obtenir une, puis saisissez votre clé de licence pour activer l'application.",
+                  key: const Key('licence_explication'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.grey),
                 ),
@@ -93,6 +105,7 @@ class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
 
                       setState(() => _isSubmitting = true);
                       final success = await licenceProvider.registerLicence(context, _keyController.text.trim());
+                      if (!context.mounted) return;
                       setState(() => _isSubmitting = false);
 
                       if (success) {
@@ -110,6 +123,14 @@ class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text("VALIDER LA LICENCE"),
                   ),
+                ),
+                const SizedBox(height: 12),
+                // Licence renouvelée depuis le poste Prestige : nouvelle vérification sans saisir de clé.
+                TextButton.icon(
+                  key: const Key('verifier_licence'),
+                  onPressed: _isSubmitting ? null : () => licenceProvider.checkLicence(context),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Vérifier à nouveau'),
                 ),
               ],
             ),
