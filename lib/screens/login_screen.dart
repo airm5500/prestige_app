@@ -9,6 +9,7 @@ import '../providers/ip_config_provider.dart';
 import '../services/stockage_securise.dart';
 import '../utils/constants.dart';
 import 'settings_screen.dart';
+import '../widgets/pin_code_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -205,7 +206,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     IconButton(
                       icon: const Icon(Icons.settings_outlined, color: Colors.white),
                       tooltip: 'Configuration IP',
-                      onPressed: () {
+                      // Sans être connecté, la configuration du serveur est protégée par le code administrateur.
+                      onPressed: () async {
+                        if (!await PinCodeDialog.show(context) || !context.mounted) return;
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
                       },
                     ),

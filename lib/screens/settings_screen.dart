@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
+import '../widgets/pin_code_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -202,6 +203,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : ElevatedButton.icon(icon: const Icon(Icons.save_alt_outlined), label: Text(canPop ? 'Enregistrer' : 'Enregistrer et Continuer'), onPressed: _saveSettings, style: theme.elevatedButtonTheme.style?.copyWith(padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 15)))),
                 const SizedBox(height: 20),
                 Text('Note: L\'adresse IP locale est requise pour utiliser l\'application.', style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic), textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                // Code qui protège cette configuration quand elle est ouverte sans être connecté.
+                TextButton.icon(
+                  key: const Key('changer_code_admin'),
+                  icon: const Icon(Icons.pin_outlined),
+                  label: const Text('Changer le code administrateur'),
+                  onPressed: () => PinCodeDialog.changePin(context),
+                ),
               ],
             ),
           ),

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
+import 'package:prestige_app/providers/home_settings_provider.dart';
 import 'package:prestige_app/providers/ip_config_provider.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +16,7 @@ Future<BuildContext> monterAvecProviders(WidgetTester tester, {Widget? ecran, Ip
       ChangeNotifierProvider.value(value: ip ?? IpConfigProvider()),
       ChangeNotifierProvider.value(value: auth ?? AuthProvider()),
       ChangeNotifierProvider.value(value: licence ?? LicenceProvider()),
+      ChangeNotifierProvider(create: (_) => HomeSettingsProvider()),
     ],
     child: MaterialApp(
       home: ecran ??

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/settings_screen.dart';
+import 'package:prestige_app/widgets/pin_code_dialog.dart';
 
 class LicenceRegistrationScreen extends StatefulWidget {
   const LicenceRegistrationScreen({Key? key}) : super(key: key);
@@ -27,7 +28,9 @@ class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
           // Bouton Configuration si besoin
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
+            // Sans être connecté, la configuration du serveur est protégée par le code administrateur.
+            onPressed: () async {
+              if (!await PinCodeDialog.show(context) || !context.mounted) return;
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
