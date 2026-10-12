@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/officine_model.dart';
 import '../services/api_service.dart';
+import '../services/stockage_securise.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 
@@ -41,7 +42,9 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _prepareApp() async {
     final startTime = DateTime.now();
+    // Migrations silencieuses vers le stockage sécurisé (cookie de session et mot de passe mémorisé).
     await _apiService.loadSessionCookie();
+    await IdentifiantsSecurises.instance.migrer();
     await _loadUserData();
     const minDuration = Duration(milliseconds: 2500);
     final elapsedTime = DateTime.now().difference(startTime);
@@ -173,10 +176,11 @@ class AuthProvider with ChangeNotifier {
     await prefs.setBool(AppConstants.rememberMeKey, rememberMe);
     if (rememberMe) {
       await prefs.setString(AppConstants.savedUsernameKey, username);
-      await prefs.setString(AppConstants.savedPasswordKey, password);
+      // Mot de passe : stockage sécurisé, plus jamais en clair dans les préférences.
+      await IdentifiantsSecurises.instance.ecrire(password);
     } else {
       await prefs.remove(AppConstants.savedUsernameKey);
-      await prefs.remove(AppConstants.savedPasswordKey);
+      await IdentifiantsSecurises.instance.effacer();
     }
   }
 }

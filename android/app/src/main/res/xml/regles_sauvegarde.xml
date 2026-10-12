@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sauvegarde Android (jusqu'à Android 11) : le stockage sécurisé (mot de passe mémorisé, cookie de session,
+     code administrateur) n'est JAMAIS sauvegardé ni restauré sur un autre appareil. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+</full-backup-content>

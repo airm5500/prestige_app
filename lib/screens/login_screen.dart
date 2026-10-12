@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ip_config_provider.dart';
+import '../services/stockage_securise.dart';
 import '../utils/constants.dart';
 import 'settings_screen.dart';
 
@@ -80,7 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final rememberMe = prefs.getBool(AppConstants.rememberMeKey) ?? false;
     if (rememberMe) {
       _usernameController.text = prefs.getString(AppConstants.savedUsernameKey) ?? '';
-      _passwordController.text = prefs.getString(AppConstants.savedPasswordKey) ?? '';
+      // Mot de passe mémorisé : stockage sécurisé (migration de l'ancienne clé en clair comprise).
+      _passwordController.text = await IdentifiantsSecurises.instance.lire() ?? '';
     }
     if (mounted) {
       setState(() {

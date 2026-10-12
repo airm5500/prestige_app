@@ -7,7 +7,9 @@
         android:label="prestige_app"
         android:icon="@mipmap/launcher_icon"
         tools:ignore="ExtraText,UnusedAttribute"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:fullBackupContent="@xml/regles_sauvegarde"
+        android:dataExtractionRules="@xml/regles_extraction">
         <activity
             android:name=".MainActivity"
             android:exported="true"

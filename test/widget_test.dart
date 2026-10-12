@@ -1,6 +1,7 @@
 // Test de fumée : l'application démarre avec TOUS ses providers (comme main.dart) et, sur un appareil
 // neuf (aucune configuration), ouvre la Configuration IP.
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/main.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
@@ -14,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   testWidgets("Démarrage : appareil non configuré → Configuration IP", (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
     await tester.pumpWidget(
       MultiProvider(
         providers: [

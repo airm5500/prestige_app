@@ -7,9 +7,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/ip_config_provider.dart';
+import 'stockage_securise.dart';
 import '../utils/constants.dart';
 // Assurez-vous que ces fichiers existent bien dans votre projet
 import '../models/common_data_model.dart';
@@ -27,6 +27,9 @@ class ApiService {
 
   String? _sessionCookie;
 
+  /// Client HTTP (remplaçable dans les tests par un `MockClient` de package:http/testing.dart).
+  static http.Client client = http.Client();
+
   // --- INFRASTRUCTURE DE BASE ---
 
   static Future<bool> ping(String ip, String port, String appName) async {
@@ -35,7 +38,7 @@ class ApiService {
     }
     final url = Uri.parse('http://$ip:$port/$appName');
     try {
-      await http.head(url).timeout(const Duration(seconds: 5));
+      await client.head(url).timeout(const Duration(seconds: 5));
       return true;
     } catch (e) {
       debugPrint("Ping to $url failed: $e");
@@ -43,9 +46,10 @@ class ApiService {
     }
   }
 
+  // Cookie de session : stockage sécurisé (migration transparente de l'ancienne clé en clair
+  // `session_cookie`, repli sans perte si le stockage sûr échoue) — voir stockage_securise.dart.
   Future<void> loadSessionCookie() async {
-    final prefs = await SharedPreferences.getInstance();
-    _sessionCookie = prefs.getString(AppConstants.sessionCookieKey);
+    _sessionCookie = await CookieSecurise.instance.lire();
   }
 
   Future<void> setSessionCookie(String rawCookie) async {
@@ -54,14 +58,12 @@ class ApiService {
     } else {
       _sessionCookie = rawCookie;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(AppConstants.sessionCookieKey, _sessionCookie!);
+    await CookieSecurise.instance.ecrire(_sessionCookie!);
   }
 
   Future<void> clearSessionCookie() async {
     _sessionCookie = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(AppConstants.sessionCookieKey);
+    await CookieSecurise.instance.effacer();
   }
 
   Map<String, String> _getHeaders() {
@@ -82,7 +84,7 @@ class ApiService {
     debugPrint('API POST Request: $url');
 
     try {
-      final response = await http.post(
+      final response = await client.post(
         url,
         headers: _getHeaders(),
         body: jsonEncode(body),
@@ -110,7 +112,7 @@ class ApiService {
     debugPrint('API GET Request: $uri');
 
     try {
-      final response = await http.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
+      final response = await client.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
       return _handleResponse(response, onSessionInvalid);
     } on SocketException {
       throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
@@ -134,7 +136,7 @@ class ApiService {
     debugPrint('API GET V3 Request: $uri');
 
     try {
-      final response = await http.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
+      final response = await client.get(uri, headers: _getHeaders()).timeout(const Duration(seconds: 45));
       return _handleResponse(response, onSessionInvalid);
     } on SocketException {
       throw Exception('Erreur de connexion. Vérifiez le réseau et la configuration IP.');
@@ -150,7 +152,7 @@ class ApiService {
     debugPrint('API DELETE Request: $url');
 
     try {
-      final response = await http.delete(
+      final response = await client.delete(
         url,
         headers: _getHeaders(),
       ).timeout(const Duration(seconds: 45));

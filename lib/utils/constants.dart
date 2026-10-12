@@ -9,6 +9,8 @@ class AppConstants {
   static const String sessionTimeoutKey = 'session_timeout';
   static const String lastPausedTimeKey = 'last_paused_time';
   static const String isConfiguredKey = 'is_app_configured';
+  // Anciennes clés en clair : lues seulement pour la migration vers le stockage sécurisé
+  // (voir services/stockage_securise.dart), puis supprimées.
   static const String sessionCookieKey = 'session_cookie';
   static const String savedUsernameKey = 'saved_username';
   static const String savedPasswordKey = 'saved_password';

@@ -34,6 +34,9 @@ dependencies:
   device_info_plus: ^10.1.0    # Pour connaître la version d'Android (gestion permissions)
   open_file: ^3.3.2
 
+  # --- Sécurité : mot de passe mémorisé, cookie de session et code administrateur hors des préférences en clair ---
+  flutter_secure_storage: ^9.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
