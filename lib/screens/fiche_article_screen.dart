@@ -8,6 +8,7 @@ import '../models/produit_model.dart'; // Utilise le modèle Produit
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class FicheArticleScreen extends StatefulWidget {
   const FicheArticleScreen({super.key});
@@ -61,7 +62,7 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
 
   Future<void> _rechercherProduits() async {
     reessai = _rechercherProduits; // « Réessayer » relance ce chargement
-    final searchTerm = _searchController.text.trim();
+    final searchTerm = Saisie.recherche(_searchController.text);
     if (searchTerm.isEmpty) return;
 
     _lastSearchTerm = searchTerm;
@@ -144,6 +145,7 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
+              inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
               decoration: InputDecoration(
                 hintText: 'Rechercher un produit...',
                 labelText: 'Rechercher Produit',

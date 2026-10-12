@@ -10,6 +10,7 @@ import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class SuiviPeremptionScreen extends StatefulWidget {
   const SuiviPeremptionScreen({Key? key}) : super(key: key);
@@ -61,6 +62,10 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
 
   Future<void> _fetchData({bool loadMore = false}) async {
     final api = Provider.of<ApiService>(context, listen: false);
+    if (_moisController.text.trim().isNotEmpty && Saisie.entier(_moisController.text, min: 0, max: Saisie.maxMois) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre de mois invalide (0 à ${Saisie.maxMois}).')));
+      return;
+    }
 
     if (!loadMore) {
       setState(() {
@@ -75,8 +80,8 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
     try {
       final result = await api.getSuiviPeremption(
         context,
-        query: _searchController.text,
-        nbreMois: _moisController.text,
+        query: Saisie.recherche(_searchController.text),
+        nbreMois: _moisController.text.trim(),
         page: _currentPage,
         limit: _limit,
       );
@@ -296,6 +301,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
                   flex: 2,
                   child: TextField(
                     controller: _searchController,
+                    inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                     decoration: const InputDecoration(
                       labelText: "Recherche...",
                       prefixIcon: Icon(Icons.search),
@@ -311,6 +317,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
                   child: TextField(
                     controller: _moisController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: Saisie.entierFormatters(3), // 0 à 120 mois
                     decoration: const InputDecoration(
                       labelText: "Mois",
                       suffixText: "mois",

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/settings_screen.dart';
 import 'package:prestige_app/widgets/pin_code_dialog.dart';
+import 'package:prestige_app/utils/saisie.dart';
 
 class LicenceRegistrationScreen extends StatefulWidget {
   const LicenceRegistrationScreen({Key? key}) : super(key: key);
@@ -80,6 +81,7 @@ class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
                 const SizedBox(height: 30),
                 TextField(
                   controller: _keyController,
+                  inputFormatters: Saisie.cleLicenceFormatters,
                   decoration: const InputDecoration(
                     labelText: "Clé de licence",
                     border: OutlineInputBorder(),
@@ -101,10 +103,10 @@ class _LicenceRegistrationScreenState extends State<LicenceRegistrationScreen> {
                   height: 50,
                   child: ElevatedButton(
                     onPressed: _isSubmitting ? null : () async {
-                      if (_keyController.text.isEmpty) return;
+                      if (Saisie.cleLicence(_keyController.text).isEmpty) return;
 
                       setState(() => _isSubmitting = true);
-                      final success = await licenceProvider.registerLicence(context, _keyController.text.trim());
+                      final success = await licenceProvider.registerLicence(context, Saisie.cleLicence(_keyController.text));
                       if (!context.mounted) return;
                       setState(() => _isSubmitting = false);
 

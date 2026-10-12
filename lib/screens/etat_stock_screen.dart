@@ -6,6 +6,7 @@ import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class EtatStockScreen extends StatefulWidget {
   const EtatStockScreen({Key? key}) : super(key: key);
@@ -100,6 +101,15 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
   }
 
   Future<void> _searchArticles({bool loadMore = false}) async {
+    if (_selectedStockFilter != null &&
+        _stockValueController.text.isNotEmpty &&
+        Saisie.entier(_stockValueController.text, min: -Saisie.maxQuantite, max: Saisie.maxQuantite) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quantité invalide (nombre entier, ${Saisie.maxQuantite} au plus).')),
+      );
+      _stockFocusNode.requestFocus();
+      return;
+    }
     if (_selectedStockFilter != null && _stockValueController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Saisissez une quantité pour le filtre stock')),
@@ -127,9 +137,9 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
     try {
       final result = await apiService.getEtatStockArticles(
         context,
-        query: _searchController.text,
+        query: Saisie.recherche(_searchController.text),
         codeRayon: _selectedRayon?.id ?? '',
-        stock: _stockValueController.text,
+        stock: _stockValueController.text.trim(),
         filtreStock: _selectedStockFilter ?? '',
         page: _currentPage,
       );
@@ -262,6 +272,7 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               controller: _searchController,
+              inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
                 labelText: "Recherche (Nom, Code, Scan)",
@@ -365,7 +376,8 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
                         child: TextField(
                           controller: _stockValueController,
                           focusNode: _stockFocusNode,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(signed: true),
+                          inputFormatters: Saisie.entierSigneFormatters(5), // -99999 à 99999
                           decoration: const InputDecoration(
                             labelText: "Qté",
                             border: OutlineInputBorder(),

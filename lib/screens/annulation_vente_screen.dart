@@ -10,6 +10,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class AnnulationVenteScreen extends StatefulWidget {
   const AnnulationVenteScreen({super.key});
@@ -26,7 +27,7 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
 
   Future<void> _loadVentes() async {
     reessai = _loadVentes; // « Réessayer » relance ce chargement
-    final query = _searchController.text.trim();
+    final query = Saisie.recherche(_searchController.text);
     if (query.isEmpty) {
       Fluttertoast.showToast(msg: "Veuillez entrer un numéro de vente à rechercher.");
       return;
@@ -120,7 +121,7 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
       queryParams: {
         'dtStart': DateFormatter.toApiFormat(_startDate),
         'dtEnd': DateFormatter.toApiFormat(_endDate),
-        'query': _searchController.text.trim(),
+        'query': Saisie.recherche(_searchController.text),
         'start': '0',
         'limit': '50',
       },
@@ -243,6 +244,7 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
                 const SizedBox(height: 10),
                 TextField(
                   controller: _searchController,
+                  inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                   decoration: InputDecoration(
                     hintText: 'Numéro de vente...',
                     labelText: 'Rechercher une Vente',

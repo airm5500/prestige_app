@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class CaCreditScreen extends StatefulWidget {
   const CaCreditScreen({super.key});
@@ -157,6 +158,7 @@ class _CaCreditScreenState extends State<CaCreditScreen> with BaseScreenLogic<Ca
                 const SizedBox(height: 10),
                 TextField(
                   controller: _searchController,
+                  inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                   decoration: InputDecoration(
                     hintText: 'Rechercher (client, N° fact, tiers payant)...',
                     prefixIcon: const Icon(Icons.search),

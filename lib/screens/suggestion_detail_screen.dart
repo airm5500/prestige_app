@@ -8,6 +8,7 @@ import '../models/suggestion_amount_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class SuggestionDetailScreen extends StatefulWidget {
   final Suggestion suggestion;
@@ -57,8 +58,13 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
   }
 
   Future<void> _updateQuantity(String itemId, String newQuantity) async {
-    final int? qte = int.tryParse(newQuantity);
-    if (qte == null) return;
+    final int? qte = Saisie.entier(newQuantity, min: 0, max: Saisie.maxQuantite);
+    if (qte == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quantité invalide (0 à ${Saisie.maxQuantite}) : non enregistrée.')),
+      );
+      return;
+    }
 
     final r = await apiPost(AppConstants.suggestionUpdateQteEndpoint, {'itemId': itemId, 'qte': qte});
     if (!mounted) return;
@@ -163,6 +169,7 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
                                 initialValue: item.quantiteSuggeree.toString(),
                                 textAlign: TextAlign.center,
                                 keyboardType: TextInputType.number,
+                                inputFormatters: Saisie.entierFormatters(5), // 0 à 99 999
                                 decoration: const InputDecoration(
                                   isDense: true,
                                   border: OutlineInputBorder(),

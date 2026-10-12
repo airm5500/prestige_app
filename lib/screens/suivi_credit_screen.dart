@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class SuiviCreditScreen extends StatefulWidget {
   const SuiviCreditScreen({super.key});
@@ -170,6 +171,7 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
                 ),
                 TextField(
                   controller: _searchController,
+                  inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                   decoration: InputDecoration(
                     hintText: 'Filtrer par tiers payant...',
                     prefixIcon: const Icon(Icons.search),

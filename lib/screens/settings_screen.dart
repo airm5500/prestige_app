@@ -6,6 +6,7 @@ import '../providers/ip_config_provider.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 import '../widgets/pin_code_dialog.dart';
+import '../utils/saisie.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -150,7 +151,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         controller: _appNameController,
                         enabled: _isAppNameEditable,
                         decoration: const InputDecoration(labelText: 'Nom de l\'application serveur', prefixIcon: Icon(Icons.apps)),
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Le nom est requis.' : null,
+                        inputFormatters: Saisie.nomApplicationFormatters,
+                        validator: Saisie.erreurNomApplication,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -168,11 +170,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         enabled: _isPortEditable,
                         decoration: const InputDecoration(labelText: 'Port du Serveur', prefixIcon: Icon(Icons.settings_ethernet)),
                         keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'Le port est requis.';
-                          if (int.tryParse(value.trim()) == null) return 'Port invalide.';
-                          return null;
-                        },
+                        inputFormatters: Saisie.entierFormatters(5),
+                        validator: Saisie.erreurPort,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -190,12 +189,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     helperText: 'Saisir 0 pour désactiver le délai.',
                   ),
                   keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Le délai est requis.';
-                    final int? val = int.tryParse(value.trim());
-                    if (val == null || val < 0) return 'Valeur invalide.';
-                    return null;
-                  },
+                  inputFormatters: Saisie.entierFormatters(4),
+                  validator: Saisie.erreurDelai,
                 ),
                 const SizedBox(height: 30),
                 _isLoading

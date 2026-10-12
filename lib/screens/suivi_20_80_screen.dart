@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class Suivi2080Screen extends StatefulWidget {
   const Suivi2080Screen({super.key});
@@ -37,7 +38,8 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
     final queryParams = {
       'dtStart': DateFormatter.toApiFormat(_startDate),
       'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'limit': _limitController.text.trim().isEmpty ? '50' : _limitController.text.trim(),
+      // Vide ou hors bornes (0) : 50 par défaut, comme avant pour un champ vide.
+      'limit': (Saisie.entier(_limitController.text, min: 1, max: Saisie.maxLignes) ?? 50).toString(),
       'codeFamile': '',
       'codeRayon': '',
       'codeGrossiste': '',
@@ -190,6 +192,7 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
                     hintText: 'Par défaut: 50',
                   ),
                   keyboardType: TextInputType.number,
+                  inputFormatters: Saisie.entierFormatters(4), // 1 à 9 999
                 ),
                 const SizedBox(height: 10),
                 ElevatedButton.icon(

@@ -8,6 +8,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class TableauBordRatioScreen extends StatefulWidget {
   const TableauBordRatioScreen({super.key});
@@ -75,7 +76,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
   }
 
   void _calculerAchatNorme() {
-    final double? montantVente = double.tryParse(_inputVenteNormeeController.text);
+    final double? montantVente = Saisie.montant(_inputVenteNormeeController.text);
     if (montantVente != null && montantVente > 0) {
       final double achatNorme = montantVente / AppConstants.ratioNormeVenteAchat;
       setState(() {
@@ -87,7 +88,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
   }
 
   void _calculerVenteNormee() {
-    final double? montantAchat = double.tryParse(_inputAchatNormeController.text);
+    final double? montantAchat = Saisie.montant(_inputAchatNormeController.text);
     if (montantAchat != null && montantAchat > 0) {
       final double venteNormee = montantAchat * AppConstants.ratioNormeVenteAchat;
       setState(() {
@@ -287,6 +288,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
                     controller: _inputVenteNormeeController,
                     focusNode: _venteFocusNode,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: Saisie.montantFormatters,
                     decoration: const InputDecoration(
                       labelText: 'Si Vente (FCFA)',
                       border: OutlineInputBorder(),
@@ -315,6 +317,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
                     controller: _inputAchatNormeController,
                     focusNode: _achatFocusNode,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: Saisie.montantFormatters,
                     decoration: const InputDecoration(
                       labelText: 'Si Achat (FCFA)',
                       border: OutlineInputBorder(),

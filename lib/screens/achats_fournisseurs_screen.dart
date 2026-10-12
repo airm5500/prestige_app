@@ -10,6 +10,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class AchatsFournisseursScreen extends StatefulWidget {
   const AchatsFournisseursScreen({super.key});
@@ -384,6 +385,7 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
                 const SizedBox(height: 10),
                 TextField(
                   controller: _searchController,
+                  inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                   decoration: InputDecoration(
                     hintText: 'Rechercher (par nom fourn., BL, commande)...',
                     prefixIcon: const Icon(Icons.search),

@@ -7,6 +7,7 @@ import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class VisualisationBlScreen extends StatefulWidget {
   const VisualisationBlScreen({Key? key}) : super(key: key);
@@ -137,7 +138,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
     try {
       final result = await api.getBonLivraisons(
         context,
-        search: _searchController.text,
+        search: Saisie.recherche(_searchController.text),
         grossisteId: _selectedGrossiste?.id ?? '',
         groupeId: _selectedGroupe?.id ?? '',
         userId: _selectedUser?.id ?? '',
@@ -220,6 +221,14 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
     if (picked != null) {
       setState(() {
         controller.text = DateFormat('yyyy-MM-dd').format(picked);
+        // La date de fin n'est jamais avant la date de début (l'autre date suit).
+        final debut = DateTime.tryParse(_dateStartController.text);
+        final fin = DateTime.tryParse(_dateEndController.text);
+        if (debut != null && fin != null) {
+          final (d, f) = Saisie.periode(debut, fin, debutModifie: identical(controller, _dateStartController));
+          _dateStartController.text = DateFormat('yyyy-MM-dd').format(d);
+          _dateEndController.text = DateFormat('yyyy-MM-dd').format(f);
+        }
       });
       _fetchData();
     }
@@ -338,6 +347,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
+                    inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                     focusNode: _searchFocusNode,
                     decoration: InputDecoration(
                       hintText: "Rech (CIP, Nom...)",

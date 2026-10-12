@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/fournisseur_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
+import '../utils/saisie.dart';
 
 class FournisseursScreen extends StatefulWidget {
   const FournisseursScreen({super.key});
@@ -106,6 +107,7 @@ class _FournisseursScreenState extends State<FournisseursScreen> with BaseScreen
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               controller: _searchController,
+              inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
               decoration: InputDecoration(
                 hintText: 'Rechercher par nom, adresse, téléphone...',
                 prefixIcon: const Icon(Icons.search),

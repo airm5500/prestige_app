@@ -9,6 +9,7 @@ import '../models/analyse_article_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class AnalyseArticleScreen extends StatefulWidget {
   const AnalyseArticleScreen({super.key});
@@ -67,7 +68,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
 
   Future<void> _rechercherArticles() async {
     reessai = _rechercherArticles; // « Réessayer » relance ce chargement
-    final searchTerm = _searchController.text.trim();
+    final searchTerm = Saisie.recherche(_searchController.text);
     if (searchTerm.isEmpty) return;
 
     _lastSearchTerm = searchTerm;
@@ -251,6 +252,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
+              inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
                 hintText: 'Code CIP ou libellé...',

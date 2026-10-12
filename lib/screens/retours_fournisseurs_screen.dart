@@ -15,6 +15,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class RetoursFournisseursScreen extends StatefulWidget {
   const RetoursFournisseursScreen({super.key});
@@ -56,7 +57,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
     });
 
     final queryParams = {
-      'query': _searchController.text,
+      'query': Saisie.recherche(_searchController.text),
       'fourId': _selectedFournisseur?.fournisseurId ?? '',
       'filtre': _filtre == 'TOUT' ? '' : _filtre,
       'dtEnd': DateFormatter.toApiFormat(_endDate),
@@ -235,6 +236,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                 const SizedBox(height: 10),
                 TextField(
                   controller: _searchController,
+                  inputFormatters: Saisie.rechercheFormatters, // longueur max, sans caractères de contrôle
                   decoration: const InputDecoration(
                     hintText: 'Rechercher...',
                     prefixIcon: Icon(Icons.search),

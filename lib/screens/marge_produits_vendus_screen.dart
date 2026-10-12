@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../utils/saisie.dart';
 
 class MargeProduitsVendusScreen extends StatefulWidget {
   const MargeProduitsVendusScreen({super.key});
@@ -138,7 +139,8 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
                       child: TextFormField(
                         controller: _margeController,
                         decoration: const InputDecoration(labelText: 'Valeur Marge (%)'),
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(signed: true),
+                        inputFormatters: Saisie.entierSigneFormatters(3), // -999 à 999 %
                       ),
                     ),
                   ],

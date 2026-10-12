@@ -10,6 +10,7 @@ import '../services/stockage_securise.dart';
 import '../utils/constants.dart';
 import 'settings_screen.dart';
 import '../widgets/pin_code_dialog.dart';
+import '../utils/saisie.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -106,7 +107,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final String? errorMessage = await authProvider.login(
         context,
         _usernameController.text.trim(),
-        _passwordController.text.trim(),
+        // Envoyé tel que saisi : le serveur ne rogne pas les espaces (un mot de passe peut en contenir).
+        _passwordController.text,
         _rememberMe,
       );
 
@@ -251,7 +253,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _usernameController,
                               decoration: const InputDecoration(labelText: 'Identifiant', prefixIcon: Icon(Icons.person_outline)),
-                              validator: (value) => value!.isEmpty ? 'Veuillez entrer un identifiant.' : null,
+                              inputFormatters: Saisie.identifiantFormatters,
+                              validator: Saisie.erreurIdentifiant,
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
@@ -265,7 +268,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                                 ),
                               ),
-                              validator: (value) => value!.isEmpty ? 'Veuillez entrer un mot de passe.' : null,
+                              inputFormatters: Saisie.motDePasseFormatters,
+                              validator: Saisie.erreurMotDePasse,
                             ),
                             const SizedBox(height: 20),
                             Row(
