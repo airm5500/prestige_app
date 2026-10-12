@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../services/api_service.dart';
+import 'package:flutter/services.dart';
+import '../utils/adresse_serveur.dart';
 import '../utils/constants.dart';
 import '../widgets/pin_code_dialog.dart';
 import '../utils/saisie.dart';
@@ -140,7 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 30),
                 _buildIpInputRow(controller: _localIpController, labelText: 'Adresse IP Locale', hintText: 'ex: 192.168.1.100', icon: Icons.computer, isPinging: _isPingingLocal, pingMessage: _localPingMessage, pingSuccess: _localPingSuccess, onPing: () => _handlePing(true)),
                 const SizedBox(height: 20),
-                _buildIpInputRow(controller: _remoteIpController, labelText: 'Adresse IP Distante', hintText: 'ex: example.com', icon: Icons.public, isPinging: _isPingingRemote, pingMessage: _remotePingMessage, pingSuccess: _remotePingSuccess, onPing: () => _handlePing(false), isRemote: true),
+                _buildIpInputRow(controller: _remoteIpController, labelText: 'Adresse IP Distante', hintText: 'ex: https://pharmacie.example.com', icon: Icons.public, isPinging: _isPingingRemote, pingMessage: _remotePingMessage, pingSuccess: _remotePingSuccess, onPing: () => _handlePing(false), isRemote: true),
                 const SizedBox(height: 20),
 
                 Row(
@@ -226,12 +228,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: controller,
                 decoration: InputDecoration(labelText: labelText, hintText: hintText, prefixIcon: Icon(icon)),
                 keyboardType: TextInputType.url,
-                validator: (value) {
-                  if (!isRemote && (value == null || value.trim().isEmpty)) {
-                    return 'Ce champ est requis.';
-                  }
-                  return null;
-                },
+                autocorrect: false,
+                inputFormatters: [LengthLimitingTextInputFormatter(AdresseServeur.maxLongueur)],
+                // IP ou nom ; « https://… » accepté (serveur avec certificat), HTTP par défaut.
+                validator: (value) => AdresseServeur.erreur(value, requis: !isRemote),
               ),
             ),
             const SizedBox(width: 8),

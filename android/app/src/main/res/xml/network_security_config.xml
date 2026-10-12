@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Trafic en clair (HTTP) : autorisé, VOLONTAIREMENT.
+  Le serveur Prestige de l'officine est joint en HTTP sur le réseau local à une adresse IP propre à chaque
+  pharmacie (ex. 192.168.1.100), saisie dans la Configuration. Android ne permet de lister que des noms de
+  domaine dans <domain-config> (pas de plages d'adresses IP) : restreindre le clair casserait le mode local.
+  HTTPS est accepté (adresse saisie « https://… ») avec les certificats reconnus par le système ;
+  voir docs/HTTPS_ET_TRAFIC_EN_CLAIR.md.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>

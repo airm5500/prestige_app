@@ -2,6 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../services/storage_service.dart';
+import '../utils/adresse_serveur.dart';
 import '../utils/constants.dart';
 
 class IpConfigProvider with ChangeNotifier {
@@ -23,14 +24,15 @@ class IpConfigProvider with ChangeNotifier {
   bool get isAppConfigured => _isAppConfigured;
   String get appName => _appName; // AJOUT
 
-  // CORRECTION: L'URL est maintenant construite dynamiquement
-  String get activeBaseUrl {
-    final ip = _useLocalIp ? _localIp : _remoteIp;
-    if (ip.isEmpty) {
-      return 'http://0.0.0.0:$_port/$_appName${AppConstants.apiBasePath}';
-    }
-    return 'http://$ip:$_port/$_appName${AppConstants.apiBasePath}';
-  }
+  // L'URL est construite dynamiquement. L'adresse peut porter son protocole (« https://… ») ;
+  // sans protocole : HTTP (réseau local, comportement d'origine).
+  String get activeBaseUrl => '$racineServeur${AppConstants.apiBasePath}';
+
+  /// Même serveur, API v3 (statistiques TVA).
+  String get activeBaseUrlV3 => '$racineServeur${AppConstants.apiV3BasePath}';
+
+  /// « http(s)://hôte:port/application » du mode actif (local ou distant).
+  String get racineServeur => AdresseServeur.racine(_useLocalIp ? _localIp : _remoteIp, _port, _appName);
 
   IpConfigProvider() {
     loadSettings();

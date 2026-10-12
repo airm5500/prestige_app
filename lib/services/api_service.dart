@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../providers/ip_config_provider.dart';
 import 'journal_app.dart';
 import 'stockage_securise.dart';
+import '../utils/adresse_serveur.dart';
 import '../utils/constants.dart';
 // Assurez-vous que ces fichiers existent bien dans votre projet
 import '../models/common_data_model.dart';
@@ -102,7 +103,8 @@ class ApiService {
     if (ip.trim().isEmpty) {
       return false;
     }
-    final url = Uri.parse('http://$ip:$port/$appName');
+    // Adresse avec ou sans protocole (« https://… » accepté, HTTP par défaut).
+    final url = Uri.parse(AdresseServeur.racine(ip, port, appName));
     try {
       await client.head(url).timeout(const Duration(seconds: 5));
       return true;
@@ -188,10 +190,7 @@ class ApiService {
 
   Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
-    final ip = ipProvider.useLocalIp ? ipProvider.localIp : ipProvider.remoteIp;
-    final port = ipProvider.port;
-    final appName = ipProvider.appName;
-    final baseUrl = 'http://$ip:$port/$appName${AppConstants.apiV3BasePath}';
+    final baseUrl = ipProvider.activeBaseUrlV3;
 
     var uri = Uri.parse('$baseUrl$endpoint');
 
