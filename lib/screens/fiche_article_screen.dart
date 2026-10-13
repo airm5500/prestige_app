@@ -8,6 +8,7 @@ import '../models/produit_model.dart'; // Utilise le modèle Produit
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../widgets/erreurs_chargement.dart';
+import '../widgets/stock_reserve.dart';
 import '../utils/saisie.dart';
 
 class FicheArticleScreen extends StatefulWidget {
@@ -99,6 +100,9 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
                 _buildDetailRow('Code CIP', produit.familleCip),
                 _buildDetailRow('Désignation', produit.familleLibelle),
                 _buildDetailRow('Stock', produit.stock.toString()),
+                // Réserve (« — » si non géré en réserve), seuils, total rayon + réserve, alerte.
+                for (final (label, value) in stockReserveInfos(produit.stock, produit.reserve, avecRayon: false)) _buildDetailRow(label, value),
+                Align(alignment: Alignment.centerLeft, child: PastilleReappro(reserve: produit.reserve, rayon: produit.stock)),
                 _buildDetailRow('Prix d\'achat', currencyFormat.format(produit.pachat)),
                 _buildDetailRow('Prix de vente', currencyFormat.format(produit.pvente)),
                 _buildDetailRow('Emplacement', produit.emplacement ?? 'N/A'),
@@ -185,10 +189,14 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
                       title: Text(produit.designation, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          'Prix: ${currencyFormat.format(produit.prixVente)} - Stock: ${produit.stockActuel}',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(
+                            'Prix: ${currencyFormat.format(produit.prixVente)} - Stock: ${produit.stockActuel}',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                          // Réserve et total (rien si le produit n'est pas géré en réserve).
+                          StockReserveResume(reserve: produit.reserve, rayon: produit.stock),
+                        ]),
                       ),
                       trailing: Icon(Icons.arrow_forward_ios_rounded, color: theme.primaryColor.withAlpha(150), size: 18),
                       onTap: () => _afficherDetailsProduit(context, produit),

@@ -1,5 +1,7 @@
 // lib/models/produit_model.dart
 
+import 'stock_reserve.dart';
+
 class Produit {
   final String? emplacement;
   final String familleCip;
@@ -9,6 +11,11 @@ class Produit {
   final double pvente; // Prix de vente
   final int stock;
 
+  // Stock réserve (null : produit non géré en réserve, ou serveur ancien sans ces champs)
+  final int? stockReserve;
+  final int? seuilReserve;
+  final int? seuilMiniRayon;
+
   Produit({
     this.emplacement,
     required this.familleCip,
@@ -17,7 +24,13 @@ class Produit {
     required this.pachat,
     required this.pvente,
     required this.stock,
+    this.stockReserve,
+    this.seuilReserve,
+    this.seuilMiniRayon,
   });
+
+  /// Stock réserve et seuils (affichage, alerte de réapprovisionnement).
+  StockReserve get reserve => StockReserve(stockReserve: stockReserve, seuilReserve: seuilReserve, seuilMiniRayon: seuilMiniRayon);
 
   factory Produit.fromJson(Map<String, dynamic> json) {
     return Produit(
@@ -28,6 +41,10 @@ class Produit {
       pachat: (json['pachat'] as num?)?.toDouble() ?? 0.0,
       pvente: (json['pvente'] as num?)?.toDouble() ?? 0.0,
       stock: (json['stock'] as num?)?.toInt() ?? 0,
+      // Lecture tolérante : absent, null, nombre, texte numérique, décimal.
+      stockReserve: entierTolerant(json['stockReserve']),
+      seuilReserve: entierTolerant(json['seuilReserve']),
+      seuilMiniRayon: entierTolerant(json['seuilMiniRayon']),
     );
   }
 

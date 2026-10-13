@@ -9,6 +9,7 @@ import '../models/analyse_article_model.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
+import '../widgets/stock_reserve.dart';
 import '../utils/saisie.dart';
 
 class AnalyseArticleScreen extends StatefulWidget {
@@ -139,6 +140,13 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
                     ],
                   ),
                   _buildDetailRow('Emplacement', article.emplacement ?? 'N/A'),
+
+                  // Stock rayon / réserve (« — » si non géré en réserve), seuils, total, alerte.
+                  const Divider(height: 24),
+                  Column(key: const ValueKey('analyse-stock-reserve'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    for (final (label, value) in stockReserveInfos(article.stock, article.reserve)) _buildDetailRow(label, value),
+                    PastilleReappro(reserve: article.reserve, rayon: article.stock),
+                  ]),
 
                   const Divider(height: 24),
 
@@ -314,19 +322,23 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
                       ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 6.0),
-                        child: RichText(
-                          text: TextSpan(
-                            style: defaultTextStyle,
-                            children: [
-                              const TextSpan(text: 'Prix: '),
-                              TextSpan(text: currencyFormat.format(article.prixVente), style: boldTextStyle),
-                              const TextSpan(text: ' FCFA - Stock: '),
-                              TextSpan(text: article.stock?.toString() ?? 'N/A', style: boldTextStyle),
-                              const TextSpan(text: ' - Moy 3Mois: '),
-                              TextSpan(text: article.moyenne.toStringAsFixed(2), style: boldTextStyle),
-                            ],
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          RichText(
+                            text: TextSpan(
+                              style: defaultTextStyle,
+                              children: [
+                                const TextSpan(text: 'Prix: '),
+                                TextSpan(text: currencyFormat.format(article.prixVente), style: boldTextStyle),
+                                const TextSpan(text: ' FCFA - Stock: '),
+                                TextSpan(text: article.stock?.toString() ?? 'N/A', style: boldTextStyle),
+                                const TextSpan(text: ' - Moy 3Mois: '),
+                                TextSpan(text: article.moyenne.toStringAsFixed(2), style: boldTextStyle),
+                              ],
+                            ),
                           ),
-                        ),
+                          // Réserve et total (rien si le produit n'est pas géré en réserve).
+                          StockReserveResume(reserve: article.reserve, rayon: article.stock),
+                        ]),
                       ),
                       trailing: Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade400, size: 18),
                       onTap: () => _afficherDetailsArticle(context, article),

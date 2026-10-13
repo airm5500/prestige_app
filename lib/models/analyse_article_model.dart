@@ -1,6 +1,8 @@
 // lib/models/analyse_article_model.dart
 import 'package:fl_chart/fl_chart.dart';
 
+import 'stock_reserve.dart';
+
 class AnalyseArticle {
   final String codeCip;
   final String? emplacement;
@@ -24,6 +26,11 @@ class AnalyseArticle {
   final int? qteDernierInventaire;
   final int? qteDerniereVente;
 
+  // Stock réserve (null : produit non géré en réserve, ou serveur ancien sans ces champs)
+  final int? stockReserve;
+  final int? seuilReserve;
+  final int? seuilMiniRayon;
+
   AnalyseArticle({
     required this.codeCip,
     this.emplacement,
@@ -44,7 +51,13 @@ class AnalyseArticle {
     this.qteDernierAchat,
     this.qteDernierInventaire,
     this.qteDerniereVente,
+    this.stockReserve,
+    this.seuilReserve,
+    this.seuilMiniRayon,
   });
+
+  /// Stock réserve et seuils (affichage, alerte de réapprovisionnement).
+  StockReserve get reserve => StockReserve(stockReserve: stockReserve, seuilReserve: seuilReserve, seuilMiniRayon: seuilMiniRayon);
 
   factory AnalyseArticle.fromJson(Map<String, dynamic> json) {
     return AnalyseArticle(
@@ -68,6 +81,10 @@ class AnalyseArticle {
       qteDernierAchat: (json['qteDernierAchat'] as num?)?.toInt(),
       qteDernierInventaire: (json['qteDernierInventaire'] as num?)?.toInt(),
       qteDerniereVente: (json['qteDerniereVente'] as num?)?.toInt(),
+      // Lecture tolérante : absent, null, nombre, texte numérique, décimal.
+      stockReserve: entierTolerant(json['stockReserve']),
+      seuilReserve: entierTolerant(json['seuilReserve']),
+      seuilMiniRayon: entierTolerant(json['seuilMiniRayon']),
     );
   }
 
