@@ -42,6 +42,8 @@ import 'package:prestige_app/screens/visualisation_bl_screen.dart';
 
 // IMPORT DE LA NOUVELLE FONCTIONNALITE
 import 'recap_caisse_screen.dart';
+// Module Présences (ajout : les menus existants sont inchangés).
+import '../presences/presences_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -100,6 +102,9 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Annulation Ventes', 'icon': Icons.cancel_presentation_outlined, 'color': Colors.red.shade700, 'screen': const AnnulationVenteScreen()},
       {'title': 'Etat de Stock', 'icon': Icons.inventory_2_outlined, 'color': Colors.blue, 'screen': const EtatStockScreen()},
       {'title': 'Visualisation BL', 'icon': Icons.receipt_outlined, 'color': Colors.teal, 'screen': const VisualisationBlScreen()},
+      // Ajouté en dernier : l'ordre et les pages des menus existants ne bougent pas ; « Personnaliser l'accueil »
+      // permet de le remonter.
+      {'title': 'Présences', 'icon': Icons.badge_outlined, 'color': const Color(0xFF0E7490), 'screen': const PresencesScreen()},
     ];
 
     // CORRECTION: Logique de tri et de filtrage robuste

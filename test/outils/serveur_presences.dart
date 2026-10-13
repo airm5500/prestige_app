@@ -69,8 +69,12 @@ class ServeurPresences {
         };
         return http.Response.bytes(fixtureOctets(f), 200, headers: json);
       case '/rh/tableau':
+        // Filtre par employé comme le serveur (la réponse réelle filtrée est dans tableau_employe.json).
         final employe = req.url.queryParameters['employeId'];
-        return http.Response.bytes(fixtureOctets(employe == null ? 'tableau.json' : 'tableau_employe.json'), 200, headers: json);
+        if (employe == null) return http.Response.bytes(fixtureOctets('tableau.json'), 200, headers: json);
+        final t = jsonDecode(fixture('tableau.json')) as Map<String, dynamic>;
+        t['data'] = [for (final e in t['data'] as List) if (e['employeId'] == employe) e];
+        return http.Response.bytes(utf8.encode(jsonEncode(t)), 200, headers: json);
       case '/rh/tableau/excel':
         return http.Response.bytes(fixtureOctets('tableau.xlsx'), 200, headers: {
           'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
