@@ -86,7 +86,10 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<String?> login(BuildContext context, String username, String password, bool rememberMe) async {
-    _isLoading = true;
+    // [isLoading] reste réservé au démarrage : s'il passait à true ici, AuthWrapper remplacerait l'écran de
+    // connexion par l'écran de démarrage, et l'écran de connexion reconstruit perdrait le message d'erreur
+    // (« Identifiants incorrects », serveur injoignable…) et la saisie. L'écran de connexion affiche son propre
+    // indicateur pendant la connexion.
     _errorMessage = null;
     notifyListeners();
     try {

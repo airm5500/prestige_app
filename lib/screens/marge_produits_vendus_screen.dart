@@ -113,6 +113,7 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
                     SizedBox(
                       width: 140,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true, // « Supérieur ou égal à » : tronqué au lieu de déborder des 140 dp
                         decoration: const InputDecoration(labelText: 'Filtre Marge'),
                         value: _selectedOperator,
                         items: const [
@@ -270,6 +271,7 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
     final now = DateTime.now();
     final months = List.generate(now.month, (index) => index + 1);
     return DropdownButtonFormField<int>(
+      isExpanded: true, // nom du mois long (« septembre ») : tronqué au lieu de déborder sur téléphone
       decoration: const InputDecoration(labelText: 'Mois'),
       value: _selectedMonth,
       hint: const Text('Choisir...'),

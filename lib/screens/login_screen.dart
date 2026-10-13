@@ -189,7 +189,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(ipProvider.useLocalIp ? 'Local' : 'Distant', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                    Switch(
+                    // Semantics : libellé pour le lecteur d'écran (le texte « Local / Distant » n'est pas relié à l'interrupteur).
+                    Semantics(label: 'Serveur local', child: Switch(
                       value: ipProvider.useLocalIp,
                       onChanged: (value) async { // MODIFICATION: async
                         if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
@@ -204,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       activeColor: Colors.white,
                       inactiveTrackColor: Colors.white.withAlpha(100),
                       inactiveThumbColor: Colors.grey.shade300,
-                    ),
+                    )),
                     IconButton(
                       icon: const Icon(Icons.settings_outlined, color: Colors.white),
                       tooltip: 'Configuration IP',
@@ -265,6 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility),
+                                  tooltip: _isPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
                                   onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                                 ),
                               ),
@@ -275,12 +277,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Checkbox(value: _rememberMe, onChanged: (value) => setState(() => _rememberMe = value!), activeColor: theme.primaryColor),
-                                    GestureDetector(onTap: () => setState(() => _rememberMe = !_rememberMe), child: const Text("Rester connecté")),
-                                  ],
+                                // Flexible : sur un téléphone de 360 dp (ou en grande police), le libellé passe à la ligne
+                                // au lieu de pousser le bouton « Connexion » hors de la carte.
+                                Flexible(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Checkbox(value: _rememberMe, onChanged: (value) => setState(() => _rememberMe = value!), activeColor: theme.primaryColor, semanticLabel: 'Rester connecté'),
+                                      Flexible(child: GestureDetector(onTap: () => setState(() => _rememberMe = !_rememberMe), child: const Text("Rester connecté"))),
+                                    ],
+                                  ),
                                 ),
                                 if (_isLoading)
                                   const Padding(

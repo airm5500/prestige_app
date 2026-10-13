@@ -156,7 +156,7 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
                 suffixIcon: isLoading
                     ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(strokeWidth: 2))
                     : (_searchController.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+                    ? IconButton(icon: const Icon(Icons.clear), tooltip: 'Effacer la recherche', onPressed: () => _searchController.clear())
                     : null),
               ),
               onSubmitted: (_) => _rechercherProduits(),

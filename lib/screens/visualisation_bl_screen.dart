@@ -333,6 +333,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Actualiser',
             onPressed: () => _fetchData(),
           )
         ],
@@ -358,6 +359,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
                         icon: const Icon(Icons.clear, size: 20),
+                        tooltip: 'Effacer la recherche',
                         onPressed: _clearSearch, // Efface juste le texte et garde le focus
                       )
                           : null,

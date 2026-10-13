@@ -268,7 +268,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
                 suffixIcon: isLoading
                     ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(strokeWidth: 2))
                     : (_searchController.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+                    ? IconButton(icon: const Icon(Icons.clear), tooltip: 'Effacer la recherche', onPressed: () => _searchController.clear())
                     : null),
               ),
               onSubmitted: (_) => _rechercherArticles(),
@@ -323,8 +323,9 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 6.0),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          RichText(
-                            text: TextSpan(
+                          // Text.rich (et non RichText) : police du thème (Lato) et taille de texte du téléphone respectées.
+                          Text.rich(
+                            TextSpan(
                               style: defaultTextStyle,
                               children: [
                                 const TextSpan(text: 'Prix: '),

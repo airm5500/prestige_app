@@ -83,7 +83,7 @@ class _ValorisationScreenState extends State<ValorisationScreen> with BaseScreen
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Date de valorisation:', style: TextStyle(fontSize: 16)),
+                        const Flexible(child: Text('Date de valorisation:', style: TextStyle(fontSize: 16))),
                         TextButton(
                           onPressed: () => _selectDate(context),
                           child: Text(

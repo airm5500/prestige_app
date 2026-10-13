@@ -124,6 +124,7 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
     final months = List.generate(now.month, (index) => index + 1);
 
     return DropdownButtonFormField<int>(
+      isExpanded: true, // nom du mois long (« septembre ») : tronqué au lieu de déborder sur téléphone
       decoration: const InputDecoration(labelText: 'Mois'),
       value: _selectedMonth,
       hint: const Text('Choisir...'),

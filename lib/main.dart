@@ -22,8 +22,12 @@ import 'interface_version.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await InterfaceVersion.load();
-  runApp(
-    MultiProvider(
+  runApp(applicationPrestige());
+}
+
+/// Arbre complet de l'application : providers + [PrestigeApp]. Utilisé par [main] et par les tests de bout en
+/// bout (test/e2e/), qui montent ainsi exactement la même application. [accueil] : voir [PrestigeApp.accueil].
+Widget applicationPrestige({Widget? accueil}) => MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => IpConfigProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
@@ -31,13 +35,15 @@ Future<void> main() async {
         Provider(create: (_) => ApiService()),
         ChangeNotifierProvider(create: (_) => LicenceProvider()),
       ],
-      child: const PrestigeApp(),
-    ),
-  );
-}
+      child: PrestigeApp(accueil: accueil),
+    );
 
 class PrestigeApp extends StatelessWidget {
-  const PrestigeApp({super.key});
+  /// Écran affiché à la place du parcours de démarrage (Configuration → licence → connexion → accueil).
+  /// Réservé aux tests d'ergonomie (un écran rendu avec le vrai thème) ; null en production.
+  final Widget? accueil;
+
+  const PrestigeApp({super.key, this.accueil});
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +132,7 @@ class PrestigeApp extends StatelessWidget {
         Locale('en', 'US'),
       ],
       locale: const Locale('fr', 'FR'),
-      home: const AppLifecycleObserver(child: AuthWrapper()),
+      home: accueil ?? const AppLifecycleObserver(child: AuthWrapper()),
     );
   }
 }

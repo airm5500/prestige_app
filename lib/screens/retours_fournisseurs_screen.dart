@@ -144,6 +144,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
     final months = List.generate(now.month, (index) => index + 1);
 
     return DropdownButtonFormField<int>(
+      isExpanded: true, // nom du mois long (« septembre ») : tronqué au lieu de déborder sur téléphone
       decoration: const InputDecoration(labelText: 'Mois'),
       value: _selectedMonth,
       hint: const Text('Choisir...'),
@@ -193,6 +194,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<Fournisseur>(
+                        isExpanded: true, // nom de fournisseur long : tronqué au lieu de déborder
                         decoration: const InputDecoration(labelText: 'Fournisseur'),
                         value: _selectedFournisseur,
                         items: [
@@ -217,6 +219,7 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
                     const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true, // « Sans réponse » en grande police : tronqué au lieu de déborder
                         decoration: const InputDecoration(labelText: 'Filtre'),
                         value: _filtre,
                         items: const [

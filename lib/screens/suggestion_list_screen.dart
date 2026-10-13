@@ -177,6 +177,7 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Actualiser',
             onPressed: isLoading ? null : _loadSuggestions,
           ),
         ],

@@ -329,6 +329,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.blue),
+                  tooltip: 'Actualiser',
                   onPressed: () => _fetchData(),
                 )
               ],
