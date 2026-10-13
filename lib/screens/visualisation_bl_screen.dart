@@ -545,12 +545,15 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
   Widget _buildDateSelector(TextEditingController controller, String label) {
     return InkWell(
       onTap: () => _selectDate(controller),
+      // 48 dp de haut (cible tactile Android) ; texte en demi-gras, lisible à toutes les tailles d'écran.
       child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
         child: Text(
             controller.text.isEmpty ? label : controller.text,
-            style: const TextStyle(fontSize: 12)
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)
         ),
       ),
     );

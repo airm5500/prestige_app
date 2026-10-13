@@ -11,6 +11,11 @@ import '../utils/constants.dart';
 import 'settings_screen.dart';
 import '../widgets/pin_code_dialog.dart';
 import '../utils/saisie.dart';
+import '../interface_version.dart';
+import '../providers/licence_provider.dart';
+import '../nouvelle_interface/charte.dart';
+import '../nouvelle_interface/composants.dart';
+import '../nouvelle_interface/presentation.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -158,6 +163,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Nouvelle interface : même logique (contrôles, connexion, mémorisation), autre présentation.
+    if (InterfaceVersion.nouvelle(context)) return _buildNouveau(context);
     final theme = Theme.of(context);
     // MODIFICATION: On écoute les changements de l'ipProvider
     final ipProvider = context.watch<IpConfigProvider>();
@@ -311,6 +318,171 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ------------------------------------------------------------------------------------------------------------
+  // Nouvelle interface (maquettes §1) : en-tête bleu avec l'état du serveur (A, C) ou barre blanche (B),
+  // formulaire seul, bouton ambre. Mêmes champs, mêmes contrôles de saisie, même appel au serveur.
+  // ------------------------------------------------------------------------------------------------------------
+
+  Future<void> _ouvrirConfiguration() async {
+    // Sans être connecté, la configuration du serveur est protégée par le code administrateur.
+    if (!await PinCodeDialog.show(context) || !mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+  }
+
+  Future<void> _basculerServeur(IpConfigProvider ipProvider, bool value) async {
+    if (!value && (ipProvider.remoteIp.isEmpty || ipProvider.remoteIp == AppConstants.defaultRemoteIp)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('L\'adresse IP distante n\'est pas configurée.')));
+      return;
+    }
+    ipProvider.setUseLocalIp(value);
+    await _fetchAndDisplayOfficineName();
+  }
+
+  Widget _buildNouveau(BuildContext context) {
+    final ipProvider = context.watch<IpConfigProvider>();
+    final licence = context.watch<LicenceProvider>().licence?.expiryDate;
+    final compact = PresentationPrefs.effective(PresentationPrefs.choix.value, tablette: estTabletteNouvelle(context)) == Presentation.compact;
+    final adresse = '${ipProvider.useLocalIp ? ipProvider.localIp : ipProvider.remoteIp}:${ipProvider.port} · ${ipProvider.appName}';
+    final mode = ipProvider.useLocalIp ? 'Serveur local' : 'Serveur distant';
+
+    final interrupteur = Semantics(
+      label: 'Serveur local',
+      child: Switch(
+        value: ipProvider.useLocalIp,
+        activeTrackColor: compact ? Charte.navy : Charte.ambre,
+        activeColor: compact ? Charte.blanc : Charte.surAmbre,
+        onChanged: (v) => _basculerServeur(ipProvider, v),
+      ),
+    );
+
+    final Widget entete = compact
+        ? BarreBlanche(
+            titre: 'Prestige Pharmacien',
+            sousTitre: Row(children: [
+              const Point(Charte.vert),
+              const SizedBox(width: 6),
+              Flexible(child: Text('$mode${_officineName == null ? '' : ' · $_officineName'}', maxLines: 2, overflow: TextOverflow.ellipsis)),
+            ]),
+            actions: [
+              interrupteur,
+              IconButton(
+                icon: const Icon(Icons.settings_outlined, color: Charte.navy),
+                tooltip: 'Configuration IP',
+                onPressed: _ouvrirConfiguration,
+              ),
+            ],
+          )
+        : EnTeteNavy(
+            titre: 'Prestige Pharmacien',
+            sousTitre: _officineName,
+            retour: false,
+            enfants: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                decoration: BoxDecoration(color: Charte.enteteVoile, borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  const Point(Charte.vertVif),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(mode, style: const TextStyle(color: Charte.blanc, fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(adresse, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Charte.enteteGris, fontSize: 12)),
+                    ]),
+                  ),
+                  interrupteur,
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Charte.blanc),
+                    tooltip: 'Configuration IP',
+                    onPressed: _ouvrirConfiguration,
+                  ),
+                ]),
+              ),
+            ],
+          );
+
+    final formulaire = Form(
+      key: _formKey,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (!compact) ...[
+          const Text('Connexion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Charte.encre)),
+          const Text('Saisissez vos identifiants Prestige.', style: TextStyle(color: Charte.gris)),
+          const SizedBox(height: 18),
+        ],
+        if (_uiErrorMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Encadre(texte: _uiErrorMessage!, icone: Icons.error_outline),
+          ),
+        TextFormField(
+          controller: _usernameController,
+          decoration: const InputDecoration(labelText: 'Identifiant', prefixIcon: Icon(Icons.person_outline)),
+          inputFormatters: Saisie.identifiantFormatters,
+          validator: Saisie.erreurIdentifiant,
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _passwordController,
+          obscureText: !_isPasswordVisible,
+          decoration: InputDecoration(
+            labelText: 'Mot de passe',
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility),
+              tooltip: _isPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
+              onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+            ),
+          ),
+          inputFormatters: Saisie.motDePasseFormatters,
+          validator: Saisie.erreurMotDePasse,
+          onFieldSubmitted: (_) => _isLoading ? null : _handleLogin(),
+        ),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          value: _rememberMe,
+          onChanged: (value) => setState(() => _rememberMe = value!),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Rester connecté'),
+          subtitle: const Text('Identifiants gardés dans le stockage sécurisé du téléphone', style: TextStyle(color: Charte.gris, fontSize: 12.5)),
+        ),
+        const SizedBox(height: 12),
+        if (_isLoading)
+          const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+        else
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              key: const Key('connexion_se_connecter'),
+              onPressed: _handleLogin,
+              child: const Text('Se connecter'),
+            ),
+          ),
+        if (licence != null) ...[
+          const SizedBox(height: 20),
+          Text(
+            'Licence valable jusqu\'au ${licence.day.toString().padLeft(2, '0')}/${licence.month.toString().padLeft(2, '0')}/${licence.year}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Charte.gris, fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ]),
+    );
+
+    return Scaffold(
+      backgroundColor: Charte.blanc,
+      body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        entete,
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 460), child: formulaire)),
+          ),
+        ),
+      ]),
     );
   }
 }

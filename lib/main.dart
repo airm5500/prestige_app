@@ -18,6 +18,7 @@ import 'services/api_service.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'interface_version.dart';
+import 'nouvelle_interface/charte.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,8 +46,8 @@ class PrestigeApp extends StatelessWidget {
 
   const PrestigeApp({super.key, this.accueil});
 
-  @override
-  Widget build(BuildContext context) {
+  /// Thème de l'ANCIENNE interface (inchangé).
+  static ThemeData themeAncienneInterface(BuildContext context) {
     const primaryColor = Color(0xFF0A2E3E);
     const secondaryColor = Color(0xFF164B62);
     const accentColor = Color(0xFF2EBF91);
@@ -58,9 +59,7 @@ class PrestigeApp extends StatelessWidget {
       displayColor: const Color(0xFF1a1a1a),
     );
 
-    return MaterialApp(
-      title: 'Prestige App',
-      theme: ThemeData(
+    return ThemeData(
         primaryColor: primaryColor,
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryColor,
@@ -120,7 +119,21 @@ class PrestigeApp extends StatelessWidget {
         ),
         useMaterial3: true,
         visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Nouvelle ou ancienne interface (réglage mémorisé, effet immédiat) : thème et écrans d'accueil.
+    return ValueListenableBuilder<bool>(
+      valueListenable: InterfaceVersion.useNew,
+      // Clé liée à la version : changer d'interface reconstruit l'application (pas d'animation entre deux thèmes
+      // incompatibles) et ramène à l'accueil de la version choisie ; la connexion (providers) est conservée.
+      builder: (context, nouvelle, _) => MaterialApp(
+      key: ValueKey<bool>(nouvelle),
+      title: 'Prestige App',
+      theme: nouvelle ? themeNouvelleInterface(context) : themeAncienneInterface(context),
+      builder: (context, child) => InterfaceScope(nouvelle: nouvelle, child: child ?? const SizedBox()),
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -133,6 +146,7 @@ class PrestigeApp extends StatelessWidget {
       ],
       locale: const Locale('fr', 'FR'),
       home: accueil ?? const AppLifecycleObserver(child: AuthWrapper()),
+    ),
     );
   }
 }
@@ -290,7 +304,7 @@ class AuthWrapper extends StatelessWidget {
                   return const SplashScreen();
                 }
                 if (auth.isLoggedIn) {
-                  return InterfaceVersion.home();
+                  return InterfaceVersion.home(nouvelle: InterfaceVersion.nouvelle(context));
                 } else {
                   return const LoginScreen();
                 }

@@ -189,7 +189,7 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size.fromHeight(45), // Prend toute la largeur
                     backgroundColor: Theme.of(context).colorScheme.secondary, // Couleur d'accentuation
-                    foregroundColor: Colors.white, // Texte blanc
+                    foregroundColor: Theme.of(context).colorScheme.onSecondary, // texte lisible sur l'accent (blanc dans l'ancienne interface)
                   ),
                 ),
                 const SizedBox(height: 10),

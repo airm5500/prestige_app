@@ -9,6 +9,9 @@ import '../utils/adresse_serveur.dart';
 import '../utils/constants.dart';
 import '../widgets/pin_code_dialog.dart';
 import '../utils/saisie.dart';
+import '../interface_version.dart';
+import '../nouvelle_interface/charte.dart';
+import '../nouvelle_interface/composants.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -124,6 +127,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Nouvelle interface : mêmes champs et mêmes contrôles, rangés en cartes.
+    if (InterfaceVersion.nouvelle(context)) return _buildNouveau(context);
     final theme = Theme.of(context);
     final canPop = Navigator.canPop(context);
 
@@ -208,10 +213,133 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   label: const Text('Changer le code administrateur'),
                   onPressed: () => PinCodeDialog.changePin(context),
                 ),
+                // Retour à la nouvelle interface (choix mémorisé sur le téléphone).
+                const InterfaceVersionTile(),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNouveau(BuildContext context) {
+    final canPop = Navigator.canPop(context);
+    Widget champVerrouille({
+      required TextEditingController controller,
+      required bool editable,
+      required String label,
+      required IconData icone,
+      required String infobulle,
+      required VoidCallback basculer,
+      TextInputType? clavier,
+      List<TextInputFormatter>? formats,
+      String? Function(String?)? validator,
+    }) =>
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              enabled: editable,
+              decoration: InputDecoration(labelText: label, prefixIcon: Icon(icone)),
+              keyboardType: clavier,
+              inputFormatters: formats,
+              validator: validator,
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(icon: Icon(editable ? Icons.lock_open_outlined : Icons.edit_outlined), tooltip: infobulle, onPressed: basculer),
+        ]);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Configuration IP'), automaticallyImplyLeading: canPop),
+      body: Form(
+        key: _formKey,
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 32), children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  child: Text('Configurer les adresses IP du serveur', style: TextStyle(color: Charte.gris, fontSize: 15)),
+                ),
+                CarteSection(titre: 'Adresses du serveur', icone: Icons.dns_outlined, enfants: [
+                  _buildIpInputRow(controller: _localIpController, labelText: 'Adresse IP Locale', hintText: 'ex: 192.168.1.100', icon: Icons.computer, isPinging: _isPingingLocal, pingMessage: _localPingMessage, pingSuccess: _localPingSuccess, onPing: () => _handlePing(true)),
+                  const SizedBox(height: 16),
+                  _buildIpInputRow(controller: _remoteIpController, labelText: 'Adresse IP Distante', hintText: 'ex: https://pharmacie.example.com', icon: Icons.public, isPinging: _isPingingRemote, pingMessage: _remotePingMessage, pingSuccess: _remotePingSuccess, onPing: () => _handlePing(false), isRemote: true),
+                  const SizedBox(height: 8),
+                  const Text('L\'adresse IP locale est requise pour utiliser l\'application.', style: TextStyle(color: Charte.gris, fontSize: 13)),
+                ]),
+                CarteSection(titre: 'Application Prestige', icone: Icons.apps, enfants: [
+                  champVerrouille(
+                    controller: _appNameController,
+                    editable: _isAppNameEditable,
+                    label: 'Nom de l\'application serveur',
+                    icone: Icons.apps,
+                    infobulle: 'Modifier le nom',
+                    basculer: () => setState(() => _isAppNameEditable = !_isAppNameEditable),
+                    formats: Saisie.nomApplicationFormatters,
+                    validator: Saisie.erreurNomApplication,
+                  ),
+                  const SizedBox(height: 16),
+                  champVerrouille(
+                    controller: _portController,
+                    editable: _isPortEditable,
+                    label: 'Port du Serveur',
+                    icone: Icons.settings_ethernet,
+                    infobulle: _isPortEditable ? 'Verrouiller le port' : 'Modifier le port',
+                    basculer: () => setState(() => _isPortEditable = !_isPortEditable),
+                    clavier: TextInputType.number,
+                    formats: Saisie.entierFormatters(5),
+                    validator: Saisie.erreurPort,
+                  ),
+                ]),
+                CarteSection(titre: 'Sécurité', icone: Icons.shield_outlined, enfants: [
+                  TextFormField(
+                    controller: _timeoutController,
+                    decoration: const InputDecoration(
+                      labelText: 'Délai de déconnexion (minutes)',
+                      prefixIcon: Icon(Icons.timer_outlined),
+                      helperText: 'Saisir 0 pour désactiver le délai.',
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: Saisie.entierFormatters(4),
+                    validator: Saisie.erreurDelai,
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('changer_code_admin'),
+                      icon: const Icon(Icons.pin_outlined),
+                      label: const Text('Changer le code administrateur'),
+                      onPressed: () => PinCodeDialog.changePin(context),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SizedBox(
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.save_alt_outlined),
+                          label: Text(canPop ? 'Enregistrer' : 'Enregistrer et Continuer'),
+                          onPressed: _saveSettings,
+                        ),
+                      ),
+                const SizedBox(height: 16),
+                const CarteSection(
+                  titre: 'Apparence',
+                  icone: Icons.palette_outlined,
+                  padding: EdgeInsets.fromLTRB(0, 14, 0, 8),
+                  enfants: [InterfaceVersionTile()],
+                ),
+              ]),
+            ),
+          ),
+        ]),
       ),
     );
   }

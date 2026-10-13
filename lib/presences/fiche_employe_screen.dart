@@ -177,7 +177,7 @@ class _FicheEmployeScreenState extends State<FicheEmployeScreen> {
                 key: Key('pointage_${p.id}'),
                 dense: true,
                 leading: Icon(p.entree ? Icons.login : (p.sortie ? Icons.logout : Icons.swap_vert),
-                    color: p.entree ? couleurPresent : (p.sortie ? couleurPrincipale : couleurGris)),
+                    color: p.entree ? couleurPresent : (p.sortie ? couleurPrincipaleDe(context) : couleurGris)),
                 title: Text('${p.heure}  ${p.sensLisible}', style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(p.motif.isEmpty ? sourceLisible(p.source) : '${sourceLisible(p.source)} · ${p.motif}'),
                 trailing: Icon(iconeSource(p.source), color: couleurGris, size: 20),

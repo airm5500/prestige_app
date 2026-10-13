@@ -253,8 +253,8 @@ class PresenceJourViewState extends State<PresenceJourView> {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         CircleAvatar(
           radius: 18,
-          backgroundColor: couleurPrincipale.withAlpha(20),
-          child: Text(initiales, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: couleurPrincipale)),
+          backgroundColor: couleurPrincipaleDe(context).withAlpha(20),
+          child: Text(initiales, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: couleurPrincipaleDe(context))),
         ),
         const SizedBox(width: 10),
         Expanded(

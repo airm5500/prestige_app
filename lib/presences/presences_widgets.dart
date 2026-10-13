@@ -8,6 +8,10 @@ import '../services/api_service.dart';
 import 'presences_modeles.dart';
 
 const couleurPrincipale = Color(0xFF0A2E3E);
+
+/// Couleur principale du thème affiché : bleu d'origine (ancienne interface, = [couleurPrincipale]) ou bleu nuit de
+/// la nouvelle interface.
+Color couleurPrincipaleDe(BuildContext context) => Theme.of(context).colorScheme.primary;
 const couleurEncre = Color(0xFF14213D);
 const couleurGris = Color(0xFF5B6B82);
 const couleurRetard = Color(0xFFB45309);
@@ -57,12 +61,14 @@ class PastilleStatut extends StatelessWidget {
 class TuileCompteur extends StatelessWidget {
   final String libelle;
   final String valeur;
-  final Color couleur;
+  final Color? couleur;
   final String? detail;
-  const TuileCompteur({super.key, required this.libelle, required this.valeur, this.couleur = couleurPrincipale, this.detail});
+  const TuileCompteur({super.key, required this.libelle, required this.valeur, this.couleur, this.detail});
 
   @override
-  Widget build(BuildContext context) => _Bordee(
+  Widget build(BuildContext context) {
+    final couleur = this.couleur ?? couleurPrincipaleDe(context);
+    return _Bordee(
         rayon: 12,
         bande: couleur,
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -77,6 +83,7 @@ class TuileCompteur extends StatelessWidget {
           if (detail != null) Text(detail!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: couleurGris)),
         ]),
       );
+  }
 }
 
 /// Fond blanc arrondi, ombre légère et bande de couleur à gauche (une bordure d'un seul côté ne peut pas être
