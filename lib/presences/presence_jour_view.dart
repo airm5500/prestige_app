@@ -117,7 +117,8 @@ class PresenceJourViewState extends State<PresenceJourView> {
           [
             toBeginningOfSentenceCase(DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(_jour)),
             if (_misAJour != null && _donnees != null) 'mis à jour ${DateFormat('HH:mm').format(_misAJour!)}',
-            'retard au-delà de ${dureeLisible(seuil)}',
+            // Espace insécable : « 1 h » jamais coupé en fin de ligne.
+            'retard au-delà de ${dureeLisible(seuil).replaceAll(' ', '\u00a0')}',
           ].join(' · '),
           key: const Key('presences_jour_titre'),
           style: const TextStyle(color: couleurGris, fontSize: 13),
@@ -269,7 +270,7 @@ class PresenceJourViewState extends State<PresenceJourView> {
             if (statut == StatutPresence.absent) const Text('Aucun pointage', style: TextStyle(fontSize: 13, color: couleurGris)),
             if (statut == StatutPresence.attendu && !l.arrive)
               const Text('Pas encore arrivé(e)', style: TextStyle(fontSize: 13, color: couleurGris)),
-            if (l.absence.isNotEmpty) Text('Absence validée : ${l.absence.toLowerCase()}', style: const TextStyle(fontSize: 13, color: couleurGris)),
+            if (l.absence.isNotEmpty) Text('Absence validée : ${absenceLisible(l.absence)}', style: const TextStyle(fontSize: 13, color: couleurGris)),
             if (l.departAnticipe > 0)
               Text('Départ anticipé de ${dureeLisible(l.departAnticipe)}', style: const TextStyle(fontSize: 13, color: Color(0xFFA16207))),
             if (l.pointages.isNotEmpty)

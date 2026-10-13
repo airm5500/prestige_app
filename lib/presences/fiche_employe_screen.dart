@@ -153,7 +153,7 @@ class _FicheEmployeScreenState extends State<FicheEmployeScreen> {
             if (l.heuresSup > 0) _info('Heures sup.', dureeLisible(l.heuresSup)),
           ]),
           if (l.absence.isNotEmpty)
-            Padding(padding: const EdgeInsets.only(top: 6), child: Text('Absence validée : ${l.absence.toLowerCase()}')),
+            Padding(padding: const EdgeInsets.only(top: 6), child: Text('Absence validée : ${absenceLisible(l.absence)}')),
           for (final p in phrases)
             Padding(
               padding: const EdgeInsets.only(top: 6),

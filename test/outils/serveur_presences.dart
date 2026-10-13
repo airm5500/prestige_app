@@ -71,9 +71,11 @@ class ServeurPresences {
       case '/rh/tableau':
         // Filtre par employé comme le serveur (la réponse réelle filtrée est dans tableau_employe.json).
         final employe = req.url.queryParameters['employeId'];
-        if (employe == null) return http.Response.bytes(fixtureOctets('tableau.json'), 200, headers: json);
         final t = jsonDecode(fixture('tableau.json')) as Map<String, dynamic>;
-        t['data'] = [for (final e in t['data'] as List) if (e['employeId'] == employe) e];
+        if (employe != null) t['data'] = [for (final e in t['data'] as List) if (e['employeId'] == employe) e];
+        // Période renvoyée comme le serveur : celle demandée.
+        t['du'] = req.url.queryParameters['du'] ?? t['du'];
+        t['au'] = req.url.queryParameters['au'] ?? t['au'];
         return http.Response.bytes(utf8.encode(jsonEncode(t)), 200, headers: json);
       case '/rh/tableau/excel':
         return http.Response.bytes(fixtureOctets('tableau.xlsx'), 200, headers: {

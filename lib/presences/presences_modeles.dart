@@ -66,6 +66,22 @@ String sourceLisible(String source) => switch (source.trim().toUpperCase()) {
       final s => s[0] + s.substring(1).toLowerCase(),
     };
 
+/// Absence validée (« CONGE », « MALADIE (matin) ») en clair : « congé », « maladie (matin) ».
+String absenceLisible(String absence) {
+  final t = absence.trim();
+  final i = t.indexOf(' ');
+  final type = (i < 0 ? t : t.substring(0, i)).toUpperCase();
+  final reste = i < 0 ? '' : t.substring(i);
+  final libelle = switch (type) {
+    'CONGE' => 'congé',
+    'MALADIE' => 'maladie',
+    'REPOS' => 'repos',
+    'AUTRE' => 'autre absence',
+    _ => type.toLowerCase().replaceAll('_', ' '),
+  };
+  return '$libelle$reste';
+}
+
 /// Statut affiché d'un employé pour un jour (ordre = ordre de tri : les plus urgents d'abord).
 enum StatutPresence { absent, enRetard, anomalie, partiTot, attendu, present, conge, repos }
 

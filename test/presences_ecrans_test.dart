@@ -72,7 +72,7 @@ void main() {
       expect(serveur.appels, contains('GET /rh/presence?jour=2026-10-13'));
       expect(find.text('Présence du jour'), findsOneWidget);
       expect(find.textContaining('Mardi 13 octobre 2026'), findsOneWidget);
-      expect(find.textContaining('retard au-delà de 1 h'), findsOneWidget);
+      expect(find.textContaining('retard au-delà de 1\u00a0h'), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget); // présents / prévus
       expect(haut(tester, 'presence_$yao'), lessThan(haut(tester, 'presence_$awa')));
       expect(find.descendant(of: find.byKey(const Key('presence_$yao')), matching: find.text('Absent')), findsOneWidget);
@@ -86,7 +86,7 @@ void main() {
     testWidgets('autre seuil (15 min, réglé dans les préférences) : Awa « En retard +22 min »', (tester) async {
       await ouvrir(tester, prefs: {ReglagesPresences.cleSeuil: 15});
       expect(find.text('En retard +22 min'), findsOneWidget);
-      expect(find.textContaining('retard au-delà de 15 min'), findsOneWidget);
+      expect(find.textContaining('retard au-delà de 15\u00a0min'), findsOneWidget);
     });
 
     testWidgets('Hier : retard de 1 h 15 en tête, anomalies en phrases', (tester) async {

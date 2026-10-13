@@ -128,12 +128,15 @@ class RangeeTuiles extends StatelessWidget {
           final morceau = tuiles.sublist(i, (i + parLigne).clamp(0, tuiles.length));
           lignes.add(Padding(
             padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
-            child: Row(children: [
-              for (var j = 0; j < morceau.length; j++) ...[
-                if (j > 0) const SizedBox(width: 8),
-                Expanded(child: morceau[j]),
-              ],
-            ]),
+            // Tuiles d'une même rangée à la même hauteur (une tuile avec détail n'en dépasse pas une autre).
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                for (var j = 0; j < morceau.length; j++) ...[
+                  if (j > 0) const SizedBox(width: 8),
+                  Expanded(child: morceau[j]),
+                ],
+              ]),
+            ),
           ));
         }
         return Column(children: lignes);

@@ -80,7 +80,7 @@ class _PresencesScreenState extends State<PresencesScreen> {
         ],
       ),
       body: tablette
-          ? Row(children: [
+          ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               NavigationRail(
                 selectedIndex: _onglet,
                 labelType: NavigationRailLabelType.all,
