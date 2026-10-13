@@ -29,12 +29,19 @@ jobs:
       - name: Dépendances
         run: flutter pub get
 
-      # Seules les ERREURS bloquent : les avertissements et remarques hérités (64 au départ de l'étape 0)
-      # sont listés dans le journal, sans faire échouer la construction.
+      # Les ERREURS bloquent. Les avertissements et remarques hérités sont listés sans bloquer, mais leur
+      # nombre ne doit pas augmenter : plafond 57 (relevé le 13/10/2026) — le baisser quand on en corrige.
       - name: Analyse
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyse.txt
+          n=$(grep -cE '^ *(info|warning|error) •' analyse.txt || true)
+          echo "Remarques de l'analyse : $n (plafond 57)"
+          test "$n" -le 57
 
-      # Tous les fichiers de test/ (un fichier par thème).
+      # TOUT test/ (voir test/README.md) : non-régression, unitaires, intégration et bout en bout contre le faux
+      # serveur Prestige local (127.0.0.1), ergonomie (5 tailles d'écran × 2 échelles de texte) et cohérence du
+      # thème. Aucun émulateur ni vrai serveur nécessaire.
       - name: Tests
         run: flutter test
 

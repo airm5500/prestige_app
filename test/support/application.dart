@@ -1,0 +1,108 @@
+// Outils pour monter l'application ENTIÈRE dans `flutter test` (sans émulateur) contre le faux serveur Prestige.
+//
+// Deux modes :
+//  - réseau réel (tests e2e) : [utiliserReseauReel] puis [lancerApplication] ; l'application parle au faux
+//    serveur HTTP local (127.0.0.1) par l'adresse saisie dans ses préférences, exactement comme sur un téléphone.
+//    Les attentes passent par [attendreQue] / [attendreTexte], qui laissent avancer à la fois l'horloge simulée
+//    de flutter_test (minuteries de l'application) et le temps réel (réponses du serveur) ;
+//  - en mémoire (ergonomie) : `ApiService.client = serveur.clientMemoire()`, mêmes routes sans socket.
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:prestige_app/main.dart';
+import 'package:prestige_app/services/api_service.dart';
+import 'package:prestige_app/services/journal_app.dart';
+import 'package:prestige_app/services/pin_securise.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'faux_serveur_prestige.dart';
+
+/// flutter_test remplace HttpClient par un faux qui répond toujours 400 : on le retire pour joindre le faux
+/// serveur local, et l'application reçoit un client HTTP neuf.
+void utiliserReseauReel() {
+  HttpOverrides.global = null;
+  ApiService.client = http.Client();
+}
+
+/// À appeler en tearDown : ferme le client (aucune connexion ni minuterie ne reste ouverte).
+void restaurerClient() {
+  ApiService.client.close();
+  ApiService.client = http.Client();
+}
+
+/// Préférences et stockage sûr d'un téléphone déjà configuré pour viser [serveur].
+void preparerTelephone(FauxServeurPrestige serveur, {Map<String, Object> autres = const {}}) {
+  SharedPreferences.setMockInitialValues(serveur.preferencesApp(autres: autres));
+  FlutterSecureStorage.setMockInitialValues({});
+  CodeAdmin.instance = CodeAdmin(iterations: 1000);
+  JournalApp.actif = false;
+}
+
+/// Monte l'application réelle (providers + thème + parcours de démarrage de main.dart).
+Future<void> lancerApplication(WidgetTester tester, {Widget? accueil}) async {
+  await tester.pumpWidget(applicationPrestige(accueil: accueil));
+}
+
+/// Laisse avancer l'horloge simulée et le temps réel jusqu'à ce que [condition] soit vraie.
+Future<void> attendreQue(WidgetTester tester, bool Function() condition,
+    {String raison = 'condition', Duration maxReel = const Duration(seconds: 20)}) async {
+  final chrono = Stopwatch()..start();
+  while (!condition()) {
+    if (chrono.elapsed > maxReel) {
+      fail('Attente trop longue : $raison');
+    }
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+/// Attend qu'au moins un widget corresponde à [finder].
+Future<void> attendreWidget(WidgetTester tester, Finder finder) =>
+    attendreQue(tester, () => finder.evaluate().isNotEmpty, raison: finder.toString());
+
+/// Attend l'affichage de [texte] (texte exact).
+Future<void> attendreTexte(WidgetTester tester, String texte) => attendreWidget(tester, find.text(texte));
+
+/// Quelques tours (réseau + horloge) pour laisser les requêtes en cours se terminer.
+Future<void> stabiliser(WidgetTester tester, {int tours = 10}) async {
+  for (var i = 0; i < tours; i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+/// Fin de test : démonte l'application, laisse finir les requêtes et épuise les minuteries (délais réseau).
+Future<void> terminer(WidgetTester tester) async {
+  // AuthProvider garde l'écran de démarrage au moins 2,5 s : on le laisse finir avant de démonter.
+  await stabiliser(tester);
+  await tester.pump(const Duration(seconds: 3));
+  await tester.pumpWidget(const SizedBox());
+  await stabiliser(tester);
+  ApiService.client.close();
+  await tester.pump(const Duration(minutes: 2));
+}
+
+/// Erreurs Flutter (débordements, exceptions de rendu…) relevées pendant [action], au lieu d'échouer à la
+/// première : chaque entrée donne le message court et l'emplacement dans lib/ (fichier:ligne) quand il est connu.
+Future<List<String>> releverErreurs(Future<void> Function() action) async {
+  final erreurs = <String>[];
+  final precedent = FlutterError.onError;
+  FlutterError.onError = (details) => erreurs.add(resumerErreur(details));
+  try {
+    await action();
+  } finally {
+    FlutterError.onError = precedent;
+  }
+  return erreurs;
+}
+
+/// « A RenderFlex overflowed by 13 pixels on the right. (lib/screens/ca_global_screen.dart:120:16) ».
+String resumerErreur(FlutterErrorDetails details) {
+  final texte = details.toString();
+  final lieu = RegExp(r'file://[^\s]*?/(lib/[^\s:]+:\d+:\d+)').firstMatch(texte)?.group(1);
+  final court = details.exceptionAsString().split('\n').first;
+  return lieu == null ? court : '$court ($lieu)';
+}
