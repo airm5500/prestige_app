@@ -25,6 +25,7 @@ const fond = Color(0xFFF5F7FA);
 /// Quand un fichier en perd, baisser son plafond ici.
 const plafondCouleursEnDur = <String, int>{
   'lib/main.dart': 6, // le thème lui-même
+  'lib/nouvelle_interface/charte.dart': 31, // palette de la nouvelle interface (seul fichier autorisé de lib/nouvelle_interface)
   'lib/presences/fiche_employe_screen.dart': 3,
   'lib/presences/pointage_view.dart': 7,
   'lib/presences/presence_jour_view.dart': 4,
@@ -137,7 +138,7 @@ void main() {
   test('couleurs codées en dur : pas de progression, aucune dans un nouveau fichier d\'écran', () {
     final fichiers = [
       File('lib/main.dart'),
-      for (final dossier in ['lib/screens', 'lib/presences', 'lib/widgets'])
+      for (final dossier in ['lib/screens', 'lib/presences', 'lib/widgets', 'lib/nouvelle_interface'])
         ...Directory(dossier).listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart')),
     ];
     final depassements = <String>[];

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/interface_version.dart';
+import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,23 +33,31 @@ void main() {
   group('InterfaceVersion', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    test('par défaut : interface d\'origine', () async {
+    // Étape 3 : la nouvelle interface est livrée et devient celle par défaut (demande du pharmacien) ;
+    // l'interface d'origine reste disponible et intacte.
+    test('par défaut : nouvelle interface (accueil refondu), configuration commune', () async {
       await InterfaceVersion.load();
-      expect(InterfaceVersion.useNew.value, isFalse);
-      expect(InterfaceVersion.home(), isA<HomeScreen>());
+      expect(InterfaceVersion.parDefaut, isTrue);
+      expect(InterfaceVersion.useNew.value, isTrue);
+      expect(InterfaceVersion.home(), isA<AccueilNouveau>());
       expect(InterfaceVersion.settings(), isA<SettingsScreen>());
     });
 
-    test('le choix est mémorisé (même clé que prestige_vente_app)', () async {
-      await InterfaceVersion.setNew(true);
+    test('le choix est mémorisé (même clé que prestige_vente_app) ; retour à l\'interface d\'origine', () async {
+      await InterfaceVersion.setNew(false);
       final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('interface_nouvelle_version_v1'), isFalse);
+      InterfaceVersion.useNew.value = true;
+      await InterfaceVersion.load();
+      expect(InterfaceVersion.useNew.value, isFalse);
+      expect(InterfaceVersion.home(), isA<HomeScreen>());
+
+      await InterfaceVersion.setNew(true);
       expect(prefs.getBool('interface_nouvelle_version_v1'), isTrue);
       InterfaceVersion.useNew.value = false;
       await InterfaceVersion.load();
       expect(InterfaceVersion.useNew.value, isTrue);
-      // Étape 0 : les deux positions ouvrent encore les écrans d'origine.
-      expect(InterfaceVersion.home(), isA<HomeScreen>());
-      await InterfaceVersion.setNew(false);
+      expect(InterfaceVersion.home(), isA<AccueilNouveau>());
     });
   });
 }

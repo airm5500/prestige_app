@@ -125,4 +125,33 @@ class DonneesFictives {
 
   /// Réponse « liste vide » de Prestige (vraie absence de données, ≠ panne).
   static Map<String, Object?> listeVide() => {'data': <Object>[], 'total': 0};
+
+  // --- Accueil « A · Tableau de bord » : GET /recap/dashboard (format du Rapport d'Activité) ---
+  static const caDuJour = 1245300;
+  static Map<String, Object?> recapDuJour() => {
+        'success': true,
+        'data': {
+          'montantTTC': caDuJour, 'montantHT': 1055339, 'marge': 312800, 'montantCredit': 186000, 'montantRegle': 1059300,
+          'montantTotalTVA': 189961, 'ratio': 1.52, 'achats': <Object>[], 'reglements': <Object>[], 'mvtsCaisse': <Object>[],
+        },
+      };
+
+  /// Présence du jour d'une équipe fictive de 4 personnes (un retard, un absent) pour les captures et l'accueil.
+  static Map<String, Object?> presenceEquipe(String jour) {
+    Map<String, Object?> l(String id, String nom, String prevu, String entree, int retard, String absence, String anomalies) => {
+          'employeId': id, 'employe': nom, 'matricule': id, 'jour': jour, 'prevu': prevu, 'minutesPrevues': 480,
+          'minutesPresence': 0, 'pointages': entree.isEmpty ? '' : '$entree↑', 'entree': entree, 'sortie': '', 'retard': retard,
+          'departAnticipe': 0, 'heuresSup': 0, 'absence': absence, 'anomalies': anomalies,
+        };
+    return {
+      'success': true,
+      'pointages': <Object>[],
+      'data': [
+        l('EMP-TEST-0001', employe, '08:00-16:00', '08:05', 5, '', 'ENTREE_SANS_SORTIE'),
+        l('EMP-TEST-0002', 'EMPLOYEE Fictive Deux', '07:30-15:30', '08:52', 82, '', 'ENTREE_SANS_SORTIE'),
+        l('EMP-TEST-0003', 'EMPLOYE Fictif Trois', '07:30-15:30', '07:24', 0, '', 'ENTREE_SANS_SORTIE'),
+        l('EMP-TEST-0004', 'EMPLOYEE Fictive Quatre', '08:00-16:00', '', 0, '', 'ABSENT'),
+      ],
+    };
+  }
 }

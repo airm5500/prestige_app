@@ -12,7 +12,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:prestige_app/interface_version.dart';
 import 'package:prestige_app/main.dart';
+import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/services/journal_app.dart';
 import 'package:prestige_app/services/pin_securise.dart';
@@ -34,8 +36,17 @@ void restaurerClient() {
 }
 
 /// Préférences et stockage sûr d'un téléphone déjà configuré pour viser [serveur].
-void preparerTelephone(FauxServeurPrestige serveur, {Map<String, Object> autres = const {}}) {
-  SharedPreferences.setMockInitialValues(serveur.preferencesApp(autres: autres));
+/// [nouvelle] : version de l'interface (les tests écrits pour l'interface d'origine la demandent explicitement :
+/// la nouvelle interface est celle par défaut) ; [presentation] : présentation A / B / C de la nouvelle interface.
+void preparerTelephone(FauxServeurPrestige serveur,
+    {Map<String, Object> autres = const {}, bool nouvelle = false, Presentation presentation = Presentation.automatique}) {
+  InterfaceVersion.useNew.value = nouvelle;
+  PresentationPrefs.choix.value = presentation;
+  SharedPreferences.setMockInitialValues(serveur.preferencesApp(autres: {
+    InterfaceVersion.cle: nouvelle,
+    PresentationPrefs.cle: presentation.name,
+    ...autres,
+  }));
   FlutterSecureStorage.setMockInitialValues({});
   CodeAdmin.instance = CodeAdmin(iterations: 1000);
   JournalApp.actif = false;

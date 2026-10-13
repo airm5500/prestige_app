@@ -12,74 +12,10 @@ import 'package:prestige_app/services/api_service.dart';
 
 import '../support/application.dart';
 import '../support/cas_affichage.dart';
+import '../support/ecarts_connus.dart';
 import '../support/ergonomie.dart';
 import '../support/faux_serveur_prestige.dart';
 import '../support/polices.dart';
-
-/// Écarts connus communs à tous les écrans (thème, widget partagé) : fragment toléré → explication.
-/// Relevés le 13/10/2026 à la mise en place de ces tests ; à arbitrer avec le pharmacien (couleurs de marque).
-const ecartsConnusCommuns = <String, String>{
-  '#FFFFFF / #2EBF91': 'bouton principal du thème (ElevatedButton) : texte blanc sur le vert d\'accent #2EBF91, '
-      'contraste 2,3:1 (WCAG : 4,5:1) ; changer la couleur de marque n\'est pas une correction « petite et évidente »',
-  'contraste du texte insuffisant : « Date de début: »': 'libellé gris 12 px du sélecteur de période commun',
-  'contraste du texte insuffisant : « Date de fin: »': 'libellé gris 12 px du sélecteur de période commun',
-};
-
-/// Écarts connus propres à un écran (dette relevée à la mise en place de ces tests, à corriger écran par
-/// écran) : écran → début des messages tolérés (sans partie variable : date du jour…). Cette liste ne doit
-/// que DIMINUER : ne jamais y ajouter un écart pour faire passer un écran nouveau ou modifié.
-const ecartsConnus = <String, List<String>>{
-  'Analyse Article': [
-    'contraste du texte insuffisant : « Entrez un libellé (2+ car.) ou un code CIP (3+ car.) pour rechercher. »',
-  ],
-  'Configuration IP (premier lancement)': [
-    'contraste du texte insuffisant : « Note: L\'adresse IP locale est requise pour utiliser l\'application. »',
-    'contraste du texte insuffisant : « Saisir 0 pour désactiver le délai. »',
-  ],
-  'Etat de Stock': [
-    'contraste du texte insuffisant : « APPLIQUER FILTRES »',
-    'contraste du texte insuffisant : « Utilisez la recherche ou les filtres ci-dessus »',
-  ],
-  'Fiche Article': [
-    'contraste du texte insuffisant : « Entrez au moins 3 caractères pour rechercher. »',
-  ],
-  'Licence requise': [
-    'contraste du texte insuffisant : « Le serveur Prestige a bien répondu : aucune licence n\'est enregistrée. Contactez Prestige pour en obtenir une, puis saisissez votre clé de licence pour activer l\'application. »',
-  ],
-  'Présences': [
-    'contraste du texte insuffisant : case à cocher',
-  ],
-  'Présences · Période': [
-    // Résumé de la période (dates du jour) en gris clair.
-    'contraste du texte insuffisant : « 01/',
-    'contraste du texte insuffisant : « Personnalisé »',
-  ],
-  'Récap de caisse': [
-    // Champs date / heure de 44 dp de haut et bouton « Rechercher » de 45 dp.
-    'cible tactile < 48 dp : « Date de début',
-    'cible tactile < 48 dp : « Date de fin',
-    'cible tactile < 48 dp : « Heure début',
-    'cible tactile < 48 dp : « Heure fin',
-    'cible tactile < 48 dp : « Rechercher »',
-    'contraste du texte insuffisant : « Lancez une recherche pour voir le récapitulatif »',
-  ],
-  'Suggestions': [
-    'contraste du texte insuffisant : « Aucune suggestion de commande disponible. »',
-  ],
-  'Suivi Péremption': [
-    'contraste du texte insuffisant : « 0 »',
-    'contraste du texte insuffisant : « Qté Totale »',
-    'contraste du texte insuffisant : « Val. Achat »',
-    'contraste du texte insuffisant : « Val. Vente »',
-  ],
-  'Tableau: Ratios': [
-    'contraste du texte insuffisant : « Norme Ratio Vente/Achat Cible: 1.51 »',
-  ],
-  'Visualisation BL': [
-    // Puces de date de 39 à 44 dp de haut (libellé = date du jour).
-    'cible tactile < 48 dp : « 20',
-  ],
-};
 
 bool _toleree(String ecran, String ecart) =>
     ecartsConnusCommuns.keys.any(ecart.contains) || (ecartsConnus[ecran] ?? const []).any(ecart.startsWith);

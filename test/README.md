@@ -20,6 +20,10 @@ flutter test --plain-name "Connexion"
 | `e2e/` | Bout en bout | L'application ENTIÈRE (`applicationPrestige()` de `main.dart`) parle au faux serveur local : lancement → licence → connexion → accueil → chaque module → retour → déconnexion ; session expirée → connexion ; serveur coupé → message réseau. |
 | `ergonomie/affichage_ecrans_test.dart` | Ergonomie | Chaque écran à 5 tailles (téléphones 360×640 et 411×891 dp, Sunmi 720×1440 et 1080×1920 px, tablette 1920×1200 px) × texte 1,0 et 1,3 : aucun débordement ni exception, cibles tactiles ≥ 48 dp et libellées, contraste du texte. |
 | `ergonomie/coherence_theme_test.dart` | Cohérence d'affichage | Thème (couleurs, Lato, Material 3, français), barres et polices de chaque écran issues du thème, plafond de couleurs codées en dur par fichier. |
+| `e2e/parcours_nouvelle_interface_test.dart` | Bout en bout (nouvelle interface) | Nouvelle interface par défaut ; chaque module ouvert/fermé en présentation A, B, C (téléphone) et B (tablette, menu latéral) ; onglets ; retour à l'ancienne interface (immédiat, mémorisé) et retour à la nouvelle ; présentation réservée à l'administrateur ; session expirée, panne, serveur injoignable, licence. |
+| `ergonomie/affichage_nouvelle_interface_test.dart` | Ergonomie (nouvelle interface) | Tous les écrans de la nouvelle interface (démarrage, connexion A/B, accueil A/B/C, onglets, écrans C, chaque module) aux mêmes 5 tailles × 2 échelles. Aucun écart toléré sur ses écrans propres ; pour les modules d'origine, seulement leurs écarts déjà connus. |
+| `ergonomie/coherence_nouvelle_interface_test.dart` | Cohérence (nouvelle interface) | Charte bleu nuit / ambre, contraste des boutons principaux ≥ 4,5:1, barres bleu nuit, Lato, et aucune zone à l'ancien style (couleurs d'origine ou lavande Material) sur chaque écran, dialogue et sélecteur de date. |
+| `refonte_captures_test.dart` | Captures (à la demande) | `CAPTURES_REFONTE=1 flutter test test/refonte_captures_test.dart --update-goldens` : PNG de la nouvelle interface dans `docs/maquettes/captures_refonte/` (sauté sinon). |
 
 ## Outils (`support/`)
 
@@ -32,6 +36,11 @@ flutter test --plain-name "Connexion"
 - `application.dart` : `utiliserReseauReel()`, `preparerTelephone(serveur)` (préférences qui visent le faux
   serveur), `lancerApplication()`, attentes `attendreTexte` / `attendreWidget` / `attendreQue` (horloge simulée
   ET temps réel), `terminer()`, `releverErreurs()`.
+- `nouvelle_interface.dart`, `cas_affichage_nouvelle.dart` : téléphone préparé dans la nouvelle interface et la
+  présentation voulue (`preparerNouvelle`), chiffres du jour de l'accueil A (`donneesAccueil`), connexion, onglets ;
+  écrans de la nouvelle interface rendus par l'ergonomie. `preparerTelephone(serveur)` prépare l'interface
+  d'ORIGINE (les tests écrits pour elle) : la nouvelle est celle par défaut de l'application.
+- `ecarts_connus.dart` : écarts d'ergonomie connus (communs aux deux interfaces ; la liste ne fait que diminuer).
 - `catalogue_ecrans.dart` : modules de l'accueil (tuile, titre de la barre, constructeur) et états supplémentaires.
 - `cas_affichage.dart`, `ergonomie.dart` : écrans rendus, appareils, échelles, guides d'accessibilité.
 - `polices.dart` : polices réelles (Roboto du SDK, sous les noms Lato de google_fonts) ; sans elles, flutter_test
@@ -53,4 +62,8 @@ flutter test --plain-name "Connexion"
 
 Règles : jamais de vraies données ; aucune attente existante affaiblie ; les écarts tolérés (`ecartsConnus`,
 `ecartsConnusCommuns`, `plafondCouleursEnDur`) ne doivent que diminuer — on n'y ajoute rien pour faire passer
-un écran nouveau ou modifié. Pas de tests « golden » (images de référence fragiles d'une machine à l'autre).
+un écran nouveau ou modifié. Pas de tests « golden » en CI (images de référence fragiles d'une machine à l'autre) :
+les captures PNG sont produites à la demande seulement.
+
+Un module ajouté à l'accueil doit aussi être rangé dans `lib/nouvelle_interface/menus.dart` (famille et question) :
+le parcours e2e de la nouvelle interface l'ouvre alors dans chaque présentation.
