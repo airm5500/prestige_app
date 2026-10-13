@@ -11,7 +11,8 @@ import 'package:provider/provider.dart';
 
 /// Monte [ecran] (ou un écran vide) avec IpConfigProvider / AuthProvider / LicenceProvider
 /// et renvoie le contexte de l'écran. Préférences et stockage sûr doivent être simulés avant l'appel.
-Future<BuildContext> monterAvecProviders(WidgetTester tester, {Widget? ecran, IpConfigProvider? ip, AuthProvider? auth, LicenceProvider? licence}) async {
+Future<BuildContext> monterAvecProviders(WidgetTester tester,
+    {Widget? ecran, IpConfigProvider? ip, AuthProvider? auth, LicenceProvider? licence, bool sansBandeauDebug = false}) async {
   late BuildContext ctx;
   await tester.pumpWidget(MultiProvider(
     providers: [
@@ -22,6 +23,7 @@ Future<BuildContext> monterAvecProviders(WidgetTester tester, {Widget? ecran, Ip
       Provider(create: (_) => ApiService()),
     ],
     child: MaterialApp(
+      debugShowCheckedModeBanner: !sansBandeauDebug,
       // Comme main.dart : français (formats de dates et de montants).
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
