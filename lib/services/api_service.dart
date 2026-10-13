@@ -143,12 +143,18 @@ class ApiService {
     _sessionCookie = await CookieSecurise.instance.lire();
   }
 
+  /// Cookie de la RÉPONSE de connexion : le serveur renouvelle JSESSIONID à chaque connexion (audit du 12/10),
+  /// seul ce nouveau cookie est valable. Plusieurs cookies peuvent arriver dans le même en-tête (séparés par
+  /// « , ») : on garde JSESSIONID, sinon le premier cookie (comportement d'origine).
+  static String extraireCookieSession(String rawCookie) {
+    final morceaux = rawCookie.split(RegExp(r'[;,]')).map((c) => c.trim()).where((c) => c.isNotEmpty);
+    final session = morceaux.where((c) => c.startsWith('JSESSIONID=')).firstOrNull;
+    if (session != null) return session;
+    return rawCookie.contains(';') ? rawCookie.substring(0, rawCookie.indexOf(';')) : rawCookie;
+  }
+
   Future<void> setSessionCookie(String rawCookie) async {
-    if (rawCookie.contains(';')) {
-      _sessionCookie = rawCookie.substring(0, rawCookie.indexOf(';'));
-    } else {
-      _sessionCookie = rawCookie;
-    }
+    _sessionCookie = extraireCookieSession(rawCookie);
     await CookieSecurise.instance.ecrire(_sessionCookie!);
   }
 
