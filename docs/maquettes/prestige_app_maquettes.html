@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquettes Prestige Pharmacien</title>
+<style>
+:root{--navy:#003366;--navy2:#0B4A80;--amber:#F59E0B;--onAmber:#1F1300;--page:#F2F4F8;--ink:#14213D;--muted:#5B6B82;--line:#E3E8EF;--hm:#C9D6E8;--green:#16A34A;--blue:#2563EB;--red:#DC2626;--bg:#E9EDF3;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
+header.top{padding:24px 16px 8px;max-width:1240px;margin:auto}
+h1{font-size:24px;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 6px;max-width:980px;font-size:14.5px;line-height:1.45}
+section{padding:6px 0 18px}
+h2{max-width:1240px;margin:22px auto 4px;padding:0 16px;font-size:19px}
+.sub{max-width:1240px;margin:0 auto 12px;padding:0 16px;color:var(--muted);font-size:14px}
+.row{display:flex;flex-wrap:wrap;gap:22px;max-width:1240px;margin:auto;padding:0 16px 8px}
+figure{margin:0;display:flex;flex-direction:column;gap:8px;width:330px;max-width:100%}
+figure.wide{width:900px}
+figcaption{font-size:13px;color:var(--muted);line-height:1.4}
+figcaption b{color:var(--ink)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--navy);color:#fff;margin-right:4px}
+.phone{width:330px;max-width:100%;height:660px;border-radius:30px;border:8px solid #1b2433;background:var(--page);overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 10px 24px rgba(20,33,61,.18)}
+.tablet{width:900px;max-width:100%;height:560px;border-radius:24px;border:10px solid #1b2433;background:var(--page);overflow:hidden;display:flex;box-shadow:0 10px 24px rgba(20,33,61,.18)}
+.phone.white{background:#fff}
+.sb{display:flex;justify-content:space-between;font-size:11px;font-weight:600;padding:6px 14px 2px;background:inherit}
+.navy{background:var(--navy);color:#fff;padding:10px 14px 14px;display:flex;flex-direction:column;gap:10px}
+.navy .sb{padding:0 0 4px;color:#fff}
+.navy.round{border-radius:0 0 22px 22px}
+.bar{display:flex;align-items:center;gap:8px}
+.bar .t{flex:1;min-width:0}
+.bar .t b{display:block;font-size:17px}
+.bar .t span{font-size:12px;color:var(--hm)}
+.ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(255,255,255,.14)}
+.wbar{background:#fff;border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:8px;color:var(--navy)}
+.wbar .t{flex:1;min-width:0}.wbar .t b{display:block;font-size:17px}.wbar .t span{font-size:12px;color:var(--muted)}
+.search{background:#fff;border-radius:12px;padding:10px 12px;color:var(--muted);font-size:13.5px;display:flex;gap:8px;align-items:center}
+.search.out{border:1px solid #C5D0DE}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,.14);color:#fff;white-space:nowrap}
+.pill.amb{background:var(--amber);color:var(--onAmber)}
+.dot{width:8px;height:8px;border-radius:50%;background:#22C55E;display:inline-block}
+.dot.r{background:#EF4444}.dot.a{background:var(--amber)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{background:rgba(255,255,255,.12);border-radius:12px;padding:8px 10px;min-width:0}
+.kpi b{display:block;font-size:16px;white-space:nowrap}.kpi span{font-size:11px;color:var(--hm)}
+.kpi small{font-size:10.5px;color:#86EFAC;font-weight:700}
+.kpi.hl{background:var(--amber);color:var(--onAmber)}.kpi.hl span{color:var(--onAmber)}
+.body{flex:1;overflow:hidden;padding:12px;display:flex;flex-direction:column;gap:9px}
+.body>*{flex-shrink:0}
+.body.flat{padding:0;gap:0;background:#fff}
+.card{background:#fff;border-radius:14px;padding:11px 12px;box-shadow:0 1px 2px rgba(20,33,61,.06);position:relative;overflow:hidden}
+.card.band{padding-left:16px}
+.card.band::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--bandc,var(--navy))}
+.pn{font-weight:600;font-size:14px}
+.pm{font-size:12px;color:var(--muted)}
+.lr{display:flex;align-items:center;gap:8px}
+.lr .g{flex:1;min-width:0}
+.amt{font-weight:700;font-size:14.5px;white-space:nowrap}
+.sec{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.flatsec{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding:10px 14px 4px;background:var(--page)}
+.flatrow{background:#fff;border-bottom:1px solid #EEF1F5;padding:9px 14px;display:flex;align-items:center;gap:10px}
+.flatrow .g{flex:1;min-width:0}
+.mi{width:30px;height:30px;border-radius:9px;background:#E3ECF7;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.chev{color:#9AA8BA;font-size:16px}
+.foot{background:#fff;border-top:1px solid var(--line);padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.btn{border-radius:12px;padding:12px;text-align:center;font-weight:700;font-size:14px}
+.btn.nv{background:var(--navy);color:#fff}
+.btn.amber{background:var(--amber);color:var(--onAmber)}
+.btn.out{border:1.5px solid var(--navy);color:var(--navy);background:#fff}
+.btn.sm{padding:8px 10px;font-size:12.5px}
+.two{display:flex;gap:8px}.two>*{flex:1}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tiles.t3{grid-template-columns:1fr 1fr 1fr}
+.tile{background:#fff;border-radius:14px;padding:10px 6px;text-align:center;font-size:12px;font-weight:600;box-shadow:0 1px 2px rgba(20,33,61,.06);position:relative}
+.tile .e{font-size:19px;display:block;margin-bottom:3px}
+.tile .n{position:absolute;top:5px;right:6px;font-size:10px;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid #C5D0DE;border-radius:20px;padding:5px 10px;font-size:11.5px;font-weight:600;color:var(--navy);background:#fff;white-space:nowrap}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.navy .chip{background:rgba(255,255,255,.95)}
+.navy .chip.on{background:var(--amber);color:var(--onAmber);border-color:var(--amber)}
+.badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.b-green{background:#E6F4EA;color:#166534}.b-amber{background:#FFF4E0;color:#9A3412}.b-blue{background:#E3ECF7;color:var(--navy)}.b-red{background:#FDECEC;color:#991B1B}.b-gray{background:#EEF1F5;color:#475569}
+.warn{background:#FFF4E0;border:1px solid #F5D08A;color:#7C2D12;border-radius:12px;padding:9px 11px;font-size:12.5px;display:flex;gap:8px;align-items:flex-start;line-height:1.35}
+.err{background:#FDECEC;border:1px solid #F5B5B5;color:#7F1D1D;border-radius:12px;padding:10px 11px;font-size:12.5px;line-height:1.4}
+.err b{display:block;font-size:13.5px;margin-bottom:2px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.inp{background:#fff;border:1.5px solid #D3DBE6;border-radius:12px;padding:11px 12px;font-size:14px;display:flex;gap:8px;align-items:center}
+.inp.focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,51,102,.12)}
+.inp.bad{border-color:var(--red);background:#FFF8F8}
+.hint{font-size:11.5px;color:var(--red);font-weight:600;margin-top:4px}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.box{width:18px;height:18px;border-radius:5px;background:var(--navy);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.ver{font-size:11px;color:var(--muted);text-align:center;margin-top:auto;padding:8px}
+.nav{background:#fff;border-top:1px solid var(--line);display:flex;padding:6px 4px 8px}
+.nav div{flex:1;text-align:center;font-size:10.5px;color:var(--muted)}
+.nav div i{display:block;font-style:normal;font-size:17px}
+.nav div.on{color:var(--navy);font-weight:700}
+.chart{background:#fff;border-radius:14px;padding:10px 12px;box-shadow:0 1px 2px rgba(20,33,61,.06)}
+.chart .h{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;font-weight:700}
+.chart .h span{font-weight:500;color:var(--muted);font-size:11.5px}
+.stack{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;margin:8px 0 6px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+table.t{width:100%;border-collapse:collapse;font-size:11.5px}
+table.t th{text-align:left;color:var(--muted);font-weight:600;font-size:10.5px;padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:7px 4px;border-bottom:1px solid #EEF1F5;white-space:nowrap}
+table.t td.r,table.t th.r{text-align:right}
+.qr{width:120px;height:120px;background:
+ repeating-linear-gradient(90deg,#14213D 0 6px,#fff 6px 12px),repeating-linear-gradient(0deg,#14213D 0 6px,#fff 6px 12px);background-blend-mode:difference;border:8px solid #fff;outline:1px solid var(--line);border-radius:6px}
+.step{display:flex;gap:10px;align-items:center;background:#fff;border-radius:14px;padding:12px;box-shadow:0 1px 2px rgba(20,33,61,.06)}
+.step .num{width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none}
+.step.done .num{background:var(--green)}
+.step.cur{outline:2px solid var(--amber)}
+.big{background:#fff;border-radius:16px;padding:13px;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(20,33,61,.06)}
+.big .e{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:21px;flex:none}
+.big b{display:block;font-size:15px}
+.big span{font-size:12px;color:var(--muted)}
+.side{width:175px;background:var(--navy);color:#fff;padding:14px 10px;display:flex;flex-direction:column;gap:4px;flex:none}
+.side .it{padding:8px 10px;border-radius:10px;font-size:12.5px;color:var(--hm)}
+.side .it.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.side .grp{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8FA7C4;margin:10px 10px 2px}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.cols{display:flex;gap:12px;padding:12px;flex:1;min-height:0}
+.av{width:30px;height:30px;border-radius:50%;background:#E3ECF7;color:var(--navy);font-weight:700;font-size:11.5px;display:flex;align-items:center;justify-content:center;flex:none}
+.split{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+.split b{color:var(--ink)}
+.legacy{background:#fff;border:1px dashed #9AA8BA;border-radius:12px;padding:10px 12px;font-size:12px;color:var(--muted)}
+@media (max-width:700px){figure.wide{width:100%}.tablet{height:auto;flex-direction:column}.side{width:auto}}
+</style>
+</head>
+<body>
+<header class="top">
+<h1>Prestige Pharmacien (prestige_app) — propositions de refonte</h1>
+<p class="lead">Même charte que <b>prestige_vente_app</b> : bleu Prestige <b>#003366</b>, ambre <b>#F59E0B</b> pour l'action principale, fond gris clair, cartes blanches arrondies. Trois présentations au choix : <span class="tag">A</span><b>Tableau de bord</b> (chiffres du jour en tête, recommandée pour le pharmacien), <span class="tag">B</span><b>Compact</b> (listes denses, tableaux, pour l'utilisateur expérimenté ou la tablette), <span class="tag">C</span><b>Guidé</b> (questions simples, gros boutons, pour un adjoint ou un gérant occasionnel). Les écrans d'origine restent disponibles par un interrupteur « Nouvelle interface ». Les chiffres sont fictifs.</p>
+</header>
+
+<!-- ============ 1. CONNEXION ============ -->
+<section id="s1">
+<h2>1. Connexion</h2>
+<p class="sub">Le serveur est vérifié avant la saisie ; le mot de passe n'est plus enregistré sur le téléphone ; les erreurs disent clairement si c'est le réseau ou les identifiants.</p>
+<div class="row">
+<figure><div class="phone white">
+ <div class="navy round"><div class="sb"><span>08:13</span><span>Wifi · 86 %</span></div>
+  <div class="bar"><div class="ic">💊</div><div class="t"><b>Prestige Pharmacien</b><span>Pharmacie Les Palmiers</span></div></div>
+  <div class="card" style="background:rgba(255,255,255,.1);color:#fff;box-shadow:none;padding:9px 11px"><div class="lr"><span class="dot"></span><div class="g"><div style="font-size:12.5px;font-weight:700">Serveur connecté</div><div style="font-size:11px;color:var(--hm)">192.168.1.50:8080 · prestige</div></div><span class="pill">⚙ Changer</span></div></div>
+ </div>
+ <div class="body" style="background:#fff;gap:12px;padding:16px">
+  <div><div style="font-size:20px;font-weight:700">Connexion</div><div class="pm">Saisissez vos identifiants Prestige.</div></div>
+  <div><div class="lbl">Identifiant</div><div class="inp">👤 dr.kone</div></div>
+  <div><div class="lbl">Mot de passe</div><div class="inp focus">🔒 ••••••<span style="margin-left:auto">👁</span></div></div>
+  <div class="check"><span class="box">✓</span><div>Se souvenir de l'identifiant<div class="pm">Le mot de passe n'est jamais enregistré</div></div></div>
+  <div class="btn amber">Se connecter</div>
+  <div class="ver">Version 3.0.0 · Licence valable jusqu'au 31/12/2026</div>
+ </div>
+</div><figcaption><span class="tag">A</span><b>Tableau de bord.</b> En-tête bleu, état du serveur visible, bouton ambre. « Changer » ouvre la configuration (protégée).</figcaption></figure>
+
+<figure><div class="phone white">
+ <div class="sb"><span>08:13</span><span>Wifi · 86 %</span></div>
+ <div class="wbar"><div class="t"><b>Prestige Pharmacien</b><span><span class="dot"></span> Serveur connecté · Les Palmiers</span></div><span class="badge b-blue">Local</span></div>
+ <div class="body" style="background:#fff;gap:12px;padding:16px">
+  <div><div class="lbl">Identifiant</div><div class="inp">👤 dr.kone</div></div>
+  <div><div class="lbl" style="color:var(--red)">Mot de passe</div><div class="inp bad">🔒 <span style="margin-left:auto">👁</span></div>
+  <div class="hint">⚠ Identifiant ou mot de passe incorrect. Vérifiez les majuscules.</div></div>
+  <div class="btn nv">Se connecter</div>
+  <div class="legacy">Erreur sous le champ concerné (pas seulement en rouge) ; le mot de passe est vidé, l'identifiant gardé, le clavier reste ouvert.</div>
+  <div class="ver">Version 3.0.0</div>
+ </div>
+</div><figcaption><span class="tag">B</span><b>Compact.</b> Barre blanche, formulaire seul. Exemple d'erreur d'identifiants.</figcaption></figure>
+
+<figure><div class="phone">
+ <div class="navy round"><div class="sb"><span>08:13</span><span>4G · 61 %</span></div>
+  <div class="bar"><div class="t"><b>Bonjour Docteur</b><span>Pharmacie Les Palmiers</span></div><span class="pill"><span class="dot r"></span>Hors ligne</span></div>
+ </div>
+ <div class="body" style="gap:12px">
+  <div class="err"><b>📡 Le serveur ne répond pas</b>Wifi coupé, mode « Distant » mal réglé ou serveur éteint. Vos identifiants ne sont pas en cause.</div>
+  <div class="step done"><div class="num">✓</div><div class="g"><div class="pn">Téléphone connecté à Internet</div></div></div>
+  <div class="step cur"><div class="num">2</div><div class="g"><div class="pn">Serveur 41.207.x.x:8080</div><div class="pm">Nouvel essai dans 8 s</div></div></div>
+  <div class="two"><div class="btn amber">↻ Réessayer</div><div class="btn out">Mode local</div></div>
+  <div class="ver">Version 3.0.0 · Assistance : 07 00 00 00 00</div>
+ </div>
+</div><figcaption><span class="tag">C</span><b>Guidé.</b> Cas « serveur injoignable » : on explique, on propose de basculer local / distant, et la licence n'est <b>pas</b> déclarée « introuvable » à tort.</figcaption></figure>
+</div>
+</section>
+
+<!-- ============ 2. ACCUEIL ============ -->
+<section id="s2">
+<h2>2. Accueil / tableau de bord</h2>
+<p class="sub">Aujourd'hui : 27 menus en pages de 6 tuiles à faire défiler. Proposé : les chiffres du jour d'abord, les alertes ensuite, puis tous les menus rangés par familles sur une seule page.</p>
+<div class="row">
+<figure><div class="phone">
+ <div class="navy round"><div class="sb"><span>09:40</span><span>Wifi · 80 %</span></div>
+  <div class="bar"><div class="t"><b>Pharmacie Les Palmiers</b><span>Dr Koné · lundi 12 octobre</span></div><div class="ic">👤</div></div>
+  <div class="lr" style="gap:6px"><span class="pill"><span class="dot"></span>Serveur connecté</span><span class="pill">Aujourd'hui ▾</span></div>
+  <div class="kpis">
+   <div class="kpi"><span>Chiffre d'affaires</span><b>1 245 300 F</b><small>▲ 8 % / lun. dernier</small></div>
+   <div class="kpi"><span>Marge</span><b>312 800 F</b><span>25,1 % du CA</span></div>
+   <div class="kpi"><span>Crédits du jour</span><b>186 000 F</b><span>14 clients</span></div>
+   <div class="kpi hl"><span>Équipe présente</span><b>9 / 11</b><span>2 retards</span></div>
+  </div>
+ </div>
+ <div class="body">
+  <div class="sec">À surveiller</div>
+  <div class="card band" style="--bandc:var(--red)"><div class="lr"><div class="g"><div class="pn">23 produits à péremption &lt; 3 mois</div><div class="pm">Valeur 418 000 F</div></div><span class="chev">›</span></div></div>
+  <div class="card band" style="--bandc:var(--amber)"><div class="lr"><div class="g"><div class="pn">4 BL non contrôlés</div><div class="pm">dont 2 de plus de 48 h</div></div><span class="chev">›</span></div></div>
+  <div class="sec">Équipe</div>
+  <div class="tiles t3"><div class="tile"><span class="e">🕘</span>Présences<span class="n">2</span></div><div class="tile"><span class="e">📜</span>Journal</div><div class="tile"><span class="e">📱</span>Téléphones</div></div>
+  <div class="sec">Ventes</div>
+  <div class="tiles t3">
+   <div class="tile"><span class="e">💰</span>Détail CA</div><div class="tile"><span class="e">🧾</span>Récap caisse</div><div class="tile"><span class="e">📊</span>Rapport</div>
+  </div>
+ </div>
+ <div class="nav"><div class="on"><i>🏠</i>Accueil</div><div><i>📈</i>Analyses</div><div><i>🕘</i>Équipe</div><div><i>⚙️</i>Réglages</div></div>
+</div><figcaption><span class="tag">A</span><b>Tableau de bord</b> (recommandé). Quatre chiffres du jour (période modifiable), alertes cliquables, familles de menus. La tuile Équipe n'apparaît que si le compte a le droit RH.</figcaption></figure>
+
+<figure><div class="phone white">
+ <div class="sb"><span>09:40</span><span>Wifi · 80 %</span></div>
+ <div class="wbar"><div class="t"><b>Prestige Pharmacien</b><span><span class="dot"></span> Les Palmiers · Dr Koné</span></div><span>⚙️</span></div>
+ <div style="padding:10px 14px;background:#fff"><div class="search out">🔍 Rechercher un menu</div></div>
+ <div class="body flat">
+  <div class="flatsec">Ventes &amp; caisse</div>
+  <div class="flatrow"><div class="mi">💰</div><div class="g"><div class="pn">Détail CA</div><div class="pm">Comptant, crédit, modes de paiement</div></div><span class="chev">›</span></div>
+  <div class="flatrow"><div class="mi">🧾</div><div class="g"><div class="pn">Récap de caisse</div></div><span class="chev">›</span></div>
+  <div class="flatrow"><div class="mi">🚫</div><div class="g"><div class="pn">Annulation ventes</div></div><span>🔒</span></div>
+  <div class="flatsec">Crédits &amp; clients</div>
+  <div class="flatrow"><div class="mi">💳</div><div class="g"><div class="pn">Suivi crédit</div></div><span class="badge b-amber">14</span></div>
+  <div class="flatsec">Stock</div>
+  <div class="flatrow"><div class="mi">⏳</div><div class="g"><div class="pn">Suivi péremption</div></div><span class="badge b-red">23</span></div>
+  <div class="flatrow"><div class="mi">📦</div><div class="g"><div class="pn">État de stock</div></div><span class="chev">›</span></div>
+  <div class="flatsec">Équipe</div>
+  <div class="flatrow"><div class="mi">🕘</div><div class="g"><div class="pn">Présences</div><div class="pm">9 présents · 2 retards</div></div><span class="chev">›</span></div>
+ </div>
+ <div class="nav"><div class="on"><i>🏠</i>Accueil</div><div><i>📈</i>Analyses</div><div><i>🕘</i>Équipe</div><div><i>⚙️</i>Réglages</div></div>
+</div><figcaption><span class="tag">B</span><b>Compact.</b> Une seule liste par familles avec recherche ; pastilles de nombre ; cadenas sur les actions sensibles.</figcaption></figure>
+
+<figure><div class="phone">
+ <div class="navy round"><div class="sb"><span>09:40</span><span>Wifi · 80 %</span></div>
+  <div class="bar"><div class="t"><b>Bonjour Docteur</b><span>Que voulez-vous savoir ?</span></div><span class="pill"><span class="dot"></span>En ligne</span></div>
+ </div>
+ <div class="body">
+  <div class="big"><div class="e" style="background:#E6F4EA">💰</div><div><b>Combien ai-je vendu ?</b><span>CA, marge, caisse, rapport d'activité</span></div></div>
+  <div class="big"><div class="e" style="background:#FFF4E0">💳</div><div><b>Qui me doit de l'argent ?</b><span>Crédits clients et tiers payants</span></div></div>
+  <div class="big"><div class="e" style="background:#FDECEC">📦</div><div><b>Que dois-je commander ?</b><span>Stock, périmés, suggestions</span></div></div>
+  <div class="big"><div class="e" style="background:#E3ECF7">🚚</div><div><b>Mes fournisseurs</b><span>Achats, BL, retours, avoirs</span></div></div>
+  <div class="big"><div class="e" style="background:#F3E8FA">🕘</div><div><b>Mon équipe</b><span>Présences, retards, heures</span></div></div>
+  <div class="btn out">Voir tous les menus</div>
+ </div>
+ <div class="nav"><div class="on"><i>🏠</i>Accueil</div><div><i>📈</i>Analyses</div><div><i>🕘</i>Équipe</div><div><i>⚙️</i>Réglages</div></div>
+</div><figcaption><span class="tag">C</span><b>Guidé.</b> Cinq questions métier qui regroupent les 27 menus actuels ; idéal pour un adjoint.</figcaption></figure>
+</div>
+</section>
+
+<!-- ============ 3. LISTE TYPE ============ -->
+<section id="s3">
+<h2>3. Une liste type : Suivi crédit</h2>
+<p class="sub">Filtres en puces au-dessus, total toujours visible, et surtout : une panne réseau s'affiche comme une panne (avec « Réessayer »), jamais comme « Aucun résultat ».</p>
+<div class="row">
+<figure><div class="phone">
+ <div class="navy"><div class="sb"><span>10:02</span><span>Wifi · 78 %</span></div>
+  <div class="bar"><span>‹</span><div class="t"><b>Suivi crédit</b><span>01/10 → 12/10/2026</span></div><span>⤓</span></div>
+  <div class="kpis"><div class="kpi"><span>Reste à payer</span><b>2 846 500 F</b></div><div class="kpi"><span>Clients</span><b>37</b></div></div>
+ </div>
+ <div class="body">
+  <div class="chips"><span class="chip on">Ce mois</span><span class="chip">Assurances</span><span class="chip">Particuliers</span><span class="chip">&gt; 60 jours</span></div>
+  <div class="card band" style="--bandc:var(--red)"><div class="lr"><div class="g"><div class="pn">MUGEF-CI</div><div class="pm">42 bons · plus ancien 74 j</div></div><div class="amt">1 120 400 F</div></div></div>
+  <div class="card band" style="--bandc:var(--amber)"><div class="lr"><div class="g"><div class="pn">ASCOMA</div><div class="pm">18 bons · plus ancien 38 j</div></div><div class="amt">642 000 F</div></div></div>
+  <div class="card band"><div class="lr"><div class="g"><div class="pn">Kouassi Yao</div><div class="pm">Particulier · 3 ventes</div></div><div class="amt">48 500 F</div></div></div>
+  <div class="card band"><div class="lr"><div class="g"><div class="pn">SAHAM Assurance</div><div class="pm">9 bons · plus ancien 12 j</div></div><div class="amt">231 700 F</div></div></div>
+ </div>
+ <div class="foot"><div class="split"><span>Affichés : 4 / 37</span><b>Total 2 846 500 F</b></div></div>
+</div><figcaption><span class="tag">A</span><b>Tableau de bord.</b> Total et nombre en tête, bande de couleur par ancienneté (rouge &gt; 60 j), export ⤓ (PDF / Excel).</figcaption></figure>
+
+<figure><div class="phone white">
+ <div class="sb"><span>10:02</span><span>Wifi · 78 %</span></div>
+ <div class="wbar"><span>‹</span><div class="t"><b>Suivi crédit</b><span>01/10 → 12/10 · 37 clients</span></div><span>⤓</span></div>
+ <div style="padding:8px 12px"><div class="search out">🔍 Client, assurance…</div></div>
+ <div style="padding:0 6px;flex:1;overflow:hidden">
+ <table class="t"><tr><th>Client</th><th class="r">Bons</th><th class="r">Âge</th><th class="r">Reste (F)</th></tr>
+ <tr><td><b>MUGEF-CI</b></td><td class="r">42</td><td class="r"><span class="badge b-red">74 j</span></td><td class="r"><b>1 120 400</b></td></tr>
+ <tr><td><b>ASCOMA</b></td><td class="r">18</td><td class="r"><span class="badge b-amber">38 j</span></td><td class="r">642 000</td></tr>
+ <tr><td>SAHAM</td><td class="r">9</td><td class="r">12 j</td><td class="r">231 700</td></tr>
+ <tr><td>Allianz CI</td><td class="r">7</td><td class="r">9 j</td><td class="r">198 300</td></tr>
+ <tr><td>Kouassi Yao</td><td class="r">3</td><td class="r">21 j</td><td class="r">48 500</td></tr>
+ <tr><td>Traoré Mariam</td><td class="r">2</td><td class="r">5 j</td><td class="r">22 600</td></tr>
+ <tr><td colspan="4" style="color:var(--muted)">… 31 autres</td></tr>
+ </table></div>
+ <div class="foot"><div class="split"><span>Total</span><b>2 846 500 F</b></div></div>
+</div><figcaption><span class="tag">B</span><b>Compact.</b> Tableau dense, tri par colonne ; sur tablette toutes les colonnes du serveur s'affichent.</figcaption></figure>
+
+<figure><div class="phone">
+ <div class="navy"><div class="sb"><span>10:02</span><span>4G · 40 %</span></div>
+  <div class="bar"><span>‹</span><div class="t"><b>Suivi crédit</b><span>01/10 → 12/10/2026</span></div></div>
+ </div>
+ <div class="body" style="gap:12px">
+  <div class="err"><b>📡 Impossible de charger les crédits</b>Le serveur n'a pas répondu en 20 s (mode Distant). Les chiffres ne sont pas à zéro : ils n'ont pas pu être lus.</div>
+  <div class="btn amber">↻ Réessayer</div>
+  <div class="btn out">Passer en mode Local</div>
+  <div class="legacy"><b>Aujourd'hui</b> dans plusieurs écrans (Visualisation BL, Suivi péremption, État de stock…) la même panne affiche « Aucun résultat trouvé ».</div>
+  <div class="warn">ℹ Dernière lecture réussie : aujourd'hui 09:12 — afficher ces données (lecture seule) ?</div>
+ </div>
+</div><figcaption><span class="tag">C</span><b>État d'erreur (commun A/B/C).</b> Une erreur réseau, une session expirée ou un droit manquant ont chacun leur message.</figcaption></figure>
+</div>
+</section>
+
+<!-- ============ 4. ANALYSE ============ -->
+<section id="s4">
+<h2>4. Un écran d'analyse : chiffre d'affaires</h2>
+<p class="sub">Période en puces (Aujourd'hui, 7 j, Mois, Année, Personnalisée), un chiffre principal, une seule échelle par graphique, tableau détaillé à côté.</p>
+<div class="row">
+<figure><div class="phone">
+ <div class="navy"><div class="sb"><span>11:20</span><span>Wifi · 75 %</span></div>
+  <div class="bar"><span>‹</span><div class="t"><b>Détail CA</b><span>Octobre 2026 (1 → 12)</span></div><span>⤓</span></div>
+  <div class="chips"><span class="chip">Aujourd'hui</span><span class="chip">7 j</span><span class="chip on">Mois</span><span class="chip">Année</span></div>
+ </div>
+ <div class="body">
+  <div class="card"><div class="pm">Chiffre d'affaires TTC</div><div style="font-size:26px;font-weight:800">14 862 900 F</div><div class="pm"><span style="color:var(--green);font-weight:700">▲ 6,4 %</span> vs 1 → 12 septembre</div></div>
+  <div class="chart"><div class="h">CA par jour <span>en milliers F</span></div>
+   <svg viewBox="0 0 280 110" width="100%" height="110" role="img" aria-label="CA par jour">
+    <line x1="0" y1="96" x2="280" y2="96" stroke="#E3E8EF"/>
+    <g fill="#003366">
+     <rect x="4" y="40" width="16" height="56" rx="3"/><rect x="27" y="30" width="16" height="66" rx="3"/><rect x="50" y="46" width="16" height="50" rx="3"/><rect x="73" y="26" width="16" height="70" rx="3"/><rect x="96" y="60" width="16" height="36" rx="3"/><rect x="119" y="78" width="16" height="18" rx="3"/><rect x="142" y="36" width="16" height="60" rx="3"/><rect x="165" y="28" width="16" height="68" rx="3"/><rect x="188" y="44" width="16" height="52" rx="3"/><rect x="211" y="22" width="16" height="74" rx="3"/><rect x="234" y="50" width="16" height="46" rx="3"/></g>
+    <rect x="257" y="16" width="16" height="80" rx="3" fill="#F59E0B"/>
+    <text x="265" y="11" font-size="9" text-anchor="middle" fill="#14213D" font-weight="700">1 245</text>
+    <g font-size="8" fill="#5B6B82" text-anchor="middle"><text x="12" y="107">1</text><text x="104" y="107">5</text><text x="196" y="107">9</text><text x="265" y="107">12</text></g>
+   </svg></div>
+  <div class="chart"><div class="h">Répartition des encaissements</div>
+   <div class="stack"><div style="flex:54;background:#003366"></div><div style="flex:22;background:#2563EB"></div><div style="flex:16;background:#7FA6D6"></div><div style="flex:8;background:#B9C6D6"></div></div>
+   <div class="legend"><span><i style="background:#003366"></i>Espèces 54 %</span><span><i style="background:#2563EB"></i>Mobile 22 %</span><span><i style="background:#7FA6D6"></i>Crédit 16 %</span><span><i style="background:#B9C6D6"></i>Autres 8 %</span></div></div>
+ </div>
+</div><figcaption><span class="tag">A</span><b>Tableau de bord.</b> Le chiffre clé et sa comparaison, un graphique par jour (aujourd'hui en ambre), la répartition des paiements avec libellés (jamais la couleur seule).</figcaption></figure>
+
+<figure><div class="phone white">
+ <div class="sb"><span>11:20</span><span>Wifi · 75 %</span></div>
+ <div class="wbar"><span>‹</span><div class="t"><b>Détail CA</b><span>01/10 → 12/10/2026</span></div><span>⤓</span></div>
+ <div style="padding:8px 12px" class="chips"><span class="chip on">Par jour</span><span class="chip">Par mode</span><span class="chip">Par vendeur</span></div>
+ <div style="padding:0 6px;flex:1;overflow:hidden">
+ <table class="t"><tr><th>Jour</th><th class="r">Ventes</th><th class="r">CA (F)</th><th class="r">Marge</th></tr>
+ <tr><td>lun. 12</td><td class="r">212</td><td class="r"><b>1 245 300</b></td><td class="r">25,1 %</td></tr>
+ <tr><td>dim. 11</td><td class="r">96</td><td class="r">702 400</td><td class="r">24,3 %</td></tr>
+ <tr><td>sam. 10</td><td class="r">231</td><td class="r">1 418 900</td><td class="r">26,0 %</td></tr>
+ <tr><td>ven. 9</td><td class="r">188</td><td class="r">1 102 000</td><td class="r">24,8 %</td></tr>
+ <tr><td>jeu. 8</td><td class="r">201</td><td class="r">1 256 700</td><td class="r">25,4 %</td></tr>
+ <tr><td>mer. 7</td><td class="r">176</td><td class="r">1 060 100</td><td class="r">24,9 %</td></tr>
+ <tr><td colspan="4" style="color:var(--muted)">… 6 autres jours</td></tr>
+ </table></div>
+ <div class="foot"><div class="split"><span>2 116 ventes</span><b>14 862 900 F</b></div></div>
+</div><figcaption><span class="tag">B</span><b>Compact.</b> Le même calcul en tableau, regroupable par jour, mode de paiement ou vendeur.</figcaption></figure>
+
+<figure><div class="phone">
+ <div class="navy"><div class="sb"><span>11:20</span><span>Wifi · 75 %</span></div>
+  <div class="bar"><span>‹</span><div class="t"><b>Combien ai-je vendu ?</b><span>Étape 2 sur 2</span></div></div>
+ </div>
+ <div class="body" style="gap:10px">
+  <div class="step done"><div class="num">✓</div><div class="g"><div class="pn">Période : ce mois-ci</div><div class="pm">1 → 12 octobre</div></div><span class="pm">Changer</span></div>
+  <div class="card" style="text-align:center;padding:16px"><div class="pm">Vous avez vendu</div><div style="font-size:28px;font-weight:800;color:var(--navy)">14,86 millions F</div><div class="pm">soit 1,24 million F par jour en moyenne</div></div>
+  <div class="big"><div class="e" style="background:#E6F4EA">📈</div><div><b>C'est 6,4 % de plus</b><span>que sur la même période de septembre</span></div></div>
+  <div class="big"><div class="e" style="background:#FFF4E0">🏆</div><div><b>Meilleur jour : samedi 10</b><span>1 418 900 F · 231 ventes</span></div></div>
+  <div class="btn out">Voir le détail par jour</div>
+ </div>
+</div><figcaption><span class="tag">C</span><b>Guidé.</b> Phrases simples et arrondies, puis accès au détail.</figcaption></figure>
+</div>
+</section>
+
+<!-- ============ 5. PRÉSENCES (téléphone) ============ -->
+<section id="s5">
+<h2>5. Nouveau module « Présences » (téléphone)</h2>
+<p class="sub">Données lues sur les routes RH existantes du serveur (<code>/rh/presence</code>, <code>/rh/tableau</code>, <code>/rh/employes</code>), réservées au droit P_SM_RH. Les pointages sont faits sur les téléphones des employés (prestige_vente_app) ou à la pointeuse.</p>
+<div class="row">
+<figure><div class="phone">
+ <div class="navy"><div class="sb"><span>08:47</span><span>Wifi · 90 %</span></div>
+  <div class="bar"><span>‹</span><div class="t"><b>Présence du jour</b><span>lundi 12 octobre · mis à jour 08:46</span></div><span>↻</span></div>
+  <div class="kpis"><div class="kpi"><span>Présents</span><b>9 / 11</b></div><div class="kpi hl"><span>Retards</span><b>2 · 37 min</b></div></div>
+ </div>
+ <div class="body">
+  <div class="chart" style="padding:9px 12px"><div class="stack" style="margin:2px 0 6px"><div style="flex:7;background:#16A34A"></div><div style="flex:2;background:#F59E0B"></div><div style="flex:1;background:#DC2626"></div><div style="flex:1;background:#B9C6D6"></div></div>
+  <div class="legend"><span><i style="background:#16A34A"></i>À l'heure 7</span><span><i style="background:#F59E0B"></i>En retard 2</span><span><i style="background:#DC2626"></i>Absent 1</span><span><i style="background:#B9C6D6"></i>Congé 1</span></div></div>
+  <div class="card"><div class="lr"><div class="av">AK</div><div class="g"><div class="pn">Awa Koné</div><div class="pm">Prévu 07:30 · arrivée 07:52 📱</div></div><span class="badge b-amber">+22 min</span></div></div>
+  <div class="card"><div class="lr"><div class="av">YB</div><div class="g"><div class="pn">Yao Brou</div><div class="pm">Prévu 08:00 · arrivée 08:15 🖐</div></div><span class="badge b-amber">+15 min</span></div></div>
+  <div class="card"><div class="lr"><div class="av">MT</div><div class="g"><div class="pn">Mariam Traoré</div><div class="pm">Prévu 08:00 · aucun pointage</div></div><span class="badge b-red">Absent</span></div></div>
+  <div class="card"><div class="lr"><div class="av">SD</div><div class="g"><div class="pn">Seydou Diallo</div><div class="pm">Prévu 07:30 · arrivée 07:24 📱</div></div><span class="badge b-green">À l'heure</span></div></div>
+  <div class="card"><div class="lr"><div class="av">FC</div><div class="g"><div class="pn">Fatou Coulibaly</div><div class="pm">Congé validé</div></div><span class="badge b-gray">Congé</span></div></div>
+ </div>
+ <div class="nav"><div><i>🏠</i>Accueil</div><div class="on"><i>🕘</i>Jour</div><div><i>📅</i>Période</div><div><i>📱</i>Pointage</div></div>
+</div><figcaption><span class="tag">A</span><b>Présence du jour</b> (<code>GET /rh/presence?jour=</code>). Retards et absents en premier ; icône de la source (📱 téléphone, 🖐 pointeuse, ✍ saisie). Tirer pour actualiser.</figcaption></figure>
+
+<figure><div class="phone white">
+ <div class="sb"><span>18:10</span><span>Wifi · 64 %</span></div>
+ <div class="wbar"><span>‹</span><div class="t"><b>Tableau des présences</b><span>01/10 → 12/10/2026 · 11 employés</span></div><span>⤓</span></div>
+ <div style="padding:8px 12px" class="chips"><span class="chip">Semaine</span><span class="chip on">Mois</span><span class="chip">Mois dernier</span><span class="chip">👤 Tous ▾</span></div>
+ <div style="padding:0 4px;flex:1;overflow:hidden">
+ <table class="t"><tr><th>Employé</th><th class="r">Jours</th><th class="r">Retards</th><th class="r">Heures</th><th class="r">⚠</th></tr>
+ <tr><td><b>Awa Koné</b></td><td class="r">10/10</td><td class="r"><span class="badge b-amber">4 · 1 h 12</span></td><td class="r">79 h 30</td><td class="r">0</td></tr>
+ <tr><td><b>Yao Brou</b></td><td class="r">9/10</td><td class="r">2 · 25 min</td><td class="r">71 h 05</td><td class="r"><span class="badge b-red">2</span></td></tr>
+ <tr><td>Seydou Diallo</td><td class="r">10/10</td><td class="r">0</td><td class="r">82 h 10</td><td class="r">0</td></tr>
+ <tr><td>Mariam Traoré</td><td class="r">8/10</td><td class="r">1 · 8 min</td><td class="r">63 h 40</td><td class="r">1</td></tr>
+ <tr><td>Fatou Coulibaly</td><td class="r">6/10</td><td class="r">0</td><td class="r">48 h 00</td><td class="r">0</td></tr>
+ <tr><td colspan="5" style="color:var(--muted)">… 6 autres employés</td></tr>
+ </table></div>
+ <div class="foot"><div class="two"><div class="btn out sm">⤓ Excel</div><div class="btn out sm">⤓ Excel détaillé</div><div class="btn nv sm">⤓ PDF</div></div></div>
+</div><figcaption><span class="tag">B</span><b>Tableau sur une période</b> (<code>GET /rh/tableau?du=&amp;au=&amp;employeId=</code>, + <code>/excel</code>, <code>/excel?detail=true</code>, <code>/pdf</code>). Toucher une ligne ouvre la fiche de l'employé.</figcaption></figure>
+
+<figure><div class="phone">
+ <div class="navy"><div class="sb"><span>18:12</span><span>Wifi · 64 %</span></div>
+  <div class="bar"><span>‹</span><div class="t"><b>Yao Brou</b><span>Matricule 0042 · octobre 2026</span></div><span>⤓</span></div>
+  <div class="kpis"><div class="kpi"><span>Présence</span><b>71 h 05</b><span>sur 80 h prévues</span></div><div class="kpi"><span>Heures sup.</span><b>1 h 20</b></div></div>
+ </div>
+ <div class="body">
+  <div class="sec">Anomalies à vérifier (2)</div>
+  <div class="card band" style="--bandc:var(--red)"><div class="pn">mer. 7 · Entrée sans sortie</div><div class="pm">Entrée 08:02 📱 · aucun départ pointé</div></div>
+  <div class="card band" style="--bandc:var(--amber)"><div class="pn">sam. 10 · Deux entrées</div><div class="pm">08:01 🖐 puis 08:03 📱</div></div>
+  <div class="sec">Jours</div>
+  <div class="card"><div class="lr"><div class="g"><div class="pn">lun. 12</div><div class="pm">08:15 → — · prévu 08:00-16:00</div></div><span class="badge b-amber">+15 min</span></div></div>
+  <div class="card"><div class="lr"><div class="g"><div class="pn">sam. 10</div><div class="pm">08:01 → 16:04 · 8 h 03</div></div><span class="badge b-green">OK</span></div></div>
+  <div class="card"><div class="lr"><div class="g"><div class="pn">ven. 9</div><div class="pm">Absence non justifiée</div></div><span class="badge b-red">Absent</span></div></div>
+  <div class="pm" style="text-align:center">Corrections : dans Prestige, menu RH (non modifiable depuis le téléphone)</div>
+ </div>
+</div><figcaption><span class="tag">C</span><b>Fiche employé</b> (<code>/rh/tableau/excel?detail=true</code> ou <code>/rh/presence</code> jour par jour). Les anomalies du serveur (DOUBLON, ENTREE_SANS_SORTIE…) traduites en phrases.</figcaption></figure>
+</div>
+</section>
+
+<!-- ============ 6. PRÉSENCES (tablette) ============ -->
+<section id="s6">
+<h2>6. Présences sur tablette et QR code du jour</h2>
+<p class="sub">Sur tablette, menu latéral et deux colonnes. L'onglet « Pointage » affiche le QR code qui change chaque minute (<code>GET /rh/mobile/code</code>) : une tablette posée au comptoir sert d'écran de pointage pour les téléphones des employés ; la liste des téléphones vient de <code>/rh/mobile/terminaux</code>.</p>
+<div class="row">
+<figure class="wide"><div class="tablet">
+ <div class="side">
+  <div style="font-weight:800;font-size:15px;padding:4px 10px 8px">Prestige Pharmacien</div>
+  <div class="grp">Pilotage</div><div class="it">🏠 Accueil</div><div class="it">📈 Analyses</div>
+  <div class="grp">Équipe</div><div class="it">🕘 Présence du jour</div><div class="it">📅 Tableau période</div><div class="it on">📱 Pointage &amp; téléphones</div>
+  <div class="grp">Autres</div><div class="it">⚙️ Réglages</div>
+ </div>
+ <div class="main">
+  <div class="wbar"><div class="t"><b>Pointage &amp; téléphones</b><span>Les employés scannent ce code avec Prestige Vente (menu Pointage présence)</span></div><span class="badge b-green">Pointage mobile actif</span></div>
+  <div class="cols">
+   <div class="card" style="width:250px;display:flex;flex-direction:column;align-items:center;gap:10px;flex:none">
+    <div class="pn">QR code du moment</div>
+    <div class="qr"></div>
+    <div style="font-size:22px;font-weight:800;letter-spacing:.08em">48 21 73</div>
+    <div style="width:100%"><div class="stack" style="margin:0"><div style="flex:38;background:var(--amber)"></div><div style="flex:22;background:#E3E8EF"></div></div><div class="pm" style="text-align:center">Change dans 38 s</div></div>
+    <div class="split" style="width:100%"><span>QR exigé</span><b>Oui</b></div>
+    <div class="split" style="width:100%"><span>Position exigée</span><b>Non</b></div><div class="split" style="width:100%"><span>Rayon</span><b>150 m</b></div>
+    <div class="btn out sm" style="width:100%">⛶ Plein écran</div>
+   </div>
+   <div class="card" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+    <div class="lr"><div class="g pn">Téléphones enregistrés (5)</div><span class="btn out sm">Déconnecter tous</span></div>
+    <table class="t"><tr><th>Employé · appareil</th><th>Activité</th><th>État</th><th></th></tr>
+    <tr><td><b>Awa Koné</b><div class="pm">Samsung A14</div></td><td>12/10 07:52</td><td><span class="badge b-green">Actif</span></td><td><span class="chip">Retirer</span></td></tr>
+    <tr><td><b>Seydou Diallo</b><div class="pm">Tecno Spark 10</div></td><td>12/10 07:24</td><td><span class="badge b-green">Actif</span></td><td><span class="chip">Retirer</span></td></tr>
+    <tr><td>Yao Brou<div class="pm">iPhone 11</div></td><td>12/10 08:15</td><td><span class="badge b-green">Actif</span></td><td><span class="chip">Retirer</span></td></tr>
+    <tr><td>Mariam Traoré<div class="pm">Itel A70</div></td><td>03/10 17:40</td><td><span class="badge b-gray">Retiré</span></td><td><span class="chip">Réactiver</span></td></tr>
+    <tr><td>Comptoir 2<div class="pm">Tablette Lenovo</div></td><td>12/10 08:30</td><td><span class="badge b-green">Actif</span></td><td><span class="chip">Retirer</span></td></tr>
+    </table>
+    <div class="warn" style="margin-top:auto">⚠ Retirer un téléphone le déconnecte immédiatement ; l'employé devra se reconnecter. Action confirmée par une fenêtre.</div>
+   </div>
+  </div>
+ </div>
+</div><figcaption><span class="tag">A</span><b>Tablette (paysage).</b> QR code du jour à gauche (rafraîchi selon <code>resteSec</code>), téléphones à droite (<code>POST /rh/mobile/terminaux/{id}/retirer|reactiver</code>, <code>POST /rh/mobile/deconnecter-tous</code>). Les mêmes écrans s'empilent sur téléphone.</figcaption></figure>
+</div>
+</section>
+</body>
+</html>
