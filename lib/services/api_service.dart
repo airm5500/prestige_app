@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
@@ -83,6 +84,28 @@ class ApiLoadException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Fichier téléchargé ([ApiService.getBytes]).
+class FichierTelecharge {
+  final Uint8List octets;
+
+  /// Nom proposé (en-tête Content-Disposition du serveur, nettoyé), ex. « tableau_rh.xlsx ».
+  final String nom;
+
+  /// Type annoncé par le serveur (application/pdf…).
+  final String type;
+  const FichierTelecharge(this.octets, this.nom, this.type);
+
+  /// « attachment; filename=tableau_rh.xlsx » → « tableau_rh.xlsx » ; seuls lettres, chiffres, « . », « _ »,
+  /// « - » sont gardés (jamais de chemin) ; [defaut] si rien d'utilisable.
+  static String nomDepuisEntete(String? entete, String defaut) {
+    final m = RegExp(r'''filename\*?=(?:UTF-8'')?"?([^";]+)"?''', caseSensitive: false).firstMatch(entete ?? '');
+    var nom = (m?.group(1) ?? '').split(RegExp(r'[\\/]')).last.trim();
+    nom = nom.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_').replaceFirst(RegExp(r'^\.+'), '');
+    if (nom.isEmpty) return defaut;
+    return nom.length > 80 ? nom.substring(nom.length - 80) : nom;
+  }
 }
 
 class ApiService {
@@ -215,6 +238,66 @@ class ApiService {
       throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
     }
     return decoded;
+  }
+
+  // --- TÉLÉCHARGEMENT DE FICHIERS (Excel, PDF) ---
+
+  static const delaiTelechargement = Duration(seconds: 90);
+
+  /// Télécharge un fichier (Excel, PDF…) sans le décoder en JSON. Mêmes natures d'échec que [get] ; en plus,
+  /// une réponse vide, une page HTML/JSON à la place du fichier (édition non générée) ou un fichier dont la
+  /// signature ne correspond pas au type annoncé (PDF : « %PDF », Excel : « PK ») sont refusés
+  /// ([NatureErreur.reponse]) : on ne partage jamais un faux fichier.
+  ///
+  /// [ambigu401] : certaines routes (exports RH) répondent 401 aussi bien pour une session expirée que pour un
+  /// droit manquant ; l'échec est alors levé en [NatureErreur.refus] code 401 SANS déconnecter, et c'est à
+  /// l'appelant de vérifier la session (voir PresencesApi).
+  Future<FichierTelecharge> getBytes(
+    BuildContext context,
+    String endpoint, {
+    Map<String, String>? queryParams,
+    String nomParDefaut = 'export',
+    bool ambigu401 = false,
+    VoidCallback? onSessionInvalid,
+  }) async {
+    final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
+    if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
+    JournalApp.debug(JournalApp.requete('GET', uri));
+    final headers = <String, String>{'Accept': '*/*'};
+    if (_sessionCookie != null) headers['Cookie'] = _sessionCookie!;
+    final response = await _envoyer(() => client.get(uri, headers: headers), delaiTelechargement);
+    return lireFichier(response, nomParDefaut: nomParDefaut, ambigu401: ambigu401, onSessionInvalid: onSessionInvalid);
+  }
+
+  /// Contrôle d'une réponse de téléchargement (séparé pour les tests).
+  FichierTelecharge lireFichier(http.Response response, {String nomParDefaut = 'export', bool ambigu401 = false, VoidCallback? onSessionInvalid}) {
+    final code = response.statusCode;
+    final type = (response.headers['content-type'] ?? '').toLowerCase();
+    if (code == 401 && ambigu401) {
+      throw const ApiLoadException('Le serveur a refusé le fichier (code 401).', nature: NatureErreur.refus, code: 401);
+    }
+    if (code < 200 || code >= 300) {
+      // Mêmes règles et messages que les autres appels (401 session, 403 droit, 404, 5xx…) ; le contenu d'une
+      // page d'erreur n'est jamais affiché.
+      _handleResponse(http.Response(code == 401 ? 'Veuillez vous connecter' : '', code), onSessionInvalid);
+    }
+    final octets = response.bodyBytes;
+    if (octets.isEmpty) {
+      throw const ApiLoadException('Le serveur a renvoyé un fichier vide.', nature: NatureErreur.reponse);
+    }
+    if (type.contains('html') || type.contains('json') || type.startsWith('text/')) {
+      final texte = utf8.decode(octets, allowMalformed: true);
+      if (texte.contains('Veuillez vous connecter')) _sessionExpiree(onSessionInvalid);
+      throw const ApiLoadException('Le serveur n\'a pas pu produire le fichier. Réessayez dans un instant ou réduisez la période.',
+          nature: NatureErreur.reponse);
+    }
+    bool commencePar(String s) => octets.length >= s.length && String.fromCharCodes(octets.sublist(0, s.length)) == s;
+    final estPdf = type.contains('pdf'), estExcel = type.contains('spreadsheet') || type.contains('excel');
+    if ((estPdf && !commencePar('%PDF')) || (estExcel && !commencePar('PK'))) {
+      throw const ApiLoadException('Fichier reçu illisible.', nature: NatureErreur.reponse);
+    }
+    return FichierTelecharge(octets, FichierTelecharge.nomDepuisEntete(response.headers['content-disposition'], nomParDefaut), type);
   }
 
   /// Envoie la requête ; les échecs réseau et les délais deviennent des [ApiLoadException].
