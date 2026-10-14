@@ -21,6 +21,7 @@ import 'package:prestige_app/utils/constants.dart';
 import 'cas_affichage.dart';
 import 'catalogue_ecrans.dart';
 import 'donnees_fictives.dart';
+import 'donnees_vague1.dart';
 import 'faux_serveur_prestige.dart';
 import 'nouvelle_interface.dart';
 
@@ -40,19 +41,16 @@ Future<void> Function(WidgetTester) onglet(String nom) => (tester) async {
       await tester.pump(const Duration(milliseconds: 500));
     };
 
-/// Appuie sur le ⟳ de chaque alerte de l'accueil A et attend la fin des comptages (ou [attendre] seulement).
+/// Appuie sur le ⟳ de l'accueil A (un seul appel pour tout le bloc) et attend la fin du comptage (ou [attendre]).
 /// [attendus] : clés qui doivent alors être affichées (le cas rend bien l'état voulu).
 Future<void> Function(WidgetTester) compterAlertes(List<String> attendus, {Duration attendre = const Duration(seconds: 2)}) =>
     (tester) async {
-      for (final cle in ['peremption', 'controle']) {
-        final bouton = find.byKey(Key('alerte_${cle}_actualiser'));
-        tester.widget<IconButton>(bouton).onPressed!();
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      tester.widget<IconButton>(find.byKey(const Key('alerte_peremption_actualiser'))).onPressed!();
+      await tester.pump(const Duration(milliseconds: 100));
       for (var i = 0; i < attendre.inMilliseconds ~/ 100; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      await tester.ensureVisible(find.byKey(const Key('alerte_controle')));
+      await tester.ensureVisible(find.byKey(const Key('alerte_ruptures')));
       await tester.pump(const Duration(milliseconds: 500));
       for (final cle in attendus) {
         expect(find.byKey(Key(cle)), findsOneWidget, reason: cle);
@@ -70,15 +68,19 @@ final casAffichageNouvelle = <CasAffichage>[
     CasAffichage('Accueil $lettre', enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: p)),
   // Alertes de l'accueil A : nombres affichés ; puis échec (500) et comptage en cours (réponse lente).
   CasAffichage('Accueil A · alertes comptées',
-      enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauDeBord, donnees: donneesAlertes, ensuite: compterAlertes(['alerte_peremption_nombre', 'alerte_controle_nombre']))),
+      enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauDeBord, donnees: donneesAlertes, ensuite: compterAlertes(['alerte_peremption_nombre', 'alerte_ruptures_nombre']))),
   CasAffichage(
-      'Accueil A · alertes en échec et en cours',
+      'Accueil A · alertes en échec',
       enNouvelle(ecranConnecte(() => const AccueilNouveau()),
           p: Presentation.tableauDeBord,
-          donnees: (s) => s
-            ..quand(AppConstants.suiviPeremptionEndpoint, ReponseFausse.erreurServeur())
-            ..quand(AppConstants.etatControleAchatEndpoint, ReponseFausse.json(DonneesFictives.etatControleAchat()).apres(const Duration(seconds: 30))),
-          ensuite: compterAlertes(['alerte_peremption_echec', 'alerte_controle_encours']))),
+          donnees: (s) => s.quand('/tableau-bord/alertes', ReponseFausse.erreurServeur()),
+          ensuite: compterAlertes(['alerte_peremption_echec', 'alerte_ruptures_echec']))),
+  CasAffichage(
+      'Accueil A · alertes en cours',
+      enNouvelle(ecranConnecte(() => const AccueilNouveau()),
+          p: Presentation.tableauDeBord,
+          donnees: (s) => s.quand('/tableau-bord/alertes', ReponseFausse.json(DonneesVague1.alertes()).apres(const Duration(seconds: 30))),
+          ensuite: compterAlertes(['alerte_peremption_encours', 'alerte_ruptures_encours']))),
   CasAffichage('Onglet Analyses', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: onglet('Analyses'))),
   CasAffichage('Onglet Équipe', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: onglet('Équipe'))),
   CasAffichage('Réglages (bouton engrenage)', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: (tester) async {

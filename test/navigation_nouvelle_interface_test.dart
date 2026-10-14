@@ -76,7 +76,7 @@ void main() {
       final titres = [for (final m in menusModules) m.titre];
       expect(titres, isNot(contains('Fournisseurs')));
       expect(titres, containsAll(['Achats Fourn.', 'Retours Fournisseurs', 'Visualisation BL', 'Etat Contrôle Achat', 'Analyse Saisies BL']));
-      expect(menusModules, hasLength(27));
+      expect(menusModules, hasLength(30), reason: '27 menus d\'origine (sans Fournisseurs) + 3 nouveaux menus de la vague 1');
     });
 
     testWidgets('accueil A (familles) : « Fournisseurs » absent, « Retours Fournisseurs » présent', (tester) async {

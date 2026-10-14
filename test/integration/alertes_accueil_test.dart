@@ -1,39 +1,35 @@
 // Intégration : comptage à la demande des alertes de l'accueil A (AlertesAccueil) contre le faux serveur Prestige
-// joint en HTTP RÉEL. Mêmes routes et MÊMES paramètres que les modules à leur ouverture, session de la connexion ;
+// joint en HTTP RÉEL. Péremption et ruptures : UN appel des alertes du tableau de bord (mêmes paramètres que l'écran
+// Alertes, délais réglés sur le mobile transmis) ; plus aucun appel de l'état des contrôles de BL depuis l'accueil ;
+// session de la connexion ;
 // succès, mémoire (même serveur et même compte), 401 (retour à la connexion par le mécanisme existant), 500,
 // serveur arrêté, délai borné, anti double appui ; et, dans l'application entière, AUCUN appel tant qu'on n'a pas
 // touché ⟳ (ni au démarrage, ni à l'actualisation des chiffres du jour, ni en changeant d'onglet).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/alertes_vague1.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/donnees_vague1.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
-import 'package:prestige_app/utils/date_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../outils/contexte_api.dart';
 import '../support/application.dart';
 import '../support/donnees_fictives.dart';
+import '../support/donnees_vague1.dart';
 import '../support/faux_serveur_prestige.dart';
 import '../support/nouvelle_interface.dart';
 
 final serveur = FauxServeurPrestige();
-const routePeremption = AppConstants.suiviPeremptionEndpoint;
+const routePeremption = ApiAlertes.routeComptage;
 const routeControle = AppConstants.etatControleAchatEndpoint;
 
-/// Paramètres envoyés par l'écran Suivi Péremption à son ouverture (première page, aucun filtre).
-const parametresPeremption = {
-  'query': '', 'nbreMois': '', 'codeRayon': '', 'codeGrossiste': '', 'dtStart': '', 'dtEnd': '', 'page': '1', 'start': '0', 'limit': '20',
-};
-
-/// Paramètres de l'écran Etat Contrôle Achat avec ses filtres par défaut (période du jour, tous les groupes).
-Map<String, String> parametresControle() {
-  final jour = DateFormatter.toApiFormat(DateTime.now());
-  return {'dtStart': jour, 'dtEnd': jour, 'groupeId': '', 'groupBy': 'GROUP', 'limit': '9999'};
-}
+/// Paramètres de l'appel unique des alertes du tableau de bord (comme l'écran Alertes et le tableau de bord web).
+const parametresPeremption = {'per': '6', 'rup': '7', 'ren': '7', 'sug': '2', 'nv': '30'};
 
 typedef App = ({BuildContext ctx, AuthProvider auth});
 
@@ -55,6 +51,7 @@ EtatAlerte etat(AlerteAccueil a) => AlertesAccueil.instance.etat(a);
 
 void main() {
   setUp(() async {
+    ReglagesAlertes.oublier();
     await serveur.demarrer();
     serveur.oublierRequetes();
     utiliserReseauReel();
@@ -74,7 +71,7 @@ void main() {
   });
 
   group('Succès : mêmes routes et paramètres que les modules', () {
-    testWidgets('Suivi Péremption : GET /fichearticle/perimes, première page de l\'écran, session envoyée → 3 lots', (tester) async {
+    testWidgets('Péremption : GET /tableau-bord/alertes (appel unique), session envoyée → 3 lots', (tester) async {
       final app = await connecte(tester);
       expect(etat(AlerteAccueil.peremption).dernier, isNull);
       await compter(tester, app, AlerteAccueil.peremption);
@@ -89,24 +86,46 @@ void main() {
       expect(serveur.recues(routeControle), isEmpty, reason: 'une alerte ne compte que la sienne');
     });
 
-    testWidgets('Etat Contrôle Achat : GET /etat-control-bon/list-annuelle, filtres par défaut de l\'écran → 7 bons', (tester) async {
+    testWidgets('Ruptures : même appel ; un ⟳ met à jour tout le bloc (péremption et ruptures) ; contrôle des BL jamais appelé',
+        (tester) async {
       final app = await connecte(tester);
-      await compter(tester, app, AlerteAccueil.controleAchat);
-      final r = serveur.recues(routeControle).single;
-      expect(r.parametres, parametresControle());
-      expect(r.sessionEnvoyee, serveur.derniereSession);
-      expect(etat(AlerteAccueil.controleAchat).dernier!.nombre, DonneesFictives.bonsControles);
-      expect(serveur.recues('/groupegrossiste'), isEmpty, reason: 'la liste des groupes n\'est pas utile au comptage');
+      await compter(tester, app, AlerteAccueil.ruptures);
+      expect(serveur.recues(routePeremption), hasLength(1));
+      expect(etat(AlerteAccueil.ruptures).dernier!.nombre, DonneesVague1.ruptures);
+      expect(etat(AlerteAccueil.peremption).dernier!.nombre, DonneesFictives.lotsPerimes);
+      expect(etat(AlerteAccueil.ruptures).dernier!.le, etat(AlerteAccueil.peremption).dernier!.le);
+      expect(serveur.recues(routeControle), isEmpty);
+    });
+
+    testWidgets('délais réglés sur le mobile : transmis au comptage et à la liste, mémorisés pour ce serveur et ce compte',
+        (tester) async {
+      final app = await connecte(tester);
+      final cle = AlertesAccueil.cleDe(app.ctx);
+      final v = ValeursAlertes.defaut.avec(ReglageAlerte.per, 3).avec(ReglageAlerte.rup, 30).avec(ReglageAlerte.nv, 90);
+      await tester.runAsync(() => ReglagesAlertes.enregistrer(cle, v));
+      await compter(tester, app, AlerteAccueil.peremption);
+      expect(serveur.recues(routePeremption).single.parametres, {'per': '3', 'rup': '30', 'ren': '7', 'sug': '2', 'nv': '90'});
+      await tester.runAsync(() => ApiAlertes.liste(app.ctx, TypeAlerte.ruptures));
+      expect(serveur.recues(ApiAlertes.routeListe).single.parametres, {'type': 'ruptures', 'per': '3', 'rup': '30', 'nv': '90', 'limite': '500'});
+      // Relancement : relus depuis la mémoire ; autre compte : valeurs du web.
+      ReglagesAlertes.oublier();
+      await tester.runAsync(() => ReglagesAlertes.charger(cle));
+      expect(ReglagesAlertes.courantes, v);
+      await tester.runAsync(() => ReglagesAlertes.charger('http://autre/prestige/api/v1|autre.compte'));
+      expect(ReglagesAlertes.courantes, ValeursAlertes.defaut);
+      // « Valeurs par défaut » : la mémoire de ce compte est effacée.
+      await tester.runAsync(() => ReglagesAlertes.enregistrer(cle, ValeursAlertes.defaut));
+      ReglagesAlertes.oublier();
+      await tester.runAsync(() => ReglagesAlertes.charger(cle));
+      expect(ReglagesAlertes.parametresComptage, parametresPeremption);
     });
 
     testWidgets('réponse vide ou liste vide : 0 (jamais une erreur)', (tester) async {
       final app = await connecte(tester);
       serveur.quand(routePeremption, ReponseFausse.vide());
-      serveur.quand(routeControle, ReponseFausse.json(DonneesFictives.listeVide()));
       await compter(tester, app, AlerteAccueil.peremption);
-      await compter(tester, app, AlerteAccueil.controleAchat);
       expect(etat(AlerteAccueil.peremption).dernier!.nombre, 0);
-      expect(etat(AlerteAccueil.controleAchat).dernier!.nombre, 0);
+      expect(etat(AlerteAccueil.ruptures).dernier!.nombre, 0);
     });
 
     testWidgets('résultat et heure mémorisés pour ce serveur et ce compte (relus sans appel au serveur)', (tester) async {
@@ -120,7 +139,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       expect(etat(AlerteAccueil.peremption).dernier?.nombre, DonneesFictives.lotsPerimes);
       expect(etat(AlerteAccueil.peremption).dernier?.le.millisecondsSinceEpoch, heure.millisecondsSinceEpoch);
-      expect(etat(AlerteAccueil.controleAchat).dernier, isNull);
+      expect(etat(AlerteAccueil.ruptures).dernier?.nombre, DonneesVague1.ruptures);
       expect(serveur.requetes, isEmpty, reason: 'relire la mémoire n\'appelle pas le serveur');
       // Autre compte ou autre serveur : rien.
       AlertesAccueil.instance.oublier();
@@ -128,12 +147,13 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       expect(etat(AlerteAccueil.peremption).dernier, isNull);
       final prefs = await tester.runAsync(SharedPreferences.getInstance);
-      expect(prefs!.getString(AlertesAccueil.clePreferences), contains('"peremption"'));
+      expect(prefs!.getString(AlertesTableauBord.clePreferences), contains('"peremptions"'));
+      expect(prefs.getString(AlertesTableauBord.clePreferences), contains(AlertesAccueil.cleDe(app.ctx)));
     });
 
     testWidgets('anti double appui : deux appuis rapprochés = une seule requête', (tester) async {
       final app = await connecte(tester);
-      serveur.quand(routePeremption, ReponseFausse.json(DonneesFictives.perimes()).apres(const Duration(milliseconds: 300)));
+      serveur.quand(routePeremption, ReponseFausse.json(DonneesVague1.alertes()).apres(const Duration(milliseconds: 300)));
       await tester.runAsync(() => Future.wait([
             AlertesAccueil.instance.compter(app.ctx, AlerteAccueil.peremption),
             AlertesAccueil.instance.compter(app.ctx, AlerteAccueil.peremption),
@@ -149,8 +169,8 @@ void main() {
       final messages = <String>[];
       final abo = app.auth.events.listen(messages.add);
       serveur.expirerSessions();
-      await compter(tester, app, AlerteAccueil.controleAchat);
-      final e = etat(AlerteAccueil.controleAchat);
+      await compter(tester, app, AlerteAccueil.ruptures);
+      final e = etat(AlerteAccueil.ruptures);
       expect(e.echec!.cause, CauseEchec.session);
       expect(e.enCours, isFalse);
       expect(app.auth.isLoggedIn, isFalse);
@@ -173,8 +193,9 @@ void main() {
     testWidgets('serveur arrêté : « Serveur injoignable »', (tester) async {
       final app = await connecte(tester);
       await tester.runAsync(serveur.arreter);
-      await compter(tester, app, AlerteAccueil.controleAchat);
-      expect(etat(AlerteAccueil.controleAchat).echec!.cause, CauseEchec.injoignable);
+      await compter(tester, app, AlerteAccueil.ruptures);
+      expect(etat(AlerteAccueil.ruptures).echec!.cause, CauseEchec.injoignable);
+      expect(etat(AlerteAccueil.peremption).echec!.cause, CauseEchec.injoignable);
       expect(app.auth.isLoggedIn, isTrue, reason: 'serveur injoignable ≠ session expirée');
     });
 
@@ -197,7 +218,7 @@ void main() {
   });
 
   group('Application entière', () {
-    testWidgets('aucun appel aux deux routes tant qu\'on n\'a pas touché ⟳ ; un appui = une requête', (tester) async {
+    testWidgets('aucun appel tant qu\'on n\'a pas touché ⟳ ; un appui = une requête', (tester) async {
       tester.view.devicePixelRatio = 2.625;
       tester.view.physicalSize = const Size(411 * 2.625, 891 * 2.625);
       addTearDown(tester.view.reset);
@@ -208,7 +229,7 @@ void main() {
       await attendreTexte(tester, '3 / 4'); // chiffres du jour chargés automatiquement
       await stabiliser(tester, tours: 20);
       expect(find.byKey(const Key('alerte_peremption_invite')), findsOneWidget);
-      expect(find.byKey(const Key('alerte_controle_invite')), findsOneWidget);
+      expect(find.byKey(const Key('alerte_ruptures_invite')), findsOneWidget);
 
       // Actualisation des chiffres du jour, onglets : toujours aucun comptage.
       await tester.tap(find.byTooltip('Actualiser les chiffres'));
@@ -226,6 +247,7 @@ void main() {
       await attendreWidget(tester, find.byKey(const Key('alerte_peremption_nombre')));
       expect(serveur.recues(routePeremption), hasLength(1));
       expect(serveur.recues(routeControle), isEmpty);
+      expect(find.byKey(const Key('alerte_ruptures_nombre')), findsOneWidget, reason: 'un seul ⟳ actualise tout le bloc');
       expect(find.byType(LoginScreen), findsNothing);
       await terminer(tester);
     });

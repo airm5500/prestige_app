@@ -1,8 +1,10 @@
 // lib/nouvelle_interface/modules/periode.dart
 // Sélecteur de période COMMUN aux modules de la nouvelle interface : Aujourd'hui / Hier / 7 jours / Ce mois /
 // Mois dernier / Personnalisée. Dates contrôlées (ControlePeriode) : début ≤ fin, rien dans le futur, pas avant le
-// 01/01/2000 (première date des sélecteurs d'origine), 366 jours au plus. Les dates partent au serveur au format
-// d'origine (yyyy-MM-dd, DateFormatter.toApiFormat) : mêmes paramètres que les écrans d'origine.
+// 01/01/2000 (première date des sélecteurs d'origine), 3 ans au plus (1096 jours, décision du pharmacien). Les dates
+// partent au serveur au format d'origine (yyyy-MM-dd, DateFormatter.toApiFormat) : mêmes paramètres que les écrans
+// d'origine. Commun au lot 1 (Rapport, Détail CA, Suivi Crédit) et à la vague 1 (Retraits et abandons, Ventes
+// modifiées, date de la Valorisation : [choisirJour]).
 import 'package:flutter/material.dart';
 
 import '../../utils/date_formatter.dart';
@@ -72,8 +74,11 @@ class ControlePeriode {
   /// Première date acceptée (celle des sélecteurs de date d'origine).
   static final borneMin = DateTime(2000, 1, 1);
 
-  /// Durée maximale d'une période (jours, bornes comprises).
-  static const dureeMaxJours = 366;
+  /// Durée maximale d'une période : 3 ans (jours, bornes comprises ; 3 × 365 + 1 jour de février bissextile).
+  static const dureeMaxJours = 1096;
+
+  /// Message d'une période trop longue.
+  static const messageTropLongue = 'Période trop longue (3 ans au maximum).';
 
   /// Motif de refus, ou null si la période est acceptable.
   static String? erreur(DateTime debut, DateTime fin, DateTime maintenant) {
@@ -81,9 +86,25 @@ class ControlePeriode {
     if (f.isBefore(d)) return 'La date de début doit précéder la date de fin.';
     if (f.isAfter(aujourdhui) || d.isAfter(aujourdhui)) return 'La période ne peut pas être dans le futur.';
     if (d.isBefore(borneMin)) return 'Date trop ancienne (avant le 01/01/2000).';
-    if (f.difference(d).inDays + 1 > dureeMaxJours) return 'Période trop longue ($dureeMaxJours jours au plus).';
+    if (f.difference(d).inDays + 1 > dureeMaxJours) return messageTropLongue;
     return null;
   }
+}
+
+/// Choix d'UNE date (calendrier commun) : ni dans le futur, ni avant [ControlePeriode.borneMin]. Null si annulé.
+Future<DateTime?> choisirJour(BuildContext context, DateTime initiale, {String? aide, DateTime Function() maintenant = DateTime.now}) async {
+  final aujourdhui = Periode.jour(maintenant());
+  final init = initiale.isAfter(aujourdhui) ? aujourdhui : (initiale.isBefore(ControlePeriode.borneMin) ? ControlePeriode.borneMin : initiale);
+  final d = await showDatePicker(
+    context: context,
+    initialDate: init,
+    firstDate: ControlePeriode.borneMin,
+    lastDate: aujourdhui,
+    locale: const Locale('fr', 'FR'),
+    helpText: aide,
+    confirmText: 'Valider',
+  );
+  return d == null ? null : Periode.jour(d);
 }
 
 /// Puces de période (défilement horizontal) et résumé des dates. « Personnalisée » ouvre le calendrier (dates

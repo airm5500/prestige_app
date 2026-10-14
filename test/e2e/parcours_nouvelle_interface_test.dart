@@ -5,8 +5,9 @@
 //  - chaque module de l'accueil s'ouvre et se referme dans les présentations A, B et C (téléphone) et B (tablette,
 //    menu latéral), sans erreur ni « Chargement impossible », avec la session ouverte à la connexion ;
 //  - onglets Analyses, Équipe ; Réglages ouverts par le bouton engrenage en haut à droite de l'accueil ;
-//  - alertes de l'accueil A comptées à la demande : appui sur ⟳ → nombre et heure → ouverture du module, qui
-//    montre le même nombre avec les mêmes paramètres ; au retour, le nombre mémorisé « il y a X min » ;
+//  - alertes de l'accueil A comptées à la demande : appui sur ⟳ → nombre et heure → ouverture de la liste (péremption,
+//    appel unique des alertes du tableau de bord) ou du module (contrôle des BL), qui montre le même nombre avec les
+//    mêmes paramètres ; au retour, le nombre mémorisé « il y a X min » ;
 //  - retour à l'ancienne interface depuis les Réglages (effet immédiat, mémorisé), puis retour à la nouvelle ;
 //  - présentation : code administrateur exigé pour un autre compte, choix direct et mémorisé pour « admin » ;
 //  - mêmes règles qu'avant : session expirée → connexion ; serveur coupé → message réseau ; serveur injoignable
@@ -20,11 +21,11 @@ import 'package:prestige_app/nouvelle_interface/composants.dart';
 import 'package:prestige_app/nouvelle_interface/menus.dart';
 import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/commun.dart';
-import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/nouvelle_interface/reglages_nouveaux.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/alertes_vague1.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/donnees_vague1.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
-import 'package:prestige_app/screens/etat_controle_achat_screen.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
@@ -37,6 +38,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../support/application.dart';
 import '../support/catalogue_ecrans.dart';
 import '../support/donnees_fictives.dart';
+import '../support/donnees_vague1.dart';
 import '../support/faux_serveur_prestige.dart';
 import '../support/nouvelle_interface.dart';
 import '../support/polices.dart';
@@ -70,6 +72,12 @@ Future<void> amenerEnVue(WidgetTester tester, Finder cible, Finder defilement) a
       await tester.pump(const Duration(milliseconds: 300));
     }
     await tester.scrollUntilVisible(cible, 250, scrollable: scrollable, maxScrolls: 60);
+  }
+  // Cible déjà construite mais hors de l'écran (au-dessus ou loin en dessous) : défiler directement jusqu'à elle,
+  // quelle que soit la distance (l'accueil s'allonge avec les nouveaux menus).
+  if (cible.evaluate().isNotEmpty && cible.hitTestable().evaluate().isEmpty) {
+    await tester.ensureVisible(cible.first);
+    await tester.pump(const Duration(milliseconds: 300));
   }
   for (var i = 0; i < 6 && cible.hitTestable().evaluate().isEmpty; i++) {
     await tester.drag(scrollable, const Offset(0, -150));
@@ -348,7 +356,7 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('accueil A : ⟳ → nombre et heure → le module ouvert montre le même nombre ; au retour « il y a X min »',
+  testWidgets('accueil A : un ⟳ → nombres et heure de tout le bloc → les listes montrent le même nombre ; au retour « il y a X min »',
       (tester) async {
     telephone(tester);
     donneesAlertes(serveur);
@@ -359,32 +367,38 @@ void main() {
 
     // Avant tout appui : invitation, aucun appel.
     expect(find.byKey(const Key('alerte_peremption_invite')), findsOneWidget);
-    expect(find.byKey(const Key('alerte_controle_invite')), findsOneWidget);
-    expect(serveur.recues(AppConstants.suiviPeremptionEndpoint), isEmpty);
-    expect(serveur.recues(AppConstants.etatControleAchatEndpoint), isEmpty);
+    expect(find.byKey(const Key('alerte_ruptures_invite')), findsOneWidget);
+    expect(find.byKey(const Key('alerte_controle')), findsNothing, reason: 'alerte des BL retirée de l\'accueil (3.1.0)');
+    expect(serveur.recues(ApiAlertes.routeComptage), isEmpty);
 
-    // Appuis : nombre + heure du comptage.
+    // UN appui : un seul appel, nombre + heure du comptage sur TOUTES les alertes du bloc.
     final heure = RegExp(r'à \d\d:\d\d$');
-    for (final (cle, attendu) in [('peremption', '3 lots'), ('controle', '7 bons')]) {
-      final bouton = find.byKey(Key('alerte_${cle}_actualiser'));
-      await amenerEnVue(tester, bouton, defilement);
-      await tester.tap(bouton);
-      await attendreWidget(tester, find.byKey(Key('alerte_${cle}_nombre')));
+    final bouton = find.byKey(const Key('alerte_peremption_actualiser'));
+    await amenerEnVue(tester, bouton, defilement);
+    await tester.tap(bouton);
+    await attendreWidget(tester, find.byKey(const Key('alerte_peremption_nombre')));
+    for (final (cle, attendu) in [('peremption', '3 lots'), ('ruptures', '${DonneesVague1.ruptures} produits')]) {
+      await amenerEnVue(tester, find.byKey(Key('alerte_${cle}_nombre')), defilement);
       expect(texte('alerte_${cle}_nombre'), startsWith('$attendu · '));
       expect(texte('alerte_${cle}_nombre'), matches(heure));
       expect(find.byKey(Key('alerte_${cle}_invite')), findsNothing);
     }
-    final comptagePeremption = serveur.recues(AppConstants.suiviPeremptionEndpoint).single;
-    final comptageControle = serveur.recues(AppConstants.etatControleAchatEndpoint).single;
+    final comptage = serveur.recues(ApiAlertes.routeComptage).single;
+    expect(comptage.parametres, ReglagesAlertes.parametresComptage, reason: 'per=6&rup=7&ren=7&sug=2&nv=30');
+    expect(serveur.recues(AppConstants.etatControleAchatEndpoint), isEmpty, reason: 'plus de comptage des BL sur l\'accueil');
 
-    // Suivi Péremption ouvert depuis l'alerte : même requête, autant de lots listés que le nombre affiché.
+    // Liste des lots ouverte depuis l'alerte : mêmes réglages (6 mois), autant de lots listés que le nombre affiché.
+    await amenerEnVue(tester, find.text('Produits proches de la péremption'), defilement);
     await tester.tap(find.text('Produits proches de la péremption'));
-    await attendreWidget(tester, find.byType(SuiviPeremptionNouveau));
-    await attendreQue(tester, () => serveur.recues(AppConstants.suiviPeremptionEndpoint).length == 2, raison: 'liste du module');
-    await stabiliser(tester);
-    expect(serveur.recues(AppConstants.suiviPeremptionEndpoint).last.parametres, comptagePeremption.parametres);
-    expect(find.descendant(of: find.byType(SuiviPeremptionNouveau), matching: find.byType(CarteLigne)), findsNWidgets(DonneesFictives.lotsPerimes));
-    expect(tester.widget<Text>(find.byKey(const Key('chiffre_lots'))).data, '${DonneesFictives.lotsPerimes}');
+    await attendreWidget(tester, find.byType(AlerteListeScreen));
+    await attendreQue(tester, () => serveur.recues(ApiAlertes.routeListe).isNotEmpty, raison: 'liste des lots');
+    await attendreWidget(tester, find.byKey(const Key('liste_alerte_total')));
+    final liste = serveur.recues(ApiAlertes.routeListe).single;
+    expect(liste.parametres['type'], 'peremptions');
+    expect(liste.parametres['per'], comptage.parametres['per']);
+    expect(liste.sessionEnvoyee, serveur.derniereSession);
+    expect(find.text('${DonneesFictives.lotsPerimes} lignes'), findsOneWidget);
+    expect(find.text(DonneesFictives.libelleArticle1), findsOneWidget);
     await retourSysteme(tester);
     await attendreQue(tester, () => find.byType(AccueilNouveau).hitTestable().evaluate().isNotEmpty, raison: 'retour à l\'accueil');
 
@@ -392,32 +406,27 @@ void main() {
     AlertesAccueil.maintenant = () => DateTime.now().add(const Duration(minutes: 5, seconds: 30));
     await tester.pump(const Duration(seconds: 31));
     expect(texte('alerte_peremption_nombre'), '3 lots · il y a 5 min');
-    expect(texte('alerte_controle_nombre'), '7 bons · il y a 5 min');
-    expect(serveur.recues(AppConstants.suiviPeremptionEndpoint), hasLength(2));
-    expect(serveur.recues(AppConstants.etatControleAchatEndpoint), hasLength(1));
+    expect(texte('alerte_ruptures_nombre'), '${DonneesVague1.ruptures} produits · il y a 5 min');
+    expect(serveur.recues(ApiAlertes.routeComptage), hasLength(1));
 
-    // Etat Contrôle Achat ouvert depuis l'alerte : « Rechercher » avec ses filtres par défaut → même requête,
-    // « Total Bons » = nombre affiché sur l'accueil.
-    final carteControle = find.text('Contrôle des bons de livraison');
-    await amenerEnVue(tester, carteControle, defilement);
-    await tester.tap(carteControle);
-    await attendreWidget(tester, find.byType(EtatControleAchatScreen));
-    await stabiliser(tester);
-    await tester.tap(find.descendant(of: find.byType(EtatControleAchatScreen), matching: find.text('Rechercher')));
-    await attendreTexte(tester, 'Total Bons:');
-    expect(serveur.recues(AppConstants.etatControleAchatEndpoint).last.parametres, comptageControle.parametres);
-    final ligneTotal = find.ancestor(of: find.text('Total Bons:'), matching: find.byType(Row)).first;
-    expect(find.descendant(of: ligneTotal, matching: find.text('${DonneesFictives.bonsControles}')), findsOneWidget);
+    // Ruptures : la liste des produits à zéro (même appel de liste, type=ruptures).
+    final carteRuptures = find.text('Ruptures de stock');
+    await amenerEnVue(tester, carteRuptures, defilement);
+    await tester.tap(carteRuptures);
+    await attendreWidget(tester, find.byType(AlerteListeScreen));
+    await attendreQue(tester, () => serveur.recues(ApiAlertes.routeListe).length == 2, raison: 'liste des ruptures');
+    await attendreWidget(tester, find.byKey(const Key('liste_alerte_total')));
+    expect(serveur.recues(ApiAlertes.routeListe).last.parametres['type'], 'ruptures');
+    expect(find.text('${DonneesVague1.ruptures} lignes'), findsOneWidget);
     await retourSysteme(tester);
     await attendreQue(tester, () => find.byType(AccueilNouveau).hitTestable().evaluate().isNotEmpty, raison: 'retour à l\'accueil');
-    expect(texte('alerte_controle_nombre'), startsWith('7 bons · '));
     await terminer(tester);
   });
 
   testWidgets('accueil A : échec du comptage (500 puis serveur coupé) affiché sur l\'alerte, l\'accueil reste utilisable',
       (tester) async {
     telephone(tester);
-    serveur.quand(AppConstants.suiviPeremptionEndpoint, ReponseFausse.erreurServeur());
+    serveur.quand(ApiAlertes.routeComptage, ReponseFausse.erreurServeur());
     await jusquAccueilNouveau(tester);
     await attendreTexte(tester, '3 / 4');
     final bouton = find.byKey(const Key('alerte_peremption_actualiser'));
@@ -425,16 +434,16 @@ void main() {
     await tester.tap(bouton);
     await attendreTexte(tester, 'Erreur du serveur (code 500).');
     expect(find.textContaining('NullPointer'), findsNothing);
-    expect(find.byKey(const Key('alerte_controle_invite')), findsOneWidget, reason: 'l\'autre alerte n\'est pas touchée');
+    expect(find.byKey(const Key('alerte_ruptures_echec')), findsOneWidget, reason: 'même appel : tout le bloc signale l\'échec');
     // Le reste de l'accueil est intact : chiffres du jour toujours affichés.
     await tester.scrollUntilVisible(find.text(formaterMontant(DonneesFictives.caDuJour)), -150,
         scrollable: find.descendant(of: find.byKey(const Key('defilement_accueil')), matching: find.byType(Scrollable)).first);
     expect(find.text(formaterMontant(DonneesFictives.caDuJour)), findsOneWidget, reason: 'chiffres du jour intacts');
-    await amenerEnVue(tester, find.byKey(const Key('alerte_controle_actualiser')), find.byKey(const Key('defilement_accueil')));
+    await amenerEnVue(tester, find.byKey(const Key('alerte_ruptures_actualiser')), find.byKey(const Key('defilement_accueil')));
     await tester.runAsync(serveur.arreter);
-    await tester.tap(find.byKey(const Key('alerte_controle_actualiser')));
+    await tester.tap(find.byKey(const Key('alerte_ruptures_actualiser')));
     await attendreTexte(tester, 'Serveur injoignable. Vérifiez le réseau.');
-    expect(find.text('Erreur du serveur (code 500).'), findsOneWidget);
+    expect(find.text('Erreur du serveur (code 500).'), findsNothing, reason: 'le dernier échec remplace le précédent');
     expect(find.byType(LoginScreen), findsNothing);
     await terminer(tester);
   });

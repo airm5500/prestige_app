@@ -29,7 +29,6 @@ import '../screens/suivi_20_80_screen.dart';
 import '../screens/suivi_ajustement_screen.dart';
 import '../screens/tableau_bord_analyse_menu_screen.dart';
 import '../screens/tableau_bord_ratio_screen.dart';
-import '../screens/valorisation_screen.dart';
 import '../screens/visualisation_bl_screen.dart';
 import 'charte.dart';
 import 'modules/articles_nouveau.dart';
@@ -37,6 +36,10 @@ import 'modules/detail_ca_nouveau.dart';
 import 'modules/rapport_activite_nouveau.dart';
 import 'modules/suivi_credit_nouveau.dart';
 import 'modules/suivi_peremption_nouveau.dart';
+import 'vague1/alertes_vague1.dart';
+import 'vague1/journaux_vague1.dart';
+import 'vague1/profil_acces.dart';
+import 'vague1/valorisation_vague1.dart';
 
 enum Famille { ventes, credits, analyses, stock, fournisseurs, equipe }
 
@@ -96,7 +99,10 @@ class MenuModule {
   final Famille famille;
   final Question question;
   final Widget Function() ecran;
-  const MenuModule(this.titre, this.sousTitre, this.icone, this.famille, this.question, this.ecran);
+
+  /// Réservé à l'administrateur et au pharmacien (nouveaux menus et Valorisation, vague1/profil_acces.dart).
+  final bool responsables;
+  const MenuModule(this.titre, this.sousTitre, this.icone, this.famille, this.question, this.ecran, {this.responsables = false});
 
   /// Format attendu par l'écran « Personnaliser l'accueil » (commun aux deux interfaces).
   Map<String, dynamic> get pourPersonnalisation => {'title': titre, 'icon': icone, 'color': Charte.navy};
@@ -140,7 +146,7 @@ final menusModules = <MenuModule>[
   MenuModule('Evolution Stock', 'Valeur du stock dans le temps', Icons.ssid_chart_outlined, Famille.stock, Question.commander,
       () => const EvolutionStockScreen()),
   MenuModule('Valorisation', 'Valeur du stock à une date', Icons.inventory_2_outlined, Famille.stock, Question.commander,
-      () => const ValorisationScreen()),
+      () => const ValorisationVague1(), responsables: true), // réservée (décision du pharmacien, 3.1.0)
   MenuModule('Suivi Ajustements', 'Corrections de stock', Icons.rule_folder_outlined, Famille.stock, Question.commander,
       () => const SuiviAjustementScreen()),
   MenuModule('Achats Fourn.', 'Achats par fournisseur', Icons.shopping_cart_checkout_outlined, Famille.fournisseurs,
@@ -157,13 +163,27 @@ final menusModules = <MenuModule>[
       Question.fournisseurs, () => const VisualisationBlScreen()),
   MenuModule('Présences', 'Présence du jour, période, pointage', Icons.badge_outlined, Famille.equipe, Question.equipe,
       () => const PresencesScreen()),
+  // Vague 1 des nouveaux menus (lecture seule) : administrateur et pharmacien seulement.
+  MenuModule('Alertes', 'Ruptures, péremptions, suggestions, négatifs', Icons.notifications_active_outlined, Famille.stock,
+      Question.commander, () => const AlertesScreen(), responsables: true),
+  MenuModule('Retraits et abandons', 'Produits retirés, ventes abandonnées', Icons.remove_shopping_cart_outlined, Famille.ventes,
+      Question.equipe, () => const RetraitsAbandonsScreen(), responsables: true),
+  MenuModule('Ventes modifiées', 'Produits, client ou date changés après coup', Icons.edit_note_outlined, Famille.ventes,
+      Question.equipe, () => const VentesModifieesScreen(), responsables: true),
 ];
 
-/// Menus affichés : ordre de « Personnaliser l'accueil », menus masqués retirés.
+/// Menus auxquels le compte connecté a droit : les menus réservés (vague 1) seulement pour l'administrateur et le
+/// pharmacien. Sert à l'accueil, à la recherche et à « Personnaliser l'accueil ».
+List<MenuModule> menusAutorises() {
+  final responsable = ProfilAcces.responsable;
+  return [for (final m in menusModules) if (responsable || !m.responsables) m];
+}
+
+/// Menus affichés : ordre de « Personnaliser l'accueil », menus masqués et menus non autorisés retirés.
 List<MenuModule> menusVisibles(HomeSettingsProvider reglages) {
   final ordre = {for (var i = 0; i < reglages.featureOrder.length; i++) reglages.featureOrder[i]: i};
   int rang(MenuModule m) => ordre[m.titre] ?? 1000 + menusModules.indexOf(m);
-  final tries = [...menusModules]..sort((a, b) => rang(a).compareTo(rang(b)));
+  final tries = menusAutorises()..sort((a, b) => rang(a).compareTo(rang(b)));
   return [for (final m in tries) if (!reglages.disabledFeatures.contains(m.titre)) m];
 }
 

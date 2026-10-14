@@ -107,7 +107,7 @@ class OngletReglages extends StatelessWidget {
                 subtitle: const Text('Ordre des menus, menus masqués'),
                 trailing: const Icon(Icons.chevron_right, color: Charte.gris),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => PersonalizeHomeScreen(allItems: [for (final m in menusModules) m.pourPersonnalisation]))),
+                    builder: (_) => PersonalizeHomeScreen(allItems: [for (final m in menusAutorises()) m.pourPersonnalisation]))),
               ),
             ],
           ),

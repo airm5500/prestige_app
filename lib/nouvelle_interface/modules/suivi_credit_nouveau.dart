@@ -80,16 +80,12 @@ class _SuiviCreditNouveauState extends State<SuiviCreditNouveau> with Chargement
           const SizedBox(height: 14),
           const Text('Type de tiers payant', style: TextStyle(color: Charte.gris, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Wrap(spacing: 8, runSpacing: 0, children: [
-            for (final t in [null, ...types])
-              ChoiceChip(
-                key: Key('filtre_type_${t ?? 'tous'}'),
-                label: Text(t ?? 'Tous', style: TextStyle(color: type == t ? Charte.blanc : Charte.navy)),
-                selected: type == t,
-                showCheckmark: false,
-                onSelected: (_) => setState(() => type = t),
-              ),
-          ]),
+          PucesChoix<String?>(
+            choix: [for (final t in [null, ...types]) (t, t ?? 'Tous')],
+            valeur: type,
+            cle: (t, _) => Key('filtre_type_${t ?? 'tous'}'),
+            onChanged: (t) => setState(() => type = t),
+          ),
         ],
       ]),
     );

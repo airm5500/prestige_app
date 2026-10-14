@@ -26,6 +26,9 @@ import 'composants.dart';
 import 'menus.dart';
 import 'presentation.dart';
 import 'reglages_nouveaux.dart';
+import 'vague1/alertes_vague1.dart';
+import 'vague1/donnees_vague1.dart' show ReglageAlerte, ReglagesAlertes, TypeAlerte, ValeursAlertes;
+import 'vague1/profil_acces.dart';
 
 /// Passe en mode local / distant (même contrôle que l'ancien accueil : adresse distante requise).
 Future<void> basculerServeur(BuildContext context, {VoidCallback? apres}) async {
@@ -310,7 +313,9 @@ class _AccueilTableauDeBord extends StatelessWidget {
     final joursLicence = licence.licence?.daysRemaining ?? 0;
     MenuModule? menu(String titre) => menus.where((m) => m.titre == titre).firstOrNull;
     final peremption = menu('Suivi Péremption');
-    final controle = menu('Etat Contrôle Achat');
+    // Ruptures : liste propre au tableau de bord (pas de module), proposée dès qu'un menu est affiché.
+    final ruptures = menus.isNotEmpty;
+    final toutesAlertes = ProfilAcces.responsable && menu('Alertes') != null;
 
     return RefreshIndicator(
       onRefresh: actualiser,
@@ -354,27 +359,41 @@ class _AccueilTableauDeBord extends StatelessWidget {
                   ]),
                 ),
               ),
-            if (peremption != null || controle != null) const TitreSection('À surveiller'),
-            // Nombres comptés à la demande seulement (bouton ⟳ de chaque alerte), jamais automatiquement.
-            if (peremption != null)
-              AlerteComptee(
-                key: const Key('alerte_peremption'),
-                alerte: AlerteAccueil.peremption,
-                bande: Charte.rouge,
-                titre: 'Produits proches de la péremption',
-                detail: 'Lots périmés ou proches de l\'être',
-                onTap: () => ouvrirModule(context, peremption),
-              ),
-            if (peremption != null && controle != null) const SizedBox(height: 8),
-            if (controle != null)
-              AlerteComptee(
-                key: const Key('alerte_controle'),
-                alerte: AlerteAccueil.controleAchat,
-                bande: Charte.ambre,
-                titre: 'Contrôle des bons de livraison',
-                detail: 'Bons contrôlés aujourd\'hui, tous groupes',
-                onTap: () => ouvrirModule(context, controle),
-              ),
+            if (peremption != null || ruptures || toutesAlertes) const TitreSection('À surveiller'),
+            // Nombres comptés à la demande seulement, par UN appel (GET /tableau-bord/alertes) : le ⟳ de n'importe
+            // quelle alerte actualise tout le bloc ; jamais automatiquement.
+            ValueListenableBuilder<ValeursAlertes>(
+              valueListenable: ReglagesAlertes.valeurs,
+              builder: (context, reglages, _) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (peremption != null)
+                  AlerteComptee(
+                    key: const Key('alerte_peremption'),
+                    alerte: AlerteAccueil.peremption,
+                    bande: Charte.rouge,
+                    titre: 'Produits proches de la péremption',
+                    // Lots qui périment dans les N prochains mois (réglage), hors lots déjà périmés.
+                    detail: 'Périment dans ${reglages.de(ReglageAlerte.per)} mois (hors lots déjà périmés)',
+                    onTap: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.peremptions))),
+                  ),
+                if (peremption != null && ruptures) const SizedBox(height: 8),
+                if (ruptures)
+                  AlerteComptee(
+                    key: const Key('alerte_ruptures'),
+                    alerte: AlerteAccueil.ruptures,
+                    bande: Charte.ambre,
+                    titre: 'Ruptures de stock',
+                    detail: 'Produits actifs à stock nul',
+                    onTap: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.ruptures))),
+                  ),
+              ]),
+            ),
+            // Vague 1 : toutes les alertes du tableau de bord (administrateur et pharmacien).
+            if (toutesAlertes) ...[
+              if (peremption != null || ruptures) const SizedBox(height: 8),
+              const CarteToutesAlertes(),
+            ],
             if (menus.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24),

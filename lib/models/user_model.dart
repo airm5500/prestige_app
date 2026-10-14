@@ -8,6 +8,10 @@ class AppUser {
   final String officineName;
   final String? profilePicUrl;
 
+  /// Profil donné par le serveur à la connexion (« xtypeuser ») : « dashboard » pour l'administrateur et le
+  /// pharmacien, « mainmenumanager » pour les autres ; vide si inconnu (nouvelle_interface/vague1/profil_acces.dart).
+  final String typeUser;
+
   AppUser({
     required this.userId,
     required this.firstName,
@@ -15,6 +19,7 @@ class AppUser {
     required this.login,
     required this.officineName,
     this.profilePicUrl,
+    this.typeUser = '',
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -25,6 +30,7 @@ class AppUser {
       login: json['str_LOGIN'] as String? ?? '',
       officineName: json['OFFICINE'] as String? ?? 'Pharmacie',
       profilePicUrl: json['str_PIC'] as String?,
+      typeUser: json['xtypeuser']?.toString() ?? '',
     );
   }
 

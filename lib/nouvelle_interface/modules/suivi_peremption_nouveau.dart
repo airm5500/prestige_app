@@ -1,9 +1,13 @@
 // lib/nouvelle_interface/modules/suivi_peremption_nouveau.dart
 // Suivi Péremption de la nouvelle interface. Mêmes données que l'écran d'origine (SuiviPeremption.page :
 // GET /fichearticle/perimes, mêmes paramètres query / nbreMois / page / start / limit, pages suivantes chargées au
-// défilement), mise en page refaite : recherche contrôlée (anti-rebond), chiffres clés (lots, quantité, valeurs),
-// filtre « mois avant péremption » dans une feuille du bas, PDF d'origine dans le menu Exporter, lots en cartes
-// (téléphone) ou en tableau (tablette). Chargé à l'ouverture, sans filtre (comme l'écran d'origine).
+// défilement), mise en page refaite : PÉRIODE EN MOIS en tête (puces Déjà périmés / 1 / 3 / 6 / 12 / 24 mois,
+// « Autre… » : saisie contrôlée 1 à 120 dans la feuille du bas), recherche contrôlée (anti-rebond), chiffres clés
+// (lots, quantité, valeurs), PDF d'origine dans le menu Exporter, lots en cartes (téléphone) ou en tableau
+// (tablette). Chargé à l'ouverture sans nbreMois, comme l'écran d'origine (mêmes chiffres).
+// Sens de nbreMois côté serveur (FicheArticleServiceImpl.perimePredicat) : N > 0 → lots qui périment d'aujourd'hui
+// à aujourd'hui + N mois (hors lots déjà périmés) ; vide ou 0 → lots déjà périmés (date ≤ aujourd'hui). C'est donc
+// déjà une période : elle est présentée comme telle, sans dtStart / dtEnd supplémentaires.
 import 'package:flutter/material.dart';
 
 import '../../donnees/peremption_donnees.dart';
@@ -13,8 +17,25 @@ import '../charte.dart';
 import '../composants.dart';
 import 'commun.dart';
 
+/// Périodes proposées (nombre de mois envoyé en nbreMois ; vide : lots déjà périmés, comme l'écran d'origine).
+const moisProposes = ['1', '3', '6', '12', '24'];
+
+/// « Lots déjà périmés (date dépassée) », « Lots qui périment du 14/10/2026 au 14/04/2027 ».
+String resumePeriodePeremption(String mois, DateTime maintenant) {
+  final n = int.tryParse(mois.trim()) ?? 0;
+  String f(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  final j = DateTime(maintenant.year, maintenant.month, maintenant.day);
+  if (n <= 0) return 'Lots déjà périmés (date de péremption atteinte ou dépassée)';
+  // Même borne que le serveur (LocalDate.plusMonths : fin de mois ramenée au dernier jour valide).
+  var fin = DateTime(j.year, j.month + n, j.day);
+  if (fin.day != j.day) fin = DateTime(j.year, j.month + n + 1, 0);
+  return 'Lots qui périment du ${f(j)} au ${f(fin)}';
+}
+
 class SuiviPeremptionNouveau extends StatefulWidget {
-  const SuiviPeremptionNouveau({super.key});
+  /// Horloge (remplaçable dans les tests).
+  final DateTime Function() maintenant;
+  const SuiviPeremptionNouveau({super.key, this.maintenant = DateTime.now});
 
   @override
   State<SuiviPeremptionNouveau> createState() => _SuiviPeremptionNouveauState();
@@ -110,7 +131,7 @@ class _SuiviPeremptionNouveauState extends State<SuiviPeremptionNouveau> {
     String? erreur;
     final applique = await ouvrirFeuilleFiltres(
       context,
-      titre: 'Filtrer les lots',
+      titre: 'Période de péremption',
       effacer: () {
         champ.clear();
         erreur = null;
@@ -120,7 +141,8 @@ class _SuiviPeremptionNouveauState extends State<SuiviPeremptionNouveau> {
         return false; // le motif est déjà affiché sous le champ
       },
       contenu: (ctx, setState) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Lots qui périment dans les prochains mois. Laissez vide pour voir tous les lots suivis.',
+        const Text('Lots qui périment d\'ici le nombre de mois choisi, à partir d\'aujourd\'hui. '
+            'Vide ou 0 : lots déjà périmés.',
             style: TextStyle(color: Charte.grisTexte, fontSize: 14)),
         const SizedBox(height: 12),
         TextField(
@@ -138,10 +160,46 @@ class _SuiviPeremptionNouveauState extends State<SuiviPeremptionNouveau> {
         ),
       ]),
     );
-    if (applique && mounted) {
-      setState(() => _mois = champ.text.trim());
-      _charger();
-    }
+    if (applique && mounted) _changerMois(champ.text.trim());
+  }
+
+  /// Nouvelle période (en mois) : « 0 » vaut « déjà périmés » (même sens côté serveur), envoyé vide comme l'origine.
+  void _changerMois(String mois) {
+    final m = (int.tryParse(mois) ?? 0) <= 0 ? '' : '${int.parse(mois)}';
+    if (m == _mois && _donnees != null) return;
+    setState(() => _mois = m);
+    _charger();
+  }
+
+  Widget _periode() {
+    final autre = _mois.isNotEmpty && !moisProposes.contains(_mois);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SingleChildScrollView(
+        key: const Key('periode_mois'),
+        scrollDirection: Axis.horizontal,
+        child: PucesChoix<String>(
+          choix: [
+            ('', 'Déjà périmés'),
+            for (final m in moisProposes) (m, '$m mois'),
+            (autre ? _mois : '…', autre ? '$_mois mois' : 'Autre…'),
+          ],
+          valeur: _mois,
+          cle: (v, _) => Key('periode_mois_${v == '…' || autre && v == _mois ? 'autre' : (v.isEmpty ? 'perimes' : v)}'),
+          onChanged: (v) => v == '…' || (autre && v == _mois) ? _filtres() : _changerMois(v),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+        child: Row(children: [
+          const Icon(Icons.event_outlined, size: 16, color: Charte.gris),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(resumePeriodePeremption(_mois, widget.maintenant()),
+                key: const Key('periode_mois_resume'), style: const TextStyle(color: Charte.gris, fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      ),
+    ]);
   }
 
   Future<void> _pdf() async {
@@ -186,6 +244,7 @@ class _SuiviPeremptionNouveauState extends State<SuiviPeremptionNouveau> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Suivi Péremption'), actions: [
+          // Saisie d'un nombre de mois précis (même feuille que « Autre… »).
           BoutonFiltres(actifs: _mois.isEmpty ? 0 : 1, onPressed: _filtres),
           MenuExports(actions: [ActionExport('PDF de la liste', Icons.picture_as_pdf_outlined, _pdf)]),
         ]),
@@ -193,6 +252,8 @@ class _SuiviPeremptionNouveauState extends State<SuiviPeremptionNouveau> {
           onRefresh: _charger,
           child:
               ListView(controller: _defilement, key: const Key('defilement_module'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+            _periode(),
+            const SizedBox(height: 10),
             ChampRecherche(
               controleur: _recherche,
               libelle: 'Rechercher un produit',
@@ -201,19 +262,13 @@ class _SuiviPeremptionNouveauState extends State<SuiviPeremptionNouveau> {
               onRecherche: (_) => _charger(),
             ),
             if (_mois.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                  Etiquette('Péremption dans $_mois mois'),
-                  TextButton(
-                    key: const Key('filtres_retirer'),
-                    onPressed: () {
-                      setState(() => _mois = '');
-                      _charger();
-                    },
-                    child: const Text('Retirer le filtre'),
-                  ),
-                ]),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: const Key('filtres_retirer'),
+                  onPressed: () => _changerMois(''),
+                  child: const Text('Revenir aux lots déjà périmés'),
+                ),
               ),
             const SizedBox(height: 8),
             ..._corps(),

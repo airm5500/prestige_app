@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/officine_model.dart';
+import '../nouvelle_interface/vague1/profil_acces.dart';
 import '../services/api_service.dart';
 import '../services/journal_app.dart';
 import '../services/stockage_securise.dart';
@@ -99,6 +100,7 @@ class AuthProvider with ChangeNotifier {
       });
       if (response['success'] == true) {
         _user = AppUser.fromJson(response);
+        ProfilAcces.utilisateur.value = _user;
         _isLoggedIn = true;
 
         await fetchAndStoreOfficineInfo(context);
@@ -138,6 +140,7 @@ class AuthProvider with ChangeNotifier {
     if (!_isLoggedIn) return;
     JournalApp.debug('Déconnexion forcée (session invalide)');
     _user = null;
+    ProfilAcces.utilisateur.value = null;
     _isLoggedIn = false;
     _apiService.clearSessionCookie();
     _clearUserData();
@@ -158,7 +161,7 @@ class AuthProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final userData = {
       'str_USER_ID': user.userId, 'str_FIRST_NAME': user.firstName, 'str_LAST_NAME': user.lastName,
-      'str_LOGIN': user.login, 'OFFICINE': user.officineName, 'str_PIC': user.profilePicUrl,
+      'str_LOGIN': user.login, 'OFFICINE': user.officineName, 'str_PIC': user.profilePicUrl, 'xtypeuser': user.typeUser,
     };
     await prefs.setString(AppConstants.userDataKey, jsonEncode(userData));
   }
@@ -169,6 +172,7 @@ class AuthProvider with ChangeNotifier {
     if (userDataString != null) {
       _user = AppUser.fromJson(jsonDecode(userDataString));
     }
+    ProfilAcces.utilisateur.value = _user;
   }
 
   Future<String?> getLastKnownOfficineName() async {

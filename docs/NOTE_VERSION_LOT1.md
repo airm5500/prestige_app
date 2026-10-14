@@ -1,5 +1,7 @@
 # Prestige Pharmacien 3.0.0+27 — refonte module par module, lot 1 (consultation quotidienne)
 
+> **Mise à jour 3.1.0+28** : période limitée à **3 ans** (et non plus 366 jours), Suivi Péremption avec une période en mois en tête d'écran, composants communs aussi utilisés par la vague 1 : voir `NOTE_VERSION_3.1.0.md`.
+
 Six modules de consultation quotidienne ont une **nouvelle mise en page** dans la nouvelle interface :
 **Rapport d'Activité, Détail CA, Analyse Article, Fiche Article, Suivi Péremption, Suivi Crédit**.
 **Les données ne changent pas** : mêmes routes du serveur Prestige, mêmes paramètres, mêmes calculs. La lecture

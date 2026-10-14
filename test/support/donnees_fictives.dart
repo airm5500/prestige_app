@@ -22,6 +22,8 @@ class DonneesFictives {
         'str_LOGIN': identifiant,
         'OFFICINE': 'Pharmacie Fictive des Tests',
         'str_PIC': null,
+        // Profil donné par Prestige à l'administrateur et au pharmacien (nouveaux menus visibles).
+        'xtypeuser': 'dashboard',
       };
 
   static const messageIdentifiantsIncorrects = 'Identifiant ou mot de passe incorrect.';

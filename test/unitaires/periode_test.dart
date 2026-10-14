@@ -1,10 +1,11 @@
 // Sélecteur de période commun des modules refaits (lib/nouvelle_interface/modules/periode.dart) : périodes rapides
 // calculées au jour près (changements de mois et d'année compris) et contrôles des dates d'une période
-// personnalisée (début ≤ fin, rien dans le futur, pas avant 2000, 366 jours au plus). Paramètres envoyés au
+// personnalisée (début ≤ fin, rien dans le futur, pas avant 2000, 3 ans au plus). Paramètres envoyés au
 // serveur au format d'origine (dtStart / dtEnd en yyyy-MM-dd).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:prestige_app/nouvelle_interface/modules/periode.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
 
 void main() {
   setUpAll(() => initializeDateFormatting('fr_FR'));
@@ -52,10 +53,12 @@ void main() {
   });
 
   group('Contrôles des dates (période personnalisée)', () {
-    test('période correcte acceptée (même jour, bornes incluses, 366 jours)', () {
+    test('période correcte acceptée (même jour, bornes incluses, 1 an, 3 ans)', () {
       expect(ControlePeriode.erreur(j(2026, 10, 1), j(2026, 10, 1), maintenant), isNull);
       expect(ControlePeriode.erreur(j(2026, 1, 1), maintenant, maintenant), isNull, reason: 'jusqu\'à aujourd\'hui (heure ignorée)');
       expect(ControlePeriode.erreur(j(2025, 10, 14), j(2026, 10, 14), maintenant), isNull, reason: '366 jours');
+      expect(ControlePeriode.erreur(j(2025, 10, 13), j(2026, 10, 14), maintenant), isNull, reason: 'plus d\'un an : accepté désormais');
+      expect(ControlePeriode.erreur(j(2023, 10, 15), j(2026, 10, 14), maintenant), isNull, reason: '3 ans exactement (1096 jours)');
       final p = Periode.personnalisee(DateTime(2026, 9, 3, 18), DateTime(2026, 9, 10, 7), maintenant)!;
       expect((p.debut, p.fin, p.choix), (j(2026, 9, 3), j(2026, 9, 10), PeriodeRapide.personnalisee));
     });
@@ -71,11 +74,26 @@ void main() {
       expect(Periode.personnalisee(j(2026, 10, 14), j(2026, 12, 31), maintenant), isNull);
     });
 
-    test('bornes raisonnables : pas avant le 01/01/2000, 366 jours au plus', () {
+    test('bornes raisonnables : pas avant le 01/01/2000, 3 ans au maximum', () {
       expect(ControlePeriode.erreur(j(1999, 12, 31), j(2000, 1, 5), maintenant), 'Date trop ancienne (avant le 01/01/2000).');
       expect(ControlePeriode.erreur(j(2000, 1, 1), j(2000, 1, 5), maintenant), isNull);
-      expect(ControlePeriode.erreur(j(2025, 10, 13), j(2026, 10, 14), maintenant), 'Période trop longue (366 jours au plus).');
-      expect(ControlePeriode.erreur(j(2010, 1, 1), j(2026, 1, 1), maintenant), 'Période trop longue (366 jours au plus).');
+      expect(ControlePeriode.dureeMaxJours, 1096);
+      expect(ControlePeriode.erreur(j(2023, 10, 14), j(2026, 10, 14), maintenant), 'Période trop longue (3 ans au maximum).');
+      expect(ControlePeriode.erreur(j(2010, 1, 1), j(2026, 1, 1), maintenant), 'Période trop longue (3 ans au maximum).');
     });
+  });
+
+  group('Suivi Péremption : période en mois (nbreMois du serveur)', () {
+    final m = DateTime(2026, 10, 14, 9);
+    test('vide ou 0 : lots déjà périmés (sens du serveur)', () {
+      expect(resumePeriodePeremption('', m), startsWith('Lots déjà périmés'));
+      expect(resumePeriodePeremption('0', m), startsWith('Lots déjà périmés'));
+    });
+    test('N mois : d\'aujourd\'hui à aujourd\'hui + N mois', () {
+      expect(resumePeriodePeremption('6', m), 'Lots qui périment du 14/10/2026 au 14/04/2027');
+      expect(resumePeriodePeremption('24', m), 'Lots qui périment du 14/10/2026 au 14/10/2028');
+      expect(resumePeriodePeremption('1', DateTime(2026, 1, 31)), 'Lots qui périment du 31/01/2026 au 28/02/2026', reason: 'fin de mois');
+    });
+    test('puces proposées : 1, 3, 6, 12, 24 mois', () => expect(moisProposes, ['1', '3', '6', '12', '24']));
   });
 }

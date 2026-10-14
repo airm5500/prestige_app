@@ -1,5 +1,5 @@
 // lib/nouvelle_interface/modules/commun.dart
-// Briques COMMUNES aux modules refaits de la nouvelle interface (lot 1) :
+// Briques COMMUNES aux modules refaits de la nouvelle interface (lot 1) et aux nouveaux menus (vague 1) :
 //  - chargement suivi : une seule requête « vivante » par écran ; la réponse d'une requête remplacée (nouvelle
 //    période, nouvelle recherche, Réessayer) est ignorée ;
 //  - états clairs : chargement, vide, erreur avec « Réessayer », qui distingue serveur injoignable, délai, session
@@ -147,34 +147,38 @@ class DiagnosticErreur {
       NatureErreur.session =>
         const DiagnosticErreur(CauseErreur.session, 'Session expirée', 'Votre session a expiré : reconnectez-vous.', Icons.lock_clock),
       NatureErreur.serveur => DiagnosticErreur(CauseErreur.serveur, 'Erreur du serveur', e.message, Icons.dns_outlined),
-      NatureErreur.droit => DiagnosticErreur(CauseErreur.droit, 'Accès refusé', e.message, Icons.block),
+      NatureErreur.droit => DiagnosticErreur(CauseErreur.droit, 'Droit manquant', e.message, Icons.lock_outline),
       NatureErreur.refus || NatureErreur.reponse => DiagnosticErreur(CauseErreur.autre, 'Chargement impossible', e.message, Icons.error_outline),
     };
   }
 }
 
-/// Échec de chargement : cause en titre, explication, « Réessayer ».
+/// Échec de chargement : cause en titre, explication, « Réessayer » (sauf droit manquant : réessayer ne changerait
+/// rien ; sauf aussi sans [reessayer]).
 class EtatErreur extends StatelessWidget {
   final Object erreur;
-  final VoidCallback reessayer;
-  const EtatErreur({super.key = const Key('etat_erreur'), required this.erreur, required this.reessayer});
+  final VoidCallback? reessayer;
+  const EtatErreur({super.key = const Key('etat_erreur'), required this.erreur, this.reessayer});
 
   @override
   Widget build(BuildContext context) {
     final d = DiagnosticErreur.de(erreur);
+    final droit = d.cause == CauseErreur.droit;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-        Encadre(titre: d.titre, texte: d.message, icone: d.icone, cleTitre: Key('erreur_${d.cause.name}')),
-        const SizedBox(height: 12),
-        Center(
-          child: ElevatedButton.icon(
-            key: const Key('bouton_reessayer'),
-            onPressed: reessayer,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
+        Encadre(titre: d.titre, texte: d.message, icone: d.icone, avertissement: droit, cleTitre: Key('erreur_${d.cause.name}')),
+        if (reessayer != null && !droit) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: ElevatedButton.icon(
+              key: const Key('bouton_reessayer'),
+              onPressed: reessayer,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
           ),
-        ),
+        ],
       ]),
     );
   }
@@ -377,6 +381,62 @@ class ListeOuTableau extends StatelessWidget {
       });
 }
 
+/// Puces à choix unique (type, regroupement…) : bleu nuit et texte blanc si choisie, sans coche.
+class PucesChoix<T> extends StatelessWidget {
+  final List<(T, String)> choix;
+  final T valeur;
+  final ValueChanged<T> onChanged;
+
+  /// Clé de chaque puce (tests).
+  final Key Function(T valeur, String libelle)? cle;
+  const PucesChoix({super.key, required this.choix, required this.valeur, required this.onChanged, this.cle});
+
+  @override
+  Widget build(BuildContext context) => Wrap(spacing: 8, runSpacing: 0, children: [
+        for (final (v, libelle) in choix)
+          ChoiceChip(
+            key: cle?.call(v, libelle),
+            label: Text(libelle, style: TextStyle(color: v == valeur ? Charte.blanc : Charte.navy)),
+            selected: v == valeur,
+            showCheckmark: false,
+            onSelected: (_) => onChanged(v),
+          ),
+      ]);
+}
+
+/// Bandeau « 12 lignes affichées sur 230 » et bouton « Afficher plus » (pagination explicite : un appel par appui).
+class PiedPagination extends StatelessWidget {
+  final int affichees;
+  final int total;
+  final bool enCours;
+  final VoidCallback onPlus;
+  const PiedPagination({super.key, required this.affichees, required this.total, required this.enCours, required this.onPlus});
+
+  @override
+  Widget build(BuildContext context) {
+    final reste = total - affichees;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(children: [
+        Text('${formaterNombre(affichees)} ${affichees > 1 ? 'lignes affichées' : 'ligne affichée'} sur ${formaterNombre(total)}',
+            style: const TextStyle(color: Charte.gris)),
+        if (reste > 0) ...[
+          const SizedBox(height: 8),
+          enCours
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+              : OutlinedButton.icon(
+                  key: const Key('bouton_afficher_plus'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                  onPressed: onPlus,
+                  icon: const Icon(Icons.expand_more),
+                  label: Text('Afficher plus (${formaterNombre(reste)})'),
+                ),
+        ],
+      ]),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Filtres (feuille du bas) et exports (menu unique)
 // ---------------------------------------------------------------------------------------------------------------
@@ -409,6 +469,8 @@ Future<bool> ouvrirFeuilleFiltres(
   required Widget Function(BuildContext context, StateSetter setState) contenu,
   required VoidCallback effacer,
   bool Function()? valider,
+  String libelleEffacer = 'Effacer',
+  String libelleAppliquer = 'Appliquer',
 }) async {
   final r = await showModalBottomSheet<bool>(
     context: context,
@@ -432,7 +494,7 @@ Future<bool> ouvrirFeuilleFiltres(
                   key: const Key('filtres_effacer'),
                   style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   onPressed: () => setState(effacer),
-                  child: const Text('Effacer'),
+                  child: Text(libelleEffacer, textAlign: TextAlign.center),
                 ),
               ),
               const SizedBox(width: 12),
@@ -444,7 +506,7 @@ Future<bool> ouvrirFeuilleFiltres(
                     if (valider != null && !valider()) return;
                     Navigator.of(ctx).pop(true);
                   },
-                  child: const Text('Appliquer'),
+                  child: Text(libelleAppliquer, textAlign: TextAlign.center),
                 ),
               ),
             ]),

@@ -185,6 +185,19 @@ void main() {
     expect(serveur.recues(AppConstants.suiviPeremptionEndpoint).last.parametres, containsPair('nbreMois', '3'));
     expect(serveur.recues(AppConstants.suiviPeremptionEndpoint).last.parametres, containsPair('query', 'sirop'));
     await stabiliser(tester);
+    expect(find.text('3 mois'), findsOneWidget, reason: 'saisie « Autre » rappelée dans les puces de période');
+
+    // Période en mois par les puces : 6 mois → nbreMois=6 ; « Déjà périmés » → nbreMois vide (comme l'origine).
+    await tester.tap(find.byKey(const Key('periode_mois_6')));
+    await attendreQue(tester, () => serveur.recues(AppConstants.suiviPeremptionEndpoint).length == 4, raison: '6 mois');
+    expect(serveur.recues(AppConstants.suiviPeremptionEndpoint).last.parametres, containsPair('nbreMois', '6'));
+    expect(tester.widget<Text>(find.byKey(const Key('periode_mois_resume'))).data, startsWith('Lots qui périment du '));
+    await stabiliser(tester);
+    await tester.tap(find.byKey(const Key('periode_mois_perimes')));
+    await attendreQue(tester, () => serveur.recues(AppConstants.suiviPeremptionEndpoint).length == 5, raison: 'déjà périmés');
+    expect(serveur.recues(AppConstants.suiviPeremptionEndpoint).last.parametres['nbreMois'] ?? '', '');
+    expect(tester.widget<Text>(find.byKey(const Key('periode_mois_resume'))).data, startsWith('Lots déjà périmés'));
+    await stabiliser(tester);
 
     // Icône du menu visible sur la barre bleu nuit (blanche, pas la couleur bleu nuit du thème des menus).
     expect(tester.widget<Icon>(find.descendant(of: find.byKey(const Key('menu_exports')), matching: find.byType(Icon))).color, Charte.blanc);
