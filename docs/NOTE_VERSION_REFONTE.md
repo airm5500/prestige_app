@@ -1,5 +1,7 @@
 # Prestige Pharmacien 3.0.0 — nouvelle interface (étape 3)
 
+> **Mise à jour 3.0.0+27** : Réglages ouverts par le bouton engrenage de l'accueil (barre du bas Accueil · Analyses · Équipe), « Fournisseurs » retiré de la nouvelle interface, six modules refaits : voir `NOTE_VERSION_LOT1.md`.
+>
 > **Mise à jour 3.0.0+26** : nombre des alertes de l'accueil A compté à la demande (voir « Alertes à surveiller »).
 
 L'application change d'apparence : **même charte que Prestige Vente** (bleu nuit, bouton principal ambre,
