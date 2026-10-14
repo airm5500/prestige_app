@@ -1,7 +1,9 @@
 // Bout en bout des modules refaits du LOT 4 (« le reste », nouvelle interface) : l'application ENTIÈRE parle en HTTP
 // réel au faux serveur Prestige local. Pour chaque module : ouverture depuis l'accueil (recherche de menu,
 // présentation B), chiffres clés, période, filtres (feuille du bas) ou recherche locale, détail, récapitulatif,
-// retour à l'accueil. Ces modules n'avaient AUCUN export : pas de menu « Exporter » (vérifié).
+// retour à l'accueil. Ces modules n'avaient AUCUN export : pas de menu « Exporter » (vérifié), sauf le Récap de
+// caisse depuis la 3.6.1 (PDF du ticket Z, demande du pharmacien). Fichier Journal (3.6.1) : pages de 50 demandées au
+// serveur (start / limit, mêmes filtres), « Afficher plus » : 50 puis 100.
 // Annulation de vente (écriture IRRÉVERSIBLE) : « Ne pas annuler » = aucun envoi ; double appui = UN seul envoi ;
 // compte ni administrateur ni pharmacien → code administrateur demandé (refusé = aucun envoi, accepté = un envoi) ;
 // refus du serveur affiché ; journal sans référence, client ni montant ; session expirée pendant l'annulation.
@@ -9,6 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
+import 'package:prestige_app/donnees/recap_caisse_pdf.dart';
 import 'package:prestige_app/models/user_model.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/composants.dart';
@@ -24,6 +27,7 @@ import 'package:prestige_app/utils/constants.dart';
 
 import '../support/application.dart';
 import '../support/catalogue_ecrans.dart';
+import '../support/donnees_fictives.dart';
 import '../support/donnees_lot4.dart';
 import '../support/faux_serveur_prestige.dart';
 import '../support/nouvelle_interface.dart';
@@ -48,14 +52,19 @@ Future<void> retourSysteme(WidgetTester tester) async {
 
 ModuleLot1 module(String tuile) => modulesLot4.firstWhere((m) => m.tuile == tuile);
 
-/// Ouvre [m] par la recherche de menu de l'accueil B et attend son nouvel écran (sans menu « Exporter »).
+/// Ouvre [m] par la recherche de menu de l'accueil B et attend son nouvel écran (menu « Exporter » : Récap de caisse
+/// seulement, PDF du ticket Z depuis la 3.6.1).
 Future<void> ouvrir(WidgetTester tester, ModuleLot1 m) async {
   await tester.enterText(find.byKey(const Key('recherche_menu')), m.tuile);
   await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text(m.tuile)).first);
   await attendreWidget(tester, find.byType(m.typeNouveau));
   expect(find.widgetWithText(AppBar, m.titreEcran), findsOneWidget);
-  expect(find.byKey(const Key('menu_exports')), findsNothing, reason: 'aucun export à l\'origine');
+  if (m.tuile == 'Récap de caisse') {
+    expect(find.byKey(const Key('menu_exports')), findsOneWidget, reason: 'PDF du ticket Z (3.6.1)');
+  } else {
+    expect(find.byKey(const Key('menu_exports')), findsNothing, reason: 'aucun export à l\'origine');
+  }
 }
 
 Future<void> revenir(WidgetTester tester, ModuleLot1 m) async {
@@ -232,7 +241,8 @@ void main() {
     final m = module('Fichier Journal');
     await ouvrir(tester, m);
     await attendreWidget(tester, find.byKey(const Key('chiffre_actions')));
-    expect(serveur.recues(route).single.parametres, {'dtStart': jour(aujourdhui), 'dtEnd': jour(aujourdhui), 'criteria': '-1', 'userId': '', 'limit': '200'});
+    expect(serveur.recues(route).single.parametres,
+        {'dtStart': jour(aujourdhui), 'dtEnd': jour(aujourdhui), 'criteria': '-1', 'userId': '', 'start': '0', 'limit': '50'});
     expect(chiffre(tester, 'actions'), '6');
     await filtrer(tester, () async {
       await choisirDansListe(tester, find.byKey(const Key('filtre_operation')), 'Annulations');
@@ -257,6 +267,109 @@ void main() {
     await tester.tap(lien.last);
     await attendreWidget(tester, find.byType(FichierJournalNouveau));
     await retourSysteme(tester);
+    await terminer(tester);
+  });
+
+  testWidgets('Fichier Journal (3.6.1) : 50 actions, « Afficher plus » → 100 (page suivante du serveur, mêmes filtres)', (tester) async {
+    telephone(tester);
+    const route = AppConstants.fichierJournalEndpoint;
+    serveur.route(route, (r) => DonneesLot4.journalPour(r, nombre: 120), methode: 'GET');
+    await jusquAccueilNouveau(tester);
+    final m = module('Fichier Journal');
+    await ouvrir(tester, m);
+    await attendreWidget(tester, find.byKey(const Key('chiffre_actions')));
+    final du = {'dtStart': jour(aujourdhui), 'dtEnd': jour(aujourdhui), 'criteria': '-1', 'userId': ''};
+    expect(serveur.recues(route).single.parametres, {...du, 'start': '0', 'limit': '50'});
+    expect(chiffre(tester, 'actions'), '120', reason: 'total annoncé par le serveur');
+    expect(find.byKey(const Key('journal_limite')), findsNothing, reason: 'le serveur pagine : aucune limite');
+    await amener(tester, find.byKey(const Key('bouton_afficher_plus')));
+    expect(find.text('50 lignes affichées sur 120'), findsOneWidget);
+    await toucher(tester, find.byKey(const Key('bouton_afficher_plus')));
+    await attendreQue(tester, () => serveur.recues(route).length == 2, raison: 'page suivante');
+    expect(serveur.recues(route).last.parametres, {...du, 'start': '50', 'limit': '50'});
+    await amener(tester, find.text('100 lignes affichées sur 120'));
+    await toucher(tester, find.byKey(const Key('bouton_afficher_plus')));
+    await attendreQue(tester, () => serveur.recues(route).length == 3, raison: 'dernière page');
+    expect(serveur.recues(route).last.parametres, {...du, 'start': '100', 'limit': '50'});
+    await amener(tester, find.text('120 lignes affichées sur 120'));
+    expect(find.byKey(const Key('bouton_afficher_plus')), findsNothing, reason: 'tout est chargé');
+
+    // Filtre : nouvelle lecture depuis le début, puis page suivante avec les MÊMES filtres.
+    await tester.drag(find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first, const Offset(0, 30000));
+    await stabiliser(tester, tours: 2);
+    await filtrer(tester, () => choisirDansListe(tester, find.byKey(const Key('filtre_operation')), 'Annulations'));
+    await attendreQue(tester, () => serveur.recues(route).length == 4, raison: 'filtre');
+    expect(serveur.recues(route).last.parametres, {...du, 'criteria': '4', 'start': '0', 'limit': '50'});
+    await stabiliser(tester);
+    expect(chiffre(tester, 'actions'), '60');
+    await amener(tester, find.byKey(const Key('bouton_afficher_plus')));
+    await toucher(tester, find.byKey(const Key('bouton_afficher_plus')));
+    await attendreQue(tester, () => serveur.recues(route).length == 5, raison: 'page suivante filtrée');
+    expect(serveur.recues(route).last.parametres, {...du, 'criteria': '4', 'start': '50', 'limit': '50'});
+    await amener(tester, find.text('60 lignes affichées sur 60'));
+    await revenir(tester, m);
+    await terminer(tester);
+  });
+
+  testWidgets('Récap de caisse (3.6.1) : Exporter → PDF du ticket Z, mêmes montants que l\'écran, aucune requête', (tester) async {
+    telephone(tester);
+    final sorties = <(ContenuTicketZ, String)>[];
+    final avant = RecapCaissePdf.sortie;
+    RecapCaissePdf.sortie = (c, nom) async => sorties.add((c, nom));
+    addTearDown(() => RecapCaissePdf.sortie = avant);
+    await jusquAccueilNouveau(tester);
+    final m = module('Récap de caisse');
+    await ouvrir(tester, m);
+    await attendreWidget(tester, find.byKey(const Key('chiffre_caissiers')));
+    await stabiliser(tester);
+    final ecran = {
+      for (final id in ['caissiers', 'especes', 'vno_vo', 'totaux']) id: chiffre(tester, id),
+    };
+    final requetes = serveur.recues(routeTicket).length;
+
+    await toucher(tester, find.byKey(const Key('menu_exports')));
+    expect(find.text('PDF du ticket Z'), findsOneWidget);
+    await toucher(tester, find.text('PDF du ticket Z'));
+    await attendreQue(tester, () => sorties.isNotEmpty, raison: 'PDF produit');
+    final (contenu, nom) = sorties.single;
+    expect(nom, 'Ticket_Z_${jour(aujourdhui)}');
+    expect(serveur.recues(routeTicket), hasLength(requetes), reason: 'aucune requête : le PDF reprend l\'écran');
+    expect(contenu.officine, DonneesFictives.nomOfficine);
+    expect(contenu.caissier, 'Tous les utilisateurs');
+    expect(contenu.heures, 'de 00:00 à 23:59');
+    expect(contenu.periode, startsWith('Aujourd\'hui · '));
+    expect(contenu.chiffres, [
+      ('Caissiers', ecran['caissiers']),
+      ('Espèces', ecran['especes']),
+      ('Total (VNO/VO)', ecran['vno_vo']),
+      ('Totaux globaux', ecran['totaux']),
+    ]);
+    expect(contenu.lignes, containsAllInOrder([
+      'Espèces : ${DonneesLot4.totalEsp} F',
+      'TOTAL ESP : ${DonneesLot4.totalEsp} F',
+      'TOTAL DIFFERE : -2 000 F',
+      'TOTAL (VNO/VO) : ${DonneesLot4.totalVnoVo} F',
+      DonneesLot4.caissier1,
+      'Espèces : 125 000 F',
+      'Total encaissé : 143 400 F',
+      DonneesLot4.caissier2,
+      'Total Sortie Vir : -1 500 F',
+    ]));
+    // Le PDF lui-même se fabrique (A4, en-tête de l'officine).
+    final octets = await tester.runAsync(() => RecapCaissePdf.octets(contenu, compresser: false));
+    expect(String.fromCharCodes(octets!.take(5)), '%PDF-');
+
+    // Filtre caissier et heures : repris dans le PDF.
+    await filtrer(tester, () => choisirDansListe(tester, find.byKey(const Key('filtre_caissier')), DonneesLot4.caissier2));
+    await attendreQue(tester, () => serveur.recues(routeTicket).length == requetes + 1, raison: 'caissier');
+    await stabiliser(tester);
+    await toucher(tester, find.byKey(const Key('menu_exports')));
+    await toucher(tester, find.text('PDF du ticket Z'));
+    await attendreQue(tester, () => sorties.length == 2, raison: 'second PDF');
+    expect(sorties.last.$1.caissier, DonneesLot4.caissier2);
+    expect(sorties.last.$1.caissiers.map((c) => c.nom), [DonneesLot4.caissier2]);
+    expect(sorties.last.$1.chiffres.first, ('Caissiers', '1'));
+    await revenir(tester, m);
     await terminer(tester);
   });
 

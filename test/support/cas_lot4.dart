@@ -1,6 +1,7 @@
 // États des modules refaits du LOT 4 (« le reste » : Récap de caisse, Achats Fourn., Fichier Journal, Annulation
 // Ventes) rendus par les tests d'ergonomie et de cohérence de la nouvelle interface : écrans remplis, feuilles de
-// filtres, détails, récapitulatif, limite du journal, détail d'une vente, confirmation renforcée (vide et complète),
+// filtres, détails, récapitulatif, menu Exporter du Récap (PDF), pages du journal (50 puis 100 sur 120), limite du
+// serveur sans pagination, détail d'une vente, confirmation renforcée (vide et complète),
 // code administrateur, vente annulée, erreurs. Écrans propres à la nouvelle interface : aucun écart toléré.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +77,7 @@ final casLot4 = <CasAffichage>[
   // Récap de caisse
   CasAffichage('Lot 4 · Récap de caisse rempli', _lot4(() => const RecapCaisseNouveau())),
   CasAffichage('Lot 4 · Récap de caisse filtres', _lot4(() => const RecapCaisseNouveau(), ensuite: _filtres)),
+  CasAffichage('Lot 4 · Récap de caisse menu Exporter', _lot4(() => const RecapCaisseNouveau(), ensuite: toucher(find.byKey(const Key('menu_exports'))))),
   CasAffichage('Lot 4 · Récap de caisse vide',
       _lot4(() => const RecapCaisseNouveau(), donnees: (s) => s.quand('/caisse/fetch-tickez', ReponseFausse.json({'success': true}), methode: 'POST'))),
   // Achats fournisseurs
@@ -91,10 +93,24 @@ final casLot4 = <CasAffichage>[
   CasAffichage('Lot 4 · Fichier Journal filtres', _lot4(() => const FichierJournalNouveau(), ensuite: _filtres)),
   CasAffichage('Lot 4 · Fichier Journal détail',
       _lot4(() => const FichierJournalNouveau(), ensuite: defilerPuisToucher(() => find.text('Action fictive N2'), attendu: 'feuille_detail'))),
+  // 3.6.1 : pages de 50 (« Afficher plus » → page suivante du serveur) ; serveur sans pagination → avertissement.
   CasAffichage(
-      'Lot 4 · Fichier Journal limite de 200',
+      'Lot 4 · Fichier Journal 50 sur 120',
       _lot4(() => const FichierJournalNouveau(),
-          donnees: (s) => s.route('/common/logs', (r) => ReponseFausse.json(DonneesLot4.journal(criteria: '-1', userId: '', nombre: 200)), methode: 'GET'))),
+          donnees: (s) => s.route('/common/logs', (r) => DonneesLot4.journalPour(r, nombre: 120), methode: 'GET'),
+          ensuite: voir('bouton_afficher_plus', defilement: 'defilement_module'))),
+  CasAffichage(
+      'Lot 4 · Fichier Journal 100 sur 120',
+      _lot4(() => const FichierJournalNouveau(),
+          donnees: (s) => s.route('/common/logs', (r) => DonneesLot4.journalPour(r, nombre: 120), methode: 'GET'),
+          ensuite: puis([
+            defilerPuisToucher(() => find.byKey(const Key('bouton_afficher_plus'))),
+            voir('bouton_afficher_plus', defilement: 'defilement_module'),
+          ]))),
+  CasAffichage(
+      'Lot 4 · Fichier Journal limite du serveur',
+      _lot4(() => const FichierJournalNouveau(),
+          donnees: (s) => s.route('/common/logs', (r) => DonneesLot4.journalPour(r, nombre: 200, avecTotal: false), methode: 'GET'))),
   // Annulation Ventes
   CasAffichage('Lot 4 · Annulation recherche', _lot4(() => const AnnulationVentesNouveau(), recherche: '261013')),
   CasAffichage('Lot 4 · Annulation détail de la vente', _lot4(() => const AnnulationVentesNouveau(), recherche: '261013', ensuite: _ouvrirVenteA)),

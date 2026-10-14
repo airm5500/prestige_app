@@ -90,7 +90,10 @@ class DonneesLot4 {
         {'strDESCRIPTION': 'Ventes', 'order': 1},
         {'strDESCRIPTION': 'Annulations', 'order': 4},
       ];
-  static Map<String, Object?> journal({required String criteria, required String userId, int nombre = 6}) {
+  /// Journal fictif, paginé comme le vrai serveur (LogServiceImpl : `start` / `limit`, « total » = nombre d'actions
+  /// correspondant aux filtres). [avecTotal] = false : serveur qui ne pagine pas (ni start, ni limit, ni total).
+  static Map<String, Object?> journal(
+      {required String criteria, required String userId, int nombre = 6, int start = 0, int? limit, bool avecTotal = true}) {
     final lignes = <Map<String, Object?>>[
       for (var i = 0; i < nombre; i++)
         {
@@ -101,15 +104,25 @@ class DonneesLot4 {
           'strDESCRIPTION': 'Action fictive N${i + 1}',
         },
     ];
-    return {
-      'data': [
-        for (final l in lignes)
-          if ((criteria == '-1' || (criteria == '4') == (l['strTYPELOG'] == 'Annulation')) &&
-              (userId.isEmpty || (userId == 'USR-C2') == (l['userFullName'] == caissier2)))
-            l,
-      ],
-    };
+    final tout = [
+      for (final l in lignes)
+        if ((criteria == '-1' || (criteria == '4') == (l['strTYPELOG'] == 'Annulation')) &&
+            (userId.isEmpty || (userId == 'USR-C2') == (l['userFullName'] == caissier2)))
+          l,
+    ];
+    if (!avecTotal) return {'data': tout};
+    return {'total': tout.length, 'data': tout.skip(start).take(limit ?? tout.length).toList()};
   }
+
+  /// Réponse de /common/logs pour la requête [r] (filtres, start, limit), avec [nombre] actions en tout.
+  static ReponseFausse journalPour(RequeteRecue r, {int nombre = 6, bool avecTotal = true}) => ReponseFausse.json(journal(
+        criteria: r.parametres['criteria'] ?? '-1',
+        userId: r.parametres['userId'] ?? '',
+        nombre: nombre,
+        start: int.tryParse(r.parametres['start'] ?? '') ?? 0,
+        limit: int.tryParse(r.parametres['limit'] ?? ''),
+        avecTotal: avecTotal,
+      ));
 
   // --- Annulation de ventes ---
   static const idA = 'b097fac5-0000-4000-8000-00000000000a';
@@ -169,9 +182,7 @@ void donneesLot4(FauxServeurPrestige s) {
     ..quand('/fournisseurs', ReponseFausse.json(DonneesLot4.fournisseurs()), methode: 'GET')
     ..quand('/achats-fournisseurs', ReponseFausse.json(DonneesLot4.achats()), methode: 'GET')
     ..quand('/common/log-filtres', ReponseFausse.json({'data': DonneesLot4.operations()}), methode: 'GET')
-    ..route('/common/logs',
-        (r) => ReponseFausse.json(DonneesLot4.journal(criteria: r.parametres['criteria'] ?? '-1', userId: r.parametres['userId'] ?? '')),
-        methode: 'GET')
+    ..route('/common/logs', (r) => DonneesLot4.journalPour(r), methode: 'GET')
     ..route('/ventestats', (r) => ReponseFausse.json(DonneesLot4.ventes(r.parametres['query'] ?? '')), methode: 'GET');
   for (final id in [DonneesLot4.idA, DonneesLot4.idB]) {
     s

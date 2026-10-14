@@ -5,12 +5,17 @@
 // serveur, affichés tels quels (aucun recalcul). Mise en page refaite : période commune chargée dès l'ouverture
 // (« Aujourd'hui », 00:00 → 23:59, tous les caissiers : valeurs par défaut d'origine), caissier et heures dans la
 // feuille des filtres, chiffres clés, totaux globaux (carte sur téléphone, tableau dense sur tablette), une carte par
-// caissier (deux colonnes sur tablette). Aucun export à l'origine : pas de menu « Exporter ».
+// caissier (deux colonnes sur tablette). Menu « Exporter » (3.6.1, demande du pharmacien) : PDF A4 du ticket Z
+// (RecapCaissePdf, lib/donnees/recap_caisse_pdf.dart) avec les textes exacts de l'écran (période, caissier et heures
+// du récapitulatif affiché, chiffres en tête, totaux, détail par caissier), aucune requête ni aucun recalcul.
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../donnees/recap_caisse_donnees.dart';
+import '../../donnees/recap_caisse_pdf.dart';
 import '../../models/common_data_model.dart';
 import '../../models/ticket_z_model.dart';
+import '../../providers/auth_provider.dart';
 import '../charte.dart';
 import '../composants.dart';
 import '../vague1/donnees_vague1.dart' show OptionListe;
@@ -56,9 +61,55 @@ class _RecapCaisseNouveauState extends State<RecapCaisseNouveau> with Chargement
     }
   }
 
-  Future<void> _charger() => charger(() => RecapCaisse.charger(
-      context,
-      RecapCaisse.corps(debut: _periode.debut, fin: _periode.fin, heureDebut: _heureDebut, heureFin: _heureFin, userId: _caissier)));
+  /// Critères du récapitulatif affiché (repris par le PDF, même si les filtres changent pendant une lecture).
+  ({Periode periode, String caissier, String heures})? _criteresLus;
+
+  Future<void> _charger() {
+    _criteresLus = (
+      periode: _periode,
+      caissier: _caissier == RecapCaisse.tous ? RecapCaisse.libelleTous : _nomCaissier,
+      heures: 'de ${RecapCaisse.heure(_heureDebut)} à ${RecapCaisse.heure(_heureFin)}',
+    );
+    return charger(() => RecapCaisse.charger(
+        context, RecapCaisse.corps(debut: _periode.debut, fin: _periode.fin, heureDebut: _heureDebut, heureFin: _heureFin, userId: _caissier)));
+  }
+
+  /// Chiffres clés (libellé, valeur, id) : les mêmes à l'écran et dans le PDF.
+  static List<(String, String, String)> chiffres(TicketZResponse r) {
+    final especes = RecapCaisse.totalGlobal(r, 'TOTAL ESP');
+    final vnoVo = RecapCaisse.totalVnoVo(r);
+    return [
+      ('Caissiers', formaterNombre(r.datas.length), 'caissiers'),
+      ('Espèces', especes == null ? '—' : _montant(especes), 'especes'),
+      if (vnoVo != null) ('Total (VNO/VO)', _montant(vnoVo), 'vno_vo'),
+      ('Totaux globaux', formaterNombre(r.totauxGlobaux.length), 'totaux'),
+    ];
+  }
+
+  /// PDF du ticket Z affiché (impression / partage du système).
+  Future<void> _pdf() async {
+    final r = donnees;
+    final c = _criteresLus;
+    if (enCours || r == null || c == null || RecapCaisse.estVide(r)) {
+      messageResultat(context, 'Aucune donnée à exporter', echec: true);
+      return;
+    }
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final contenu = ContenuTicketZ.depuis(
+      r,
+      officine: auth.officine?.nomComplet ?? auth.user?.officineName ?? 'Officine',
+      periode: c.periode.resume,
+      caissier: c.caissier,
+      heures: c.heures,
+      imprimeLe: widget.maintenant(),
+      chiffres: [for (final (l, v, _) in chiffres(r)) (l, v)],
+    );
+    try {
+      await RecapCaissePdf.sortie(contenu, RecapCaissePdf.nom(c.periode.debut, c.periode.fin));
+    } catch (_) {
+      if (mounted) messageResultat(context, 'Erreur lors de la préparation du PDF.', echec: true);
+    }
+  }
 
   void _changerPeriode(Periode p) {
     setState(() => _periode = p);
@@ -184,6 +235,7 @@ class _RecapCaisseNouveauState extends State<RecapCaisseNouveau> with Chargement
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Récap de caisse'), actions: [
           BoutonFiltres(actifs: _actifs, onPressed: _filtres),
+          MenuExports(actions: [ActionExport('PDF du ticket Z', Icons.picture_as_pdf_outlined, _pdf)]),
         ]),
         body: RefreshIndicator(
           onRefresh: _charger,
@@ -199,8 +251,7 @@ class _RecapCaisseNouveauState extends State<RecapCaisseNouveau> with Chargement
         ),
       );
 
-  /// « 125 000 F » à partir du montant déjà formaté par le serveur.
-  static String _montant(String m) => m.trim().isEmpty ? '—' : '${m.trim()} F';
+  static String _montant(String m) => RecapCaisse.montant(m);
 
   static Widget _ligne(TicketZAmount a, {bool gras = false}) {
     final vnoVo = RecapCaisse.estTotalVnoVo(a.modeLibelle);
@@ -215,14 +266,10 @@ class _RecapCaisseNouveauState extends State<RecapCaisseNouveau> with Chargement
     if (r == null || RecapCaisse.estVide(r)) {
       return const [EtatVide(titre: 'Aucune donnée pour cette période', texte: 'Choisissez une autre période ou un autre caissier.', icone: Icons.point_of_sale_outlined)];
     }
-    final especes = RecapCaisse.totalGlobal(r, 'TOTAL ESP');
-    final vnoVo = r.totauxGlobaux.where((t) => RecapCaisse.estTotalVnoVo(t.modeLibelle)).map((t) => t.montant).firstOrNull;
     return [
       GrilleKpi([
-        ChiffreCle(libelle: 'Caissiers', valeur: formaterNombre(r.datas.length), id: 'caissiers'),
-        ChiffreCle(libelle: 'Espèces', valeur: especes == null ? '—' : _montant(especes), id: 'especes', enAvant: true),
-        if (vnoVo != null) ChiffreCle(libelle: 'Total (VNO/VO)', valeur: _montant(vnoVo), id: 'vno_vo'),
-        ChiffreCle(libelle: 'Totaux globaux', valeur: formaterNombre(r.totauxGlobaux.length), id: 'totaux', detail: 'modes et totaux'),
+        for (final (l, v, id) in chiffres(r))
+          ChiffreCle(libelle: l, valeur: v, id: id, enAvant: id == 'especes', detail: id == 'totaux' ? 'modes et totaux' : null),
       ]),
       if (r.totauxGlobaux.isNotEmpty) ...[
         const TitreSection('Totaux globaux'),

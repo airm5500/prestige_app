@@ -3,11 +3,15 @@
 //   CAPTURES_LOT4=1 flutter test test/lot4_captures_test.dart --update-goldens
 // Fichiers produits : docs/maquettes/captures_lot4/*.png, téléphone 1080 × 2400 px (411 × 914 dp), plus des
 // captures tablette 1920 × 1200 px (tableau dense). Même mécanisme que lot3_captures_test.dart.
+// 3.6.1 : menu « Exporter » du Récap de caisse et PDF du ticket Z produit (1e_ticket_z_exemple.pdf, données fictives ;
+// son aperçu PNG 1e_recap_caisse_pdf.png est tiré de ce PDF hors test), pages du journal (50 puis 100 sur 120),
+// avertissement d'un serveur sans pagination.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/donnees/recap_caisse_pdf.dart';
 import 'package:prestige_app/models/user_model.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
@@ -125,6 +129,15 @@ void main() {
     await toucher(tester, find.byKey(const Key('bouton_filtres')));
     await photo(tester, '1c_recap_caisse_filtres');
     await retour(tester);
+    await toucher(tester, find.byKey(const Key('menu_exports')));
+    await photo(tester, '1d_recap_caisse_exporter');
+    final avant = RecapCaissePdf.sortie;
+    ContenuTicketZ? contenu;
+    RecapCaissePdf.sortie = (c, _) async => contenu = c;
+    await toucher(tester, find.text('PDF du ticket Z'));
+    RecapCaissePdf.sortie = avant;
+    await tester.runAsync(() async =>
+        File('docs/maquettes/captures_lot4/1e_ticket_z_exemple.pdf').writeAsBytesSync(await RecapCaissePdf.octets(contenu!)));
     await retour(tester);
 
     // 2. Achats fournisseurs : liste, filtre, détail, récapitulatif.
@@ -141,7 +154,7 @@ void main() {
     await retour(tester);
     await retour(tester);
 
-    // 3. Fichier Journal : liste, filtres, détail ; limite de 200 actions.
+    // 3. Fichier Journal : liste, filtres, détail ; pages de 50 ; serveur sans pagination.
     await ouvrir(tester, 'Fichier Journal');
     await photo(tester, '3_journal');
     await toucher(tester, find.byKey(const Key('bouton_filtres')));
@@ -151,9 +164,19 @@ void main() {
     await photo(tester, '3c_journal_detail');
     await retour(tester);
     await retour(tester);
-    serveur.route('/common/logs', (r) => ReponseFausse.json(DonneesLot4.journal(criteria: '-1', userId: '', nombre: 200)), methode: 'GET');
+    // Pages de 50 : « Afficher plus » demande la page suivante au serveur.
+    serveur.route('/common/logs', (r) => DonneesLot4.journalPour(r, nombre: 120), methode: 'GET');
     await ouvrir(tester, 'Fichier Journal');
-    await photo(tester, '3d_journal_limite_200');
+    await amener(tester, find.byKey(const Key('bouton_afficher_plus')), alignement: 0.8);
+    await photo(tester, '3d_journal_50_sur_120');
+    await toucher(tester, find.byKey(const Key('bouton_afficher_plus')));
+    await amener(tester, find.byKey(const Key('bouton_afficher_plus')), alignement: 0.8);
+    await photo(tester, '3e_journal_100_sur_120');
+    await retour(tester);
+    // Serveur sans pagination (pas de « total ») : avertissement gardé.
+    serveur.route('/common/logs', (r) => DonneesLot4.journalPour(r, nombre: 200, avecTotal: false), methode: 'GET');
+    await ouvrir(tester, 'Fichier Journal');
+    await photo(tester, '3f_journal_limite_serveur');
     await retour(tester);
 
     // 4. Annulation : recherche, détail, confirmation (vide puis complète), code administrateur, vente annulée.

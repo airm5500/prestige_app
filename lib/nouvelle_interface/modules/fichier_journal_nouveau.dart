@@ -1,12 +1,15 @@
 // lib/nouvelle_interface/modules/fichier_journal_nouveau.dart
 // Fichier Journal (actions des utilisateurs) de la nouvelle interface, en LECTURE SEULE comme l'écran d'origine.
 // Mêmes données (JournalDonnees, lib/donnees/fichier_journal_donnees.dart) : opérations GET /common/log-filtres,
-// utilisateurs GET /common/users, journal GET /common/logs?dtStart=&dtEnd=&criteria=&userId=&limit=200. Mise en page
-// refaite : période commune chargée dès l'ouverture (« Aujourd'hui », toutes opérations, tous utilisateurs : valeurs
-// par défaut d'origine), opération et utilisateur dans la feuille des filtres (envoyés au serveur, comme avant),
-// recherche contrôlée LOCALE (description, type, utilisateur ; aucune requête), chiffres clés, avertissement quand la
-// limite de 200 actions du serveur est atteinte, cartes (téléphone) ou tableau dense (tablette) construits 50 par 50,
-// détail d'une action en feuille. Aucun export à l'origine : pas de menu « Exporter ».
+// utilisateurs GET /common/users, journal GET /common/logs (mêmes filtres dtStart, dtEnd, criteria, userId). Depuis
+// la 3.6.1, le journal est demandé PAR PAGES DE 50 (start=0 & limit=50, puis start=50… à chaque « Afficher plus »,
+// mêmes filtres) : le serveur pagine et rend « total ». S'il ne rend pas de total (serveur sans pagination), ce qui
+// est reçu est affiché 50 par 50 sans autre requête, avec l'avertissement « d'autres actions peuvent manquer ».
+// Mise en page : période commune chargée dès l'ouverture (« Aujourd'hui », toutes opérations, tous utilisateurs :
+// valeurs par défaut d'origine), opération et utilisateur dans la feuille des filtres (envoyés au serveur, comme
+// avant), recherche contrôlée LOCALE sur les actions chargées (description, type, utilisateur ; aucune requête),
+// chiffres clés, cartes (téléphone) ou tableau dense (tablette), détail d'une action en feuille. Aucun export à
+// l'origine : pas de menu « Exporter ».
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -31,8 +34,7 @@ class FichierJournalNouveau extends StatefulWidget {
   State<FichierJournalNouveau> createState() => _FichierJournalNouveauState();
 }
 
-class _FichierJournalNouveauState extends State<FichierJournalNouveau>
-    with ChargementSuivi<FichierJournalNouveau, List<FichierJournal>>, AffichageParTranches {
+class _FichierJournalNouveauState extends State<FichierJournalNouveau> with AffichageParTranches {
   late Periode _periode = Periode.rapide(PeriodeRapide.aujourdhui, widget.maintenant());
   final _recherche = TextEditingController();
   String _texte = '';
@@ -42,6 +44,17 @@ class _FichierJournalNouveauState extends State<FichierJournalNouveau>
   Object? _erreurListes;
   LogFiltre? _operation;
   LogUser? _utilisateur;
+
+  // Pages chargées (mêmes filtres pour toutes les pages d'une même lecture).
+  final _actions = <FichierJournal>[];
+  int? _total;
+  bool _derniereVide = false;
+  bool _enCours = false;
+  bool _suiteEnCours = false;
+  bool _charge = false;
+  Object? _erreur;
+  int _generation = 0;
+  ({Periode periode, LogFiltre? operation, LogUser? utilisateur})? _filtresLus;
 
   @override
   void initState() {
@@ -76,12 +89,72 @@ class _FichierJournalNouveauState extends State<FichierJournalNouveau>
     }
   }
 
-  Future<void> _charger() {
-    reinitialiserTranches();
-    return charger(() async =>
-        await JournalDonnees.actions(context,
-            debut: _periode.debut, fin: _periode.fin, operation: _operation, utilisateur: _utilisateur, onSessionInvalid: sessionInvalide(context)) ??
-        const <FichierJournal>[]);
+  Future<PageJournal> _lire(int start) {
+    final f = _filtresLus!;
+    return JournalDonnees.page(context,
+        debut: f.periode.debut,
+        fin: f.periode.fin,
+        operation: f.operation,
+        utilisateur: f.utilisateur,
+        start: start,
+        onSessionInvalid: sessionInvalide(context));
+  }
+
+  /// Première page (filtres du moment) ; toute lecture précédente encore en route est ignorée.
+  Future<void> _charger() async {
+    final g = ++_generation;
+    _filtresLus = (periode: _periode, operation: _operation, utilisateur: _utilisateur);
+    setState(() {
+      reinitialiserTranches();
+      _enCours = true;
+      _suiteEnCours = false;
+      _erreur = null;
+      _actions.clear();
+      _total = null;
+      _derniereVide = false;
+    });
+    try {
+      final p = await _lire(0);
+      if (!mounted || g != _generation) return;
+      setState(() {
+        _actions.addAll(p.actions);
+        _total = p.total;
+        _derniereVide = p.actions.isEmpty;
+        _enCours = false;
+        _charge = true;
+      });
+    } catch (e) {
+      if (!mounted || g != _generation) return;
+      setState(() {
+        _erreur = e;
+        _enCours = false;
+      });
+    }
+  }
+
+  /// Le serveur annonce-t-il d'autres actions que celles chargées ?
+  bool get _aSuite => _total != null && !_derniereVide && _actions.length < _total!;
+
+  /// Page suivante (« Afficher plus ») : mêmes filtres, start = actions déjà chargées.
+  Future<void> _suite() async {
+    if (_suiteEnCours || _enCours || !_aSuite) return;
+    final g = _generation;
+    setState(() => _suiteEnCours = true);
+    try {
+      final p = await _lire(_actions.length);
+      if (!mounted || g != _generation) return;
+      setState(() {
+        _actions.addAll(p.actions);
+        _total = p.total ?? _total;
+        _derniereVide = p.actions.isEmpty;
+        affichees += AffichageParTranches.tranche;
+        _suiteEnCours = false;
+      });
+    } catch (e) {
+      if (!mounted || g != _generation) return;
+      setState(() => _suiteEnCours = false);
+      messageResultat(context, DiagnosticErreur.de(e).message, echec: true);
+    }
   }
 
   void _changerPeriode(Periode p) {
@@ -184,23 +257,27 @@ class _FichierJournalNouveauState extends State<FichierJournalNouveau>
       );
 
   List<Widget> _corps() {
-    if (enCours) return const [EtatChargement(texte: 'Chargement du journal…')];
-    if (erreur != null) return [EtatErreur(erreur: erreur!, reessayer: _charger)];
-    final tout = donnees ?? const <FichierJournal>[];
+    if (_enCours || !_charge && _erreur == null) return const [EtatChargement(texte: 'Chargement du journal…')];
+    if (_erreur != null) return [EtatErreur(erreur: _erreur!, reessayer: _charger)];
+    final tout = _actions;
     if (tout.isEmpty) {
       return const [EtatVide(titre: 'Aucune action', texte: 'Aucune action trouvée pour les critères sélectionnés.', icone: Icons.history_edu_outlined)];
     }
     final l = JournalDonnees.filtrer(tout, _texte);
-    final limite = tout.length >= JournalDonnees.limite;
+    // Serveur sans pagination (pas de « total ») qui a rendu au moins une page entière : d'autres peuvent manquer.
+    final limite = _total == null && tout.length >= JournalDonnees.taillePage;
+    final total = _total ?? tout.length;
     final n = affichees.clamp(0, l.length);
     return [
       GrilleKpi([
         ChiffreCle(
           libelle: 'Actions',
-          valeur: formaterNombre(l.length),
+          valeur: formaterNombre(_texte.isEmpty ? total : l.length),
           id: 'actions',
           enAvant: true,
-          detail: l.length == tout.length ? (limite ? 'limite atteinte' : null) : 'sur ${formaterNombre(tout.length)}',
+          detail: _texte.isNotEmpty
+              ? 'sur ${formaterNombre(tout.length)} chargée${tout.length > 1 ? 's' : ''}'
+              : (limite ? 'limite atteinte' : (tout.length < total ? '${formaterNombre(tout.length)} chargée${tout.length > 1 ? 's' : ''}' : null)),
         ),
         ChiffreCle(libelle: 'Utilisateurs', valeur: formaterNombre({for (final a in l) a.userFullName}.length), id: 'utilisateurs'),
         ChiffreCle(libelle: 'Types d\'action', valeur: formaterNombre({for (final a in l) a.typeLog}.length), id: 'types'),
@@ -209,8 +286,8 @@ class _FichierJournalNouveauState extends State<FichierJournalNouveau>
         const SizedBox(height: 10),
         const Encadre(
           key: Key('journal_limite'),
-          titre: '200 actions au plus',
-          texte: 'Le serveur rend au plus 200 actions : d\'autres peuvent manquer. Réduisez la période ou filtrez par opération ou utilisateur.',
+          titre: 'Limite du serveur atteinte',
+          texte: 'Le serveur n\'indique pas le nombre total d\'actions : d\'autres peuvent manquer. Réduisez la période ou filtrez par opération ou utilisateur.',
           icone: Icons.info_outline,
           avertissement: true,
         ),
@@ -235,7 +312,13 @@ class _FichierJournalNouveauState extends State<FichierJournalNouveau>
             onTap: () => _detail(l[i]),
           ),
         ),
-      piedTranches(l.length),
+      _pied(l.length),
     ];
+  }
+
+  /// Pied : d'abord les actions déjà chargées (50 par 50, sans requête), puis la page suivante du serveur.
+  Widget _pied(int filtrees) {
+    if (filtrees > affichees || !_aSuite) return piedTranches(filtrees);
+    return PiedPagination(affichees: _actions.length, total: _total!, enCours: _suiteEnCours, onPlus: _suite);
   }
 }

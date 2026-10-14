@@ -64,6 +64,13 @@ class RecapCaisse {
   /// Montant négatif (affiché en rouge par l'écran d'origine).
   static bool estNegatif(String montant) => montant.contains('-');
 
+  /// « 125 000 F » à partir du montant déjà formaté par le serveur (écran ET PDF : mêmes textes).
+  static String montant(String m) => m.trim().isEmpty ? '—' : '${m.trim()} F';
+
+  /// Montant « TOTAL (VNO/VO) » des totaux globaux, sinon null.
+  static String? totalVnoVo(TicketZResponse r) =>
+      r.totauxGlobaux.where((t) => estTotalVnoVo(t.modeLibelle)).map((t) => t.montant).firstOrNull;
+
   /// Montant du total global dont le libellé est [libelle] (insensible à la casse), sinon null.
   static String? totalGlobal(TicketZResponse r, String libelle) {
     for (final t in r.totauxGlobaux) {

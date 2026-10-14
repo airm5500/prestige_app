@@ -318,12 +318,18 @@ void main() {
 
     expect(listesO, [[{}], [{}]], reason: 'listes des filtres sans paramètre');
     expect(listesN, listesO);
+    // Origine : 200 actions au plus (inchangé). Nouvelle interface (3.6.1) : MÊMES filtres, première page de 50.
     expect(jourO.single, {...duJour, 'criteria': '-1', 'userId': '', 'limit': '200'});
-    expect(jourN, jourO);
+    expect(jourN.single, {...duJour, 'criteria': '-1', 'userId': '', 'start': '0', 'limit': '50'});
     expect(listeO, hasLength(6));
     expect(listeN, listeO);
     expect(filtreO.single, {...duJour, 'criteria': '4', 'userId': 'USR-C1', 'limit': '200'});
-    expect(filtreN, filtreO);
+    expect(filtreN.single, {...duJour, 'criteria': '4', 'userId': 'USR-C1', 'start': '0', 'limit': '50'});
+    Map<String, String> sansPage(Map<String, String> p) => {...p}
+      ..remove('start')
+      ..remove('limit');
+    expect(sansPage(jourN.single), sansPage(jourO.single), reason: 'mêmes filtres');
+    expect(sansPage(filtreN.single), sansPage(filtreO.single), reason: 'mêmes filtres');
     expect(listeFiltreO, ['Action fictive N2', 'Action fictive N6']);
     expect(listeFiltreN, listeFiltreO);
   });
