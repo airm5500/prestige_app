@@ -34,7 +34,15 @@ const menusVague3 = <(String, String)>[
   ('Rappels traitement', 'Rappels traitement'),
 ];
 
-void aucuneRouteInterdite() => expect(requetesInterditesVague3(serveur), isEmpty, reason: 'routes d\'envoi / réglages / actualisation reçues');
+/// Actualisations attendues par le parcours en cours (seul « Actualiser la liste » en demande une).
+var actualisationsAttendues = 0;
+
+void aucuneRouteInterdite() {
+  expect(requetesInterditesVague3(serveur), isEmpty, reason: 'routes d\'envoi / réglages reçues');
+  // 3.8.0 : l'actualisation n'est plus interdite, mais seulement après « Actualiser la liste » et sa confirmation.
+  expect(actualisationsRecues(serveur), hasLength(actualisationsAttendues), reason: 'actualisation reçue sans « Actualiser la liste »');
+  actualisationsAttendues = 0;
+}
 
 Finder cle(String k) => find.byKey(Key(k));
 
@@ -297,7 +305,50 @@ void main() {
     await onglet(tester, 'Analyse');
     await attendreWidget(tester, cle('chiffre_efficacite'));
     expect(serveur.recues(ApiRappels.routeAnalyse).single.parametres['dtStart'], endsWith('-01'));
+    // Aucun envoi ; et aucune actualisation tant qu'on ne touche pas « Actualiser la liste » (3.8.0).
     expect(serveur.requetes.where((x) => x.chemin.contains('envoyer') || x.chemin.contains('actualiser') || x.chemin.endsWith('/sms')), isEmpty);
+    await revenirALAccueil(tester);
+    await terminer(tester);
+  });
+
+  // 3.8.0 (C2) : « Actualiser la liste » à la demande (le serveur ne recalcule pas tout seul).
+  testWidgets('Rappels traitement : « Actualiser la liste » → confirmation → un recalcul → liste et compteur relus ; aucun envoi',
+      (tester) async {
+    telephone(tester);
+    actualisationsAttendues = 1;
+    await jusquAccueilNouveau(tester);
+    await ouvrirDepuisA(tester, 'Rappels traitement');
+    await attendreWidget(tester, cle('rappels_compteur'));
+    expect(find.text('25 rappels à préparer au total'), findsOneWidget);
+    await toucher(tester, cle('rappels_recalculer'), defilement: cle('defilement_rappels'));
+    expect(find.textContaining('un an de ventes'), findsOneWidget);
+    expect(actualisationsRecues(serveur), isEmpty, reason: 'rien avant la confirmation');
+    await toucher(tester, cle('confirmer_oui'));
+    await attendreQue(tester, () => actualisationsRecues(serveur).isNotEmpty, raison: 'POST actualiser');
+    await attendreWidget(tester, find.text('Liste actualisée : 2 nouveaux rappels, 1 racheté.'));
+    await attendreWidget(tester, find.text('27 rappels à préparer au total'));
+    expect(serveur.recues(ApiRappels.routeListe), hasLength(2), reason: 'liste relue');
+    expect(serveur.requetes.where((x) => x.chemin.contains('envoyer') || x.chemin.endsWith('/sms')), isEmpty, reason: 'aucun message');
+    await revenirALAccueil(tester);
+    await terminer(tester);
+  });
+
+  // 3.8.0 (C3) : « Remettre en Nouveau » visible dans le détail d'un avis lu ou traité.
+  testWidgets('Avis : « Remettre en Nouveau » (confirmation, un envoi, note gardée) ; la liste montre « Nouveau »', (tester) async {
+    telephone(tester);
+    await jusquAccueilNouveau(tester);
+    await ouvrirDepuisA(tester, 'Avis');
+    await attendreWidget(tester, cle('avis_total'));
+    await toucher(tester, cle('avis_AVIS-TEST-4'), defilement: cle('defilement_avis'));
+    await attendreWidget(tester, cle('avis_texte'));
+    await tester.scrollUntilVisible(cle('avis_remettre_nouveau'), 300,
+        scrollable: find.descendant(of: cle('defilement_detail_avis'), matching: find.byType(Scrollable)).first);
+    await toucher(tester, cle('avis_remettre_nouveau'));
+    await toucher(tester, cle('confirmer_oui'));
+    await attendreQue(tester, () => serveur.recues(ApiAvis.routeTraiter('AVIS-TEST-4')).isNotEmpty, raison: 'POST traiter');
+    expect(serveur.recues(ApiAvis.routeTraiter('AVIS-TEST-4')).single.json, {'statut': 'NOUVEAU', 'noteInterne': 'Client rappelé (fictif).'});
+    await attendreWidget(tester, find.text('Avis remis en « Nouveau ».'));
+    expect(cle('avis_remettre_nouveau'), findsNothing);
     await revenirALAccueil(tester);
     await terminer(tester);
   });

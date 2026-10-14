@@ -74,6 +74,21 @@ final casVague3 = <CasAffichage>[
       ensuite: puis([toucherCle('choisir_RAP-TEST-1'), toucherCle('choisir_RAP-TEST-2')])),
   cas('Rappels traitement · confirmation « Marquer »', () => const RappelsScreen(),
       ensuite: puis([toucherCle('choisir_RAP-TEST-1'), toucherCle('marquer_PREPARE')])),
+  // 3.8.0 (C2) : « Actualiser la liste » (confirmation, calcul en cours).
+  cas('Rappels traitement · confirmation « Actualiser la liste »', () => const RappelsScreen(), ensuite: toucherCle('rappels_recalculer')),
+  cas('Rappels traitement · actualisation en cours', () => const RappelsScreen(),
+      donnees: (s) => s.route('/rappels-habitude/actualiser', (_) => ReponseFausse.json(resultatActualisation).apres(const Duration(minutes: 1)), methode: 'POST'),
+      // Bouton touché sans défilement (il est en haut de la liste) : l'indicateur reste entièrement visible.
+      ensuite: (tester) async {
+        await tester.tap(find.byKey(const Key('rappels_recalculer')));
+        await tester.pump(const Duration(milliseconds: 500));
+        await toucherCle('confirmer_oui')(tester);
+        expect(find.byKey(const Key('rappels_actualisation_en_cours')), findsOneWidget);
+      }),
+  // 3.8.0 (C3) : « Remettre en Nouveau » dans le détail d'un avis traité, et sa confirmation.
+  cas('Avis · détail traité, « Remettre en Nouveau »', () => AvisDetailScreen(id: 'AVIS-TEST-4', droits: droits)),
+  cas('Avis · confirmation « Remettre en Nouveau »', () => AvisDetailScreen(id: 'AVIS-TEST-4', droits: droits),
+      ensuite: toucherApresDefilement('avis_remettre_nouveau', 'defilement_detail_avis')),
   cas('Rappels traitement · feuille des filtres', () => const RappelsScreen(), ensuite: toucherCle('bouton_filtres')),
   cas('Rappels traitement · analyse', () => const RappelsScreen(ongletInitial: 1)),
   cas('Rappels traitement · aucun rappel', () => const RappelsScreen(),

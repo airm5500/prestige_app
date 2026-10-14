@@ -43,12 +43,11 @@ void main() {
   });
 
   group('Routes interdites (aucun envoi, aucun secret, aucun recalcul)', () {
-    test('envoi de rappels, SMS, actualisation, réglages / affiche / jeton, réponse au client, relevé PDF', () {
+    test('envoi de rappels, SMS, réglages / affiche / jeton, réponse au client, relevé PDF', () {
       for (final r in [
         '/rappels-habitude/envoyer',
         '/rappels-habitude/envoyer?canal=SMS',
         '/rappels-habitude/sms',
-        '/rappels-habitude/actualiser',
         '/avis-clients/reglages',
         '/avis-clients/reglages/regenerer',
         '/avis-clients/affiche',
@@ -62,6 +61,9 @@ void main() {
     });
 
     test('routes autorisées', () {
+      // 3.8.0 (C2, demande du pharmacien) : l'actualisation des rappels n'est plus interdite ; elle n'est appelée qu'à
+      // la demande (bouton « Actualiser la liste » + confirmation), ce que vérifient l'intégration et le parcours.
+      expect(routeInterditeVague3('/rappels-habitude/actualiser'), isFalse);
       for (final r in [
         '/pointage-bl',
         '/pointage-bl/pointer/BL/1',

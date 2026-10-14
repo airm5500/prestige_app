@@ -263,12 +263,13 @@ class ApiService {
 
   /// POST d'un corps JSON avec paramètres dans l'adresse (vague 3 : /rappels-habitude/marquer?statut=).
   Future<Map<String, dynamic>> postAvecParametres(BuildContext context, String endpoint, Map<String, dynamic> body,
-      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
     JournalApp.debug(JournalApp.requete('POST', uri));
-    final response = await _envoyer(() => client.post(uri, headers: _getHeaders(), body: jsonEncode(body)), delaiPost);
+    // [delai] : calcul long demandé explicitement (actualisation des rappels) ; sinon [delaiPost].
+    final response = await _envoyer(() => client.post(uri, headers: _getHeaders(), body: jsonEncode(body)), delai ?? delaiPost);
     return _objet(_handleResponse(response, onSessionInvalid));
   }
 

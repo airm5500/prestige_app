@@ -11,8 +11,11 @@
 //    préchargement ; POST /avis-clients/avis/{id}/traiter {statut, noteInterne} si droits.repondre ;
 //  - Rappels traitement (web « rappelstraitement », droit P_SM_RAPPELS_HABITUDE, RappelHabitudeRessource) :
 //    GET /rappels-habitude/liste (non paginée, 2000 lignes au plus), /compteur, /analyse ; POST
-//    /rappels-habitude/marquer?statut=A_PREPARER|PREPARE|ECARTE {ids} après confirmation.
-// JAMAIS appelées (envois externes, secrets, calculs lourds) : [routesInterditesVague3], refusées AVANT envoi.
+//    /rappels-habitude/marquer?statut=A_PREPARER|PREPARE|ECARTE {ids} après confirmation ; depuis la 3.8.0 (réponse
+//    du pharmacien : le serveur ne recalcule pas tout seul), POST /rappels-habitude/actualiser À LA DEMANDE (bouton
+//    « Actualiser la liste », confirmation, un appui = un appel, recalcul lourd sur un an de ventes, un seul à la fois
+//    côté serveur : refus « déjà en cours » affiché) ; aucun message n'est envoyé.
+// JAMAIS appelées (envois externes, secrets) : [routesInterditesVague3], refusées AVANT envoi.
 // Données des clients (nom, téléphone, e-mail) et de santé (traitement) : affichées seulement, gardées en mémoire le
 // temps de l'écran, jamais écrites dans le journal (JournalApp ne note que le chemin, sans paramètres) ni sur le
 // disque (aucune préférence, aucun fichier, aucun cache).
@@ -29,11 +32,11 @@ export '../vague1/donnees_vague1.dart' show OptionListe, PageResultats, entierTo
 // ---------------------------------------------------------------------------------------------------------------
 
 /// Routes que le mobile n'appelle JAMAIS (envoi au client ou au patient, réglages et jeton secret de la page d'avis,
-/// recalcul lourd des rappels, import du relevé PDF), quelle que soit la méthode.
+/// import du relevé PDF), quelle que soit la méthode. « /rappels-habitude/actualiser » n'y est plus depuis la 3.8.0 :
+/// le pharmacien l'a demandée, à la demande seulement (ApiRappels.actualiser : confirmation, un appel par appui).
 const routesInterditesVague3 = <String>[
   '/rappels-habitude/envoyer',
   '/rappels-habitude/sms',
-  '/rappels-habitude/actualiser',
   '/avis-clients/reglages',
   '/avis-clients/affiche',
   '/pointage-bl/releve',
@@ -124,9 +127,9 @@ class ApiVague3 {
   }
 
   static Future<Map<String, dynamic>> post(BuildContext context, String route, Map<String, dynamic> corps, String action,
-      {Map<String, String>? parametres}) {
+      {Map<String, String>? parametres, Duration? delai}) {
     _controler(route);
-    return _appel(action, () => ApiService().postAvecParametres(context, route, corps, queryParams: parametres));
+    return _appel(action, () => ApiService().postAvecParametres(context, route, corps, queryParams: parametres, delai: delai));
   }
 
   static T lire<T>(T Function() f, String quoi) {
@@ -1185,6 +1188,23 @@ enum DureeAnalyseRappels {
   }
 }
 
+/// Résultat d'une actualisation (RappelHabitudeServiceImpl.actualiser : inscrits, achetes, habitudes, jour).
+class ResultatActualisation {
+  final int inscrits;
+  final int rachetes;
+  final int habitudes;
+  const ResultatActualisation(this.inscrits, this.rachetes, this.habitudes);
+
+  factory ResultatActualisation.depuis(Map<String, dynamic> j) =>
+      ResultatActualisation(entierTolerant(j['inscrits']), entierTolerant(j['achetes']), entierTolerant(j['habitudes']));
+
+  /// « Liste actualisée : 4 nouveaux rappels, 2 rachetés. »
+  String get message {
+    String n(int v, String s, String p) => '$v ${v > 1 ? p : s}';
+    return 'Liste actualisée : ${n(inscrits, 'nouveau rappel', 'nouveaux rappels')}, ${n(rachetes, 'racheté', 'rachetés')}.';
+  }
+}
+
 class ApiRappels {
   ApiRappels._();
 
@@ -1192,6 +1212,12 @@ class ApiRappels {
   static const routeCompteur = '/rappels-habitude/compteur';
   static const routeAnalyse = '/rappels-habitude/analyse';
   static const routeMarquer = '/rappels-habitude/marquer';
+  static const routeActualiser = '/rappels-habitude/actualiser';
+  static const _actualiser = 'actualiser les rappels de traitement';
+
+  /// Délai de l'actualisation : le serveur parcourt un an de ventes (comme les calculs longs de la vague 2, en plus
+  /// long). Au-delà : « Le serveur ne répond pas » (le calcul peut continuer sur le serveur).
+  static const delaiActualisation = Duration(minutes: 5);
   static const _lire = 'consulter les rappels de traitement';
   static const _marquer = 'marquer les rappels de traitement';
 
@@ -1209,6 +1235,14 @@ class ApiRappels {
     final j = await ApiVague3.get(
         context, routeAnalyse, {'dtStart': DateFormatter.toApiFormat(debut), 'dtEnd': DateFormatter.toApiFormat(fin)}, _lire);
     return ApiVague3.lire(() => AnalyseRappels.depuis(j), 'l\'analyse des rappels');
+  }
+
+  /// Recalcule la liste sur le serveur (POST /rappels-habitude/actualiser, sans « jour » : aujourd'hui, corps vide).
+  /// Un seul calcul à la fois côté serveur : un second appel pendant le premier est refusé (« Une actualisation est
+  /// déjà en cours… », NatureErreur.refus avec ce message). N'envoie AUCUN message au client.
+  static Future<ResultatActualisation> actualiser(BuildContext context) async {
+    final j = await ApiVague3.post(context, routeActualiser, const {}, _actualiser, delai: delaiActualisation);
+    return ResultatActualisation.depuis(j);
   }
 
   /// Marque les rappels [ids] ; renvoie le nombre modifié par le serveur. Statut et sélection contrôlés AVANT envoi.

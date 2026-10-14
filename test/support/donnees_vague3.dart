@@ -3,14 +3,16 @@
 // PointageBLService, AvisClientRessource / AvisClientService / Analyse, RappelHabitudeRessource / RappelHabitudeDTO
 // / AnalyseRappels), données inventées. Le faux serveur GARDE l'état des écritures (pointage, séquence, avoir,
 // statut d'un avis ouvert ou traité, rappels marqués) pour que les relectures le montrent, comme Prestige.
-// Contrôle des requêtes : [requetesInterditesVague3] (routes d'envoi, de réglages et d'actualisation, JAMAIS reçues).
+// Contrôle des requêtes : [requetesInterditesVague3] (routes d'envoi et de réglages, JAMAIS reçues). Depuis la 3.8.0,
+// « /rappels-habitude/actualiser » n'est plus interdite (demandée par le pharmacien, à la demande seulement) : le
+// faux serveur la simule ([actualiserRappels] : 2 nouveaux rappels à préparer, un seul calcul à la fois) et les tests
+// qui ne la demandent pas vérifient qu'elle n'est pas appelée ([actualisationsRecues]).
 import 'faux_serveur_prestige.dart';
 
-/// Routes d'envoi externe, de secret ou de recalcul lourd : le mobile ne doit JAMAIS les appeler.
+/// Routes d'envoi externe ou de secret : le mobile ne doit JAMAIS les appeler.
 const routesInterditesVague3Testees = <String>[
   '/rappels-habitude/envoyer',
   '/rappels-habitude/sms',
-  '/rappels-habitude/actualiser',
   '/avis-clients/reglages',
   '/avis-clients/reglages/regenerer',
   '/avis-clients/affiche',
@@ -20,17 +22,26 @@ const routesInterditesVague3Testees = <String>[
   '/pointage-bl/modele',
 ];
 
-/// Requêtes fautives reçues : route interdite (envoi, réglages, actualisation, relevé), toute réponse au client.
+/// Requêtes fautives reçues : route interdite (envoi, réglages, relevé), toute réponse au client.
 List<String> requetesInterditesVague3(FauxServeurPrestige s) => [
       for (final r in s.requetes)
         if (routesInterditesVague3Testees.contains(r.chemin) ||
             RegExp(r'^/avis-clients/avis/[^/]+/repondre$').hasMatch(r.chemin) ||
             r.chemin.startsWith('/avis-clients/reglages') ||
             r.chemin.startsWith('/pointage-bl/releve') ||
-            r.chemin.startsWith('/rappels-habitude/envoyer') ||
-            r.chemin.startsWith('/rappels-habitude/actualiser'))
+            r.chemin.startsWith('/rappels-habitude/envoyer'))
           '$r',
     ];
+
+/// Actualisations des rappels reçues (POST /rappels-habitude/actualiser) : seulement après « Actualiser la liste »
+/// et sa confirmation.
+List<RequeteRecue> actualisationsRecues(FauxServeurPrestige s) => [for (final r in s.requetes) if (r.chemin.startsWith('/rappels-habitude/actualiser')) r];
+
+/// Réponse de l'actualisation simulée (format de RappelHabitudeServiceImpl.actualiser).
+const resultatActualisation = {'success': true, 'inscrits': 2, 'achetes': 1, 'habitudes': 42, 'jour': '2026-10-14'};
+
+/// Message du serveur quand un calcul est déjà en cours (RappelHabitudeRessource.actualiser).
+const refusActualisationEnCours = 'Une actualisation est déjà en cours : la liste sera à jour dans un instant.';
 
 /// Requêtes de détail d'avis (GET /avis-clients/avis/{id}) : elles passent l'avis NOUVEAU → LU.
 List<RequeteRecue> detailsAvisDemandes(FauxServeurPrestige s) =>
@@ -391,6 +402,15 @@ void installerRoutesVague3(FauxServeurPrestige s) {
       }
     }
     return ReponseFausse.json({'success': true, 'modifies': n});
+  }, methode: 'POST');
+  // Actualisation (3.8.0) : ajoute 2 rappels à préparer (n° 41 et 42), comme un recalcul qui trouve de nouveaux
+  // traitements ; un second appel pendant le premier est refusé comme par le serveur.
+  s.route('/rappels-habitude/actualiser', (r) {
+    final n = e.rappels.length;
+    for (var i = n + 1; i <= n + 2; i++) {
+      e.rappels.add({...DonneesVague3.rappel(i), 'statut': 'A_PREPARER', 'traitePar': ''});
+    }
+    return ReponseFausse.json(resultatActualisation);
   }, methode: 'POST');
   // Routes interdites : répondent « succès » pour qu'un appel fautif ne passe pas inaperçu par une erreur ; le
   // contrôle [requetesInterditesVague3] les détecte.

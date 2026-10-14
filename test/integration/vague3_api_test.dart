@@ -71,6 +71,8 @@ void main() {
 
   tearDown(() async {
     expect(requetesInterditesVague3(serveur), isEmpty, reason: 'aucune route d\'envoi, de réglages ni d\'actualisation');
+    // 3.8.0 : l'actualisation est autorisée à la demande seulement ; aucun test de ce fichier ne la demande.
+    expect(actualisationsRecues(serveur), isEmpty, reason: 'aucune actualisation');
     restaurerClient();
     await serveur.arreter();
     serveur
@@ -325,7 +327,9 @@ void main() {
   group('Routes interdites et journal', () {
     testWidgets('appel direct d\'une route interdite : refusé AVANT envoi', (tester) async {
       final app = await connecte(tester);
-      for (final r in ['/rappels-habitude/envoyer', '/rappels-habitude/actualiser', '/avis-clients/avis/AVIS-TEST-1/repondre', '/avis-clients/reglages/regenerer']) {
+      // 3.8.0 (C2) : « /rappels-habitude/actualiser » retirée de cette liste (autorisée à la demande, voir
+      // integration/retours_3_8_0_test.dart) ; les envois et les secrets restent refusés avant envoi.
+      for (final r in ['/rappels-habitude/envoyer', '/rappels-habitude/sms', '/avis-clients/avis/AVIS-TEST-1/repondre', '/avis-clients/reglages/regenerer']) {
         final (_, e) = await essayer(tester, () => ApiVague3.post(app.ctx, r, const {}, 'x'));
         expect(e, nature(NatureErreur.refus), reason: r);
         final (_, e2) = await essayer(tester, () => ApiVague3.get(app.ctx, r, const {}, 'x'));

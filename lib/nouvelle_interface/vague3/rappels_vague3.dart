@@ -9,8 +9,11 @@
 //    « Racheté » est posé par le serveur lui-même), confirmation, POST /rappels-habitude/marquer?statut= {ids}, un
 //    envoi par appui, puis relecture de la liste et du compteur ;
 //  - onglet « Analyse » : GET /rappels-habitude/analyse (6 mois par défaut ; 3 ou 12 mois au choix).
-// PAS d'envoi de SMS / WhatsApp (/envoyer, /sms) ni d'actualisation (/actualiser, recalcul sur un an de ventes) :
-// refusés avant envoi (donnees_vague3.dart). Données de santé (patient, téléphone, traitement) : affichées seulement,
+//  - « Actualiser la liste » (3.8.0, demande du pharmacien : le serveur ne recalcule pas tout seul) : POST
+//    /rappels-habitude/actualiser à la demande seulement, après confirmation (recalcul sur un an de ventes, peut être
+//    long), un appel par appui (bouton remplacé par un indicateur), refus « déjà en cours » affiché, puis relecture
+//    de la liste et du compteur. Aucun message n'est envoyé.
+// PAS d'envoi de SMS / WhatsApp (/envoyer, /sms) : refusés avant envoi (donnees_vague3.dart). Données de santé (patient, téléphone, traitement) : affichées seulement,
 // jamais journalisées ni gardées sur le disque.
 import 'package:flutter/material.dart';
 
@@ -50,6 +53,12 @@ class _RappelsScreenState extends State<RappelsScreen> with SingleTickerProvider
   bool _envoi = false;
 
   int? _compteur;
+
+  /// Actualisation (recalcul serveur) en cours : un seul appel à la fois.
+  bool _actualisation = false;
+
+  /// Fenêtre de confirmation de l'actualisation ouverte (un second appui n'en ouvre pas une autre).
+  bool _confirmation = false;
 
   DureeAnalyseRappels _duree = DureeAnalyseRappels.sixMois;
   AnalyseRappels? _analyse;
@@ -175,6 +184,67 @@ class _RappelsScreenState extends State<RappelsScreen> with SingleTickerProvider
     }
   }
 
+  /// « Actualiser la liste » : confirmation, UN appel (anti double appui), puis relecture de la liste et du compteur.
+  Future<void> _actualiser() async {
+    if (_actualisation || _confirmation || _envoi) return;
+    _confirmation = true;
+    final bool oui;
+    try {
+      oui = await confirmer(
+        context,
+        titre: 'Actualiser la liste',
+        texte: 'Le serveur recalcule les rappels sur un an de ventes : cela peut prendre du temps (plusieurs minutes).\n'
+            'Aucun message n\'est envoyé au client.',
+        oui: 'Oui, actualiser',
+      );
+    } finally {
+      _confirmation = false;
+    }
+    if (!oui || !mounted || _actualisation) return;
+    setState(() => _actualisation = true);
+    try {
+      final r = await ApiRappels.actualiser(context);
+      if (!mounted) return;
+      messageResultat(context, r.message);
+      _charger();
+      _chargerCompteur();
+    } catch (e) {
+      if (!mounted) return;
+      final d = DiagnosticErreur.de(e);
+      final texte = switch (d.cause) {
+        CauseErreur.autre => d.message,
+        CauseErreur.delai => '${d.titre}. Le calcul continue peut-être sur le serveur : rechargez la liste dans quelques minutes.',
+        _ => '${d.titre}. ${d.message}',
+      };
+      messageResultat(context, 'Liste non actualisée : $texte', echec: true);
+    } finally {
+      if (mounted) setState(() => _actualisation = false);
+    }
+  }
+
+  Widget _boutonActualiser() => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _actualisation
+            ? Row(key: const Key('rappels_actualisation_en_cours'), children: [
+                const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Semantics(
+                    liveRegion: true,
+                    child: const Text('Actualisation en cours… (calcul sur un an de ventes)',
+                        style: TextStyle(color: Charte.encre, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ])
+            : OutlinedButton.icon(
+                key: const Key('rappels_recalculer'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                onPressed: _envoi ? null : _actualiser,
+                icon: const Icon(Icons.sync),
+                label: const Text('Actualiser la liste'),
+              ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final liste = _onglets.index == 0;
@@ -185,10 +255,10 @@ class _RappelsScreenState extends State<RappelsScreen> with SingleTickerProvider
           if (liste) BoutonFiltres(actifs: _filtres.prevu == PrevuRappel.toutes ? 0 : 1, onPressed: _ouvrirFiltres),
           IconButton(
             key: const Key('rappels_actualiser'),
-            tooltip: 'Actualiser',
+            tooltip: 'Recharger',
             icon: const Icon(Icons.refresh),
             onPressed: liste
-                ? (enCours || _envoi
+                ? (enCours || _envoi || _actualisation
                     ? null
                     : () {
                         _charger();
@@ -250,6 +320,7 @@ class _RappelsScreenState extends State<RappelsScreen> with SingleTickerProvider
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         sliver: SliverList.list(children: [
+          _boutonActualiser(),
           if (_compteur != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
