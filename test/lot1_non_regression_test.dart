@@ -253,6 +253,27 @@ void main() {
     expect(montantsOrigine.difference(montantsNouvelle), isEmpty);
   });
 
+  testWidgets('Détail CA : Mobile Money déplié → chiffres de /ca-all inchangés, /ca-all non rappelé', (tester) async {
+    ecranHaut(tester);
+    await monter(tester, module('Détail CA').nouveau, nouvelle: true);
+    Map<String, String> chiffres() => {
+          for (final e in find.byType(LigneDetail).evaluate()) (e.widget as LigneDetail).libelle: (e.widget as LigneDetail).valeur,
+          for (final e in find.byType(ChiffreCle).evaluate()) 'kpi ${(e.widget as ChiffreCle).libelle}': (e.widget as ChiffreCle).valeur,
+        };
+    final avant = chiffres();
+    final textesAvant = textes().toSet();
+    expect(serveur.recues('/stats-recette-caisse/modes'), isEmpty);
+    await tester.tap(find.byKey(const Key('deplier_mobile')));
+    await pomper(tester);
+    expect(find.byKey(const Key('mobile_ligne_Orange')), findsOneWidget);
+    expect(chiffres(), avant);
+    expect(textesAvant.difference(textes().toSet()), isEmpty, reason: 'rien de ce qui était affiché ne change');
+    expect(norm(avant['TOTAL BRUT PAIEMENTS']!), '2152650');
+    expect(norm(avant['Total Mobile Money']!), '237750');
+    expect(serveur.recues(AppConstants.caComptantEndpoint), hasLength(1));
+    await demonter(tester);
+  });
+
   testWidgets('Suivi Crédit : même requête (jour, mois précédent), mêmes lignes et montants, même filtre par tiers payant',
       (tester) async {
     ecranHaut(tester);

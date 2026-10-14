@@ -128,6 +128,36 @@ void main() {
     await terminer(tester);
   });
 
+  testWidgets('Détail CA : Mobile Money déplié (un appel, mêmes dates) puis replié, chiffres inchangés, retour', (tester) async {
+    telephone(tester);
+    await jusquAccueilNouveau(tester);
+    final m = module('Détail CA');
+    await ouvrir(tester, m);
+    await attendreWidget(tester, find.byKey(const Key('chiffre_total')));
+    expect(serveur.recues('/stats-recette-caisse/modes'), isEmpty, reason: 'aucun appel à l\'ouverture');
+    final defilement = find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const Key('deplier_mobile')), 300, scrollable: defilement);
+    expect(tester.getSemantics(find.byKey(const Key('deplier_mobile'))),
+        matchesSemantics(label: 'Détail Mobile Money\nTotal Mobile Money\n${formaterMontant(237750)}', isButton: true, hasExpandedState: true, isExpanded: false, hasTapAction: true,
+            hint: 'Déplier le détail par opérateur', isFocusable: true, hasFocusAction: true),
+        reason: 'flèche annoncée « Détail Mobile Money », état replié');
+    await tester.tap(find.byKey(const Key('deplier_mobile')));
+    await attendreWidget(tester, find.byKey(const Key('mobile_ligne_Orange')));
+    expect(serveur.recues('/stats-recette-caisse/modes'), hasLength(1));
+    expect(serveur.recues('/stats-recette-caisse/modes').single.parametres, serveur.recues(AppConstants.caComptantEndpoint).last.parametres);
+    expect(serveur.recues('/stats-recette-caisse/modes').single.sessionEnvoyee, serveur.derniereSession);
+    expect(find.byKey(const Key('mobile_ligne_Autres / écart')), findsOneWidget);
+    String ligne(String l) => tester.widgetList<LigneDetail>(find.byType(LigneDetail)).firstWhere((w) => w.libelle == l).valeur;
+    expect(ligne('TOTAL BRUT PAIEMENTS'), formaterMontant(2152650), reason: 'chiffres de /ca-all inchangés');
+    expect(ligne('Total Mobile Money'), formaterMontant(237750));
+    await tester.tap(find.byKey(const Key('deplier_mobile')));
+    await stabiliser(tester);
+    expect(find.byKey(const Key('detail_mobile')), findsNothing);
+    expect(serveur.recues('/stats-recette-caisse/modes'), hasLength(1));
+    await revenir(tester, m);
+    await terminer(tester);
+  });
+
   testWidgets('Suivi Crédit : période « Ce mois », filtre tiers payant et type (feuille du bas), retrait, retour', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);

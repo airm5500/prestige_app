@@ -244,5 +244,46 @@ class DonneesFictives {
         {'mvtDate': '20261014', 'totEsp': 380000, 'montantCredit': 151000, 'totMobile': 64150, 'totCB': 65000, 'totChq': 0, 'totVirement': 0,
           'remiseSurCA': 4300, 'totTVA': 98300},
       ];
-}
 
+  /// GET /stats-recette-caisse/modes (période) : ventilation par mode ; seules les lignes mobile:true servent au
+  /// détail Mobile Money. Σ opérateurs mobiles = 235 000 ≠ totMobile de /ca-all (237 750) : écart de 2 750.
+  /// « part » / « partCa » volontairement faux (l'application doit les ignorer).
+  static const mobileOrange = 118500, mobileWave = 71250, mobileMtn = 30000, mobileMoov = 15250;
+  static const totMobileCa = 237750, totalBrutCa = 2152650, ecartMobile = totMobileCa - (mobileOrange + mobileWave + mobileMtn + mobileMoov);
+  static Map<String, Object?> modesPaiement() => {
+        'success': true,
+        'data': [
+          {'modeId': '1', 'mode': 'Espèces', 'montant': 1325400, 'operations': 210, 'mobile': false, 'part': 70.1, 'partCa': 61.5},
+          {'modeId': '9', 'mode': 'MTN', 'montant': mobileMtn, 'operations': 6, 'mobile': true, 'part': 99, 'partCa': 99},
+          {'modeId': '7', 'mode': 'Orange', 'montant': mobileOrange, 'operations': 31, 'mobile': true, 'part': 99, 'partCa': 99},
+          {'modeId': '3', 'mode': 'Carte bancaire', 'montant': 140000, 'operations': 9, 'mobile': false, 'part': 7.4, 'partCa': 6.5},
+          {'modeId': '10', 'mode': 'Wave', 'montant': mobileWave, 'operations': 18, 'mobile': true, 'part': 99, 'partCa': 99},
+          {'modeId': '8', 'mode': 'Moov', 'montant': mobileMoov, 'operations': 4, 'mobile': true, 'part': 99, 'partCa': 99},
+        ],
+        'totalMobile': 235000,
+        'partMobileCa': 99,
+        'chiffreAffaires': 1,
+      };
+
+  /// GET /ca-all avec le champ futur « detailMobile » par jour (compatibilité : réponse SIMULÉE, le serveur ne le
+  /// fournit pas encore). Σ par jour = totMobile du jour ; cumul : Orange 120 000, Wave 80 750, MTN 37 000.
+  static List<Map<String, Object?>> caParJourAvecDetail() {
+    final detail = {
+      '20261013': [
+        {'modeId': '7', 'libelle': 'Orange', 'montant': 50000},
+        {'modeId': '10', 'libelle': 'Wave', 'montant': 30200},
+        {'modeId': '9', 'libelle': 'MTN', 'montant': 18000},
+      ],
+      '20261012': [
+        {'modeId': '7', 'libelle': 'Orange', 'montant': 40000},
+        {'modeId': '10', 'libelle': 'Wave', 'montant': '35 400'},
+      ],
+      '20261014': [
+        {'modeId': '7', 'libelle': 'Orange', 'montant': 30000},
+        {'modeId': '10', 'libelle': 'Wave', 'montant': 15150},
+        {'modeId': '9', 'libelle': 'MTN', 'montant': 19000},
+      ],
+    };
+    return [for (final j in caParJour()) {...j, 'detailMobile': detail[j['mvtDate']]}];
+  }
+}

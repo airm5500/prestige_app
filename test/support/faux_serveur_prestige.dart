@@ -233,6 +233,8 @@ class FauxServeurPrestige {
     quand('/rh/droits', ReponseFausse.json({'success': true, 'valider': true}), methode: 'GET');
     route('/rh/mobile/code', (_) => ReponseFausse.json(DonneesFictives.codePointage(_codesServis++)), methode: 'GET');
     quand('/rh/mobile/terminaux', ReponseFausse.json(DonneesFictives.terminaux()), methode: 'GET');
+    // Détail Mobile Money du Détail CA (appel complémentaire, au premier dépliage seulement).
+    quand('/stats-recette-caisse/modes', ReponseFausse.json(DonneesFictives.modesPaiement()), methode: 'GET');
     installerRoutesVague1(this);
     installerRoutesVague2(this);
   }

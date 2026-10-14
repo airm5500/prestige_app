@@ -14,9 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.2.0+29** (`pubspec.yaml`) : vague 2 des nouveaux menus
-(Prévisions, Pilotage, Analyse de garde, CA emplacement / famille ; voir `docs/NOTE_VERSION_3.2.0.md`). Précédente
-livraison : 3.1.0+28 (lot 1 et vague 1, `docs/NOTE_VERSION_3.1.0.md`).
+Version en préparation (pas encore publiée) : **3.2.1+30** (`pubspec.yaml`) : détail du Mobile Money par opérateur
+dans le Détail CA et réponses du pharmacien sur la vague 2 (voir `docs/NOTE_VERSION_3.2.1.md`). Précédentes
+livraisons : 3.2.0+29 (vague 2, `docs/NOTE_VERSION_3.2.0.md`), 3.1.0+28 (lot 1 et vague 1, `docs/NOTE_VERSION_3.1.0.md`).
 
 ## Les 3 règles (permanentes)
 

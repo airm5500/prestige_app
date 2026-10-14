@@ -3,6 +3,10 @@
 // avec dtStart / dtEnd, cumul de la période, répartition par mode de paiement), mise en page refaite : période
 // commune, chiffres clés, répartition en barres (pourcentages identiques au camembert d'origine), totaux de la
 // période, puis jour par jour en cartes (téléphone) ou en tableau (tablette). Chargé à l'ouverture.
+// Mobile Money dépliable (flèche du chiffre clé et de la ligne « Total Mobile Money ») : détail par opérateur, avec
+// son taux dans le total Mobile Money et dans le CA global (= « Total brut paiements » affiché). Le détail vient du
+// champ « detailMobile » de /ca-all s'il existe, sinon de GET /stats-recette-caisse/modes appelé AU PREMIER
+// DÉPLIAGE seulement (mêmes dates), avec chargement et erreur propres à la ligne dépliée.
 import 'package:flutter/material.dart';
 
 import '../../donnees/detail_ca_donnees.dart';
@@ -24,6 +28,17 @@ class DetailCaNouveau extends StatefulWidget {
 class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<DetailCaNouveau, List<CaComptant>> {
   late Periode _periode = Periode.rapide(PeriodeRapide.aujourdhui, widget.maintenant());
 
+  /// Période de la dernière demande /ca-all (l'appel complémentaire reprend EXACTEMENT ces dates).
+  Periode? _periodeChargee;
+
+  // Détail Mobile Money : déplié ?, opérateurs (cache de la période), chargement, erreur locale.
+  bool _mobileDeplie = false;
+  List<OperateurMobile>? _operateurs;
+  bool _mobileEnCours = false;
+  Object? _mobileErreur;
+  int _mobileGeneration = 0;
+  final _cleMobile = GlobalKey();
+
   /// Couleurs des modes de paiement (charte : bleu nuit, ambre, vert, bleu, gris, rouge).
   static const _couleurs = [Charte.navy, Charte.ambre, Charte.vert, Charte.bleu, Charte.grisTexte, Charte.rouge];
 
@@ -35,7 +50,63 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
     });
   }
 
-  Future<void> _charger() => charger(() => DetailCa.charger(context, _periode.debut, _periode.fin, onSessionInvalid: sessionInvalide(context)));
+  Future<void> _charger() {
+    final p = _periode;
+    _oublierMobile();
+    _periodeChargee = p;
+    return charger(() => DetailCa.charger(context, p.debut, p.fin, onSessionInvalid: sessionInvalide(context)));
+  }
+
+  /// Nouvelles données /ca-all : détail replié et oublié (réponse en route ignorée).
+  void _oublierMobile() {
+    _mobileGeneration++;
+    _mobileDeplie = false;
+    _operateurs = null;
+    _mobileEnCours = false;
+    _mobileErreur = null;
+  }
+
+  /// Flèche ▸ / ▾. [defiler] : amène la ligne dépliée à l'écran (appui sur le chiffre clé).
+  void _basculerMobile({bool defiler = false}) {
+    setState(() => _mobileDeplie = !_mobileDeplie);
+    if (!_mobileDeplie) return;
+    if (_operateurs == null && !_mobileEnCours && _mobileErreur == null) _chargerMobile();
+    if (defiler) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _cleMobile.currentContext;
+        if (c != null && c.mounted) Scrollable.ensureVisible(c, duration: const Duration(milliseconds: 250), alignment: 0.1);
+      });
+    }
+  }
+
+  Future<void> _chargerMobile() async {
+    final lignes = donnees ?? const <CaComptant>[];
+    final duServeur = DetailCa.detailDepuisCaAll(lignes);
+    if (duServeur != null || DetailCa.cumul(lignes).totMobile == 0 || _periodeChargee == null) {
+      setState(() => _operateurs = duServeur ?? const []);
+      return;
+    }
+    final g = ++_mobileGeneration;
+    final p = _periodeChargee!;
+    setState(() {
+      _mobileEnCours = true;
+      _mobileErreur = null;
+    });
+    try {
+      final r = await DetailCa.chargerModes(context, p.debut, p.fin, onSessionInvalid: sessionInvalide(context));
+      if (!mounted || g != _mobileGeneration) return;
+      setState(() {
+        _operateurs = r;
+        _mobileEnCours = false;
+      });
+    } catch (e) {
+      if (!mounted || g != _mobileGeneration) return;
+      setState(() {
+        _mobileErreur = e;
+        _mobileEnCours = false;
+      });
+    }
+  }
 
   void _changerPeriode(Periode p) {
     setState(() => _periode = p);
@@ -70,7 +141,13 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
         ChiffreCle(libelle: 'Total brut paiements', valeur: formaterMontant(t.totalPaiements), id: 'total', enAvant: true),
         ChiffreCle(libelle: 'Espèces', valeur: formaterMontant(t.totEsp), id: 'especes'),
         ChiffreCle(libelle: 'Crédit', valeur: formaterMontant(t.montantCredit), id: 'credit'),
-        ChiffreCle(libelle: 'Mobile Money', valeur: formaterMontant(t.totMobile), id: 'mobile'),
+        _Depliable(
+          cle: const Key('deplier_mobile_kpi'),
+          deplie: _mobileDeplie,
+          onTap: () => _basculerMobile(defiler: true),
+          enCarte: true,
+          child: ChiffreCle(libelle: 'Mobile Money', valeur: formaterMontant(t.totMobile), id: 'mobile'),
+        ),
       ]),
       const SizedBox(height: 12),
       CarteSection(titre: 'Répartition par mode de paiement', icone: Icons.donut_small_outlined, enfants: [
@@ -82,7 +159,19 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
       CarteSection(titre: 'Totaux sur la période', icone: Icons.functions, enfants: [
         LigneDetail('Total Espèces', formaterMontant(t.totEsp)),
         LigneDetail('Total Crédit', formaterMontant(t.montantCredit)),
-        LigneDetail('Total Mobile Money', formaterMontant(t.totMobile)),
+        _Depliable(
+          key: _cleMobile,
+          cle: const Key('deplier_mobile'),
+          deplie: _mobileDeplie,
+          onTap: _basculerMobile,
+          child: LigneDetail('Total Mobile Money', formaterMontant(t.totMobile)),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _mobileDeplie ? _detailMobile(lignes, t) : const SizedBox(width: double.infinity),
+        ),
         LigneDetail('Total Carte Bancaire', formaterMontant(t.totCB)),
         LigneDetail('Total Chèque', formaterMontant(t.totChq)),
         LigneDetail('Total Virement', formaterMontant(t.totVirement)),
@@ -121,6 +210,250 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
         },
       ),
     ];
+  }
+}
+
+extension _DetailMobileVue on _DetailCaNouveauState {
+  Widget _detailMobile(List<CaComptant> lignes, CaComptant t) {
+    Widget cadre(List<Widget> enfants) => Container(
+          key: const Key('detail_mobile'),
+          width: double.infinity,
+          margin: const EdgeInsets.only(left: 8, bottom: 6, top: 2),
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          decoration: const BoxDecoration(
+            color: Charte.page,
+            border: Border(left: BorderSide(color: Charte.navy, width: 3)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: enfants),
+        );
+    if (_mobileEnCours) {
+      return cadre(const [
+        Padding(
+          key: Key('mobile_chargement'),
+          padding: EdgeInsets.symmetric(vertical: 10),
+          child: Row(children: [
+            SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            SizedBox(width: 12),
+            Expanded(child: Text('Chargement du détail par opérateur…', style: TextStyle(color: Charte.gris))),
+          ]),
+        ),
+      ]);
+    }
+    if (_mobileErreur != null) {
+      final d = DiagnosticErreur.de(_mobileErreur!);
+      return cadre([
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(padding: const EdgeInsets.only(top: 2), child: Icon(d.icone, color: Charte.rougeTexte, size: 20)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Semantics(
+                liveRegion: true,
+                child: Text(d.titre, key: Key('mobile_erreur_${d.cause.name}'),
+                    style: const TextStyle(color: Charte.rougeTexte, fontWeight: FontWeight.bold, fontSize: 14.5)),
+              ),
+              Text(d.message, style: const TextStyle(color: Charte.rougeTexte, fontSize: 13)),
+            ]),
+          ),
+        ]),
+        if (d.cause != CauseErreur.droit)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('mobile_reessayer'),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: _chargerMobile,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ),
+      ]);
+    }
+    final ops = _operateurs;
+    if (ops == null) return cadre(const []);
+    final duServeur = DetailCa.detailDepuisCaAll(lignes) != null;
+    final detail = DetailMobile(
+      operateurs: ops,
+      totMobile: t.totMobile,
+      caGlobal: t.totalPaiements,
+      source: duServeur ? SourceDetailMobile.caAll : SourceDetailMobile.modes,
+    );
+    if (t.totMobile == 0 && ops.isEmpty) {
+      return cadre(const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text('Aucun encaissement Mobile Money sur la période.', key: Key('mobile_vide'), style: TextStyle(color: Charte.gris)),
+        ),
+      ]);
+    }
+    final ecart = detail.ecart;
+    final rangs = <_RangMobile>[
+      for (final o in ops) _RangMobile(o.libelle, o.montant, detail.tauxMobile(o.montant), detail.tauxCa(o.montant)),
+      if (ecart != null) _RangMobile('Autres / écart', ecart, detail.tauxMobile(ecart), detail.tauxCa(ecart), ecart: true),
+    ];
+    return cadre([
+      LayoutBuilder(builder: (context, c) {
+        final tableau = c.maxWidth >= 560;
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (tableau) const _EnteteMobile(),
+          for (final r in rangs) tableau ? _LigneTableauMobile(r) : _LigneMobile(r),
+        ]);
+      }),
+      if (ecart != null)
+        const Padding(
+          key: Key('mobile_note_ecart'),
+          padding: EdgeInsets.only(top: 4),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.info_outline, size: 16, color: Charte.gris),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text('Autres / écart : différence de calcul entre deux sources du serveur.',
+                  style: TextStyle(color: Charte.gris, fontSize: 12.5)),
+            ),
+          ]),
+        ),
+      const Padding(
+        padding: EdgeInsets.only(top: 4),
+        child: Text('Taux : part du total Mobile Money et part du CA global (total brut paiements).',
+            style: TextStyle(color: Charte.gris, fontSize: 12.5)),
+      ),
+    ]);
+  }
+}
+
+/// Une ligne du détail Mobile Money (opérateur ou écart).
+class _RangMobile {
+  final String libelle;
+  final double montant;
+  final double? tauxMobile;
+  final double? tauxCa;
+  final bool ecart;
+  const _RangMobile(this.libelle, this.montant, this.tauxMobile, this.tauxCa, {this.ecart = false});
+}
+
+/// « 50,5 % » (virgule décimale) ; « — » si le taux n'existe pas (total nul).
+String formaterTaux(double? t) => t == null ? '—' : '${t.toStringAsFixed(1).replaceAll('.', ',')}\u00a0%';
+
+const _styleMontantMobile = TextStyle(color: Charte.encre, fontWeight: FontWeight.w700, fontSize: 14);
+
+/// Téléphone : opérateur et montant, puis les deux taux en toutes lettres.
+class _LigneMobile extends StatelessWidget {
+  final _RangMobile r;
+  const _LigneMobile(this.r);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        key: Key('mobile_ligne_${r.libelle}'),
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Text(r.libelle,
+                  style: TextStyle(color: Charte.encre, fontSize: 14, fontWeight: FontWeight.w600, fontStyle: r.ecart ? FontStyle.italic : null)),
+            ),
+            const SizedBox(width: 8),
+            Text(formaterMontant(r.montant), style: _styleMontantMobile),
+          ]),
+          Text('${formaterTaux(r.tauxMobile)} du Mobile Money · ${formaterTaux(r.tauxCa)} du CA',
+              style: const TextStyle(color: Charte.grisTexte, fontSize: 12.5)),
+        ]),
+      );
+}
+
+const _flexMobile = [4, 3, 3, 3];
+
+class _EnteteMobile extends StatelessWidget {
+  const _EnteteMobile();
+
+  @override
+  Widget build(BuildContext context) {
+    const titres = ['OPÉRATEUR', 'MONTANT', 'PART MOBILE MONEY', 'PART DU CA'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        for (var i = 0; i < titres.length; i++)
+          Expanded(
+            flex: _flexMobile[i],
+            child: Text(titres[i],
+                textAlign: i == 0 ? TextAlign.left : TextAlign.right,
+                style: const TextStyle(color: Charte.gris, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.4)),
+          ),
+      ]),
+    );
+  }
+}
+
+/// Tablette : tableau à 4 colonnes (opérateur, montant, part du Mobile Money, part du CA).
+class _LigneTableauMobile extends StatelessWidget {
+  final _RangMobile r;
+  const _LigneTableauMobile(this.r);
+
+  @override
+  Widget build(BuildContext context) {
+    final cellules = [r.libelle, formaterMontant(r.montant), formaterTaux(r.tauxMobile), formaterTaux(r.tauxCa)];
+    return Container(
+      key: Key('mobile_ligne_${r.libelle}'),
+      constraints: const BoxConstraints(minHeight: 40),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Charte.ligne))),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        for (var i = 0; i < cellules.length; i++)
+          Expanded(
+            flex: _flexMobile[i],
+            child: Text(cellules[i],
+                textAlign: i == 0 ? TextAlign.left : TextAlign.right,
+                style: i == 1
+                    ? _styleMontantMobile
+                    : TextStyle(
+                        color: i == 0 ? Charte.encre : Charte.grisTexte,
+                        fontSize: 14,
+                        fontWeight: i == 0 ? FontWeight.w600 : FontWeight.normal,
+                        fontStyle: r.ecart && i == 0 ? FontStyle.italic : null)),
+          ),
+      ]),
+    );
+  }
+}
+
+/// Zone dépliable : contenu + flèche ▸ / ▾ (cible ≥ 48 dp, annoncée « Détail Mobile Money », état déplié/replié).
+class _Depliable extends StatelessWidget {
+  final Key cle;
+  final bool deplie;
+  final VoidCallback onTap;
+  final Widget child;
+
+  /// Chiffre clé : flèche dans le coin de la carte (toute la carte est la cible).
+  final bool enCarte;
+  const _Depliable({super.key, required this.cle, required this.deplie, required this.onTap, required this.child, this.enCarte = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final fleche = AnimatedRotation(
+      turns: deplie ? 0.25 : 0,
+      duration: const Duration(milliseconds: 200),
+      child: const Icon(Icons.arrow_right, color: Charte.navy, size: 28),
+    );
+    return Semantics(
+      button: true,
+      expanded: deplie,
+      label: 'Détail Mobile Money',
+      hint: deplie ? 'Replier le détail par opérateur' : 'Déplier le détail par opérateur',
+      container: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: cle,
+          borderRadius: BorderRadius.circular(enCarte ? 14 : 8),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: enCarte
+                ? Stack(children: [child, Positioned(right: 2, top: 2, child: fleche)])
+                : Row(children: [Expanded(child: child), const SizedBox(width: 4), fleche]),
+          ),
+        ),
+      ),
+    );
   }
 }
 

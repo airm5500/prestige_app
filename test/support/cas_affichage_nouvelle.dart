@@ -106,11 +106,37 @@ Future<void> Function(WidgetTester) toucher(Finder cible) => (tester) async {
       }
     };
 
+/// Amène [cle] à l'écran en faisant défiler [defilement] (liste paresseuse), puis la touche.
+Future<void> Function(WidgetTester) toucherApresDefilementLot1(String cle, {String defilement = 'defilement_module', String? attendu}) =>
+    (tester) async {
+      final f = find.byKey(Key(cle));
+      final s = find.descendant(of: find.byKey(Key(defilement)), matching: find.byType(Scrollable)).first;
+      for (var i = 0; i < 30 && f.evaluate().isEmpty; i++) {
+        await tester.drag(s, const Offset(0, -300));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.ensureVisible(f);
+      await tester.pump(const Duration(milliseconds: 300));
+      await toucher(f)(tester);
+      if (attendu != null) expect(find.byKey(Key(attendu)), findsOneWidget, reason: 'état rendu : $attendu');
+    };
+
 /// États des modules refaits (lot 1) : remplis, filtres, détail, exports, erreurs. Écrans propres à la nouvelle
 /// interface : aucun écart toléré.
 final casLot1 = <CasAffichage>[
   CasAffichage('Lot 1 · Rapport d\'Activité rempli', enNouvelle(ecranConnecte(() => const RapportActiviteNouveau()), donnees: donneesLot1)),
   CasAffichage('Lot 1 · Détail CA rempli', enNouvelle(ecranConnecte(() => const DetailCaNouveau()), donnees: donneesLot1)),
+  CasAffichage('Lot 1 · Détail CA Mobile Money déplié',
+      enNouvelle(ecranConnecte(() => const DetailCaNouveau()), donnees: donneesLot1,
+          ensuite: toucherApresDefilementLot1('deplier_mobile', attendu: 'mobile_ligne_Autres / écart'))),
+  CasAffichage(
+      'Lot 1 · Détail CA Mobile Money en erreur',
+      enNouvelle(ecranConnecte(() => const DetailCaNouveau()),
+          donnees: (s) {
+            donneesLot1(s);
+            s.quand('/stats-recette-caisse/modes', ReponseFausse.erreurServeur(), methode: 'GET');
+          },
+          ensuite: toucherApresDefilementLot1('deplier_mobile', attendu: 'mobile_erreur_serveur'))),
   CasAffichage('Lot 1 · Suivi Crédit rempli', enNouvelle(ecranConnecte(() => const SuiviCreditNouveau()), donnees: donneesLot1)),
   CasAffichage('Lot 1 · Suivi Crédit filtres',
       enNouvelle(ecranConnecte(() => const SuiviCreditNouveau()), donnees: donneesLot1, ensuite: toucher(find.byKey(const Key('bouton_filtres'))))),

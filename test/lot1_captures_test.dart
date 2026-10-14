@@ -160,4 +160,26 @@ void main() {
     await fin(tester);
     debugDisableShadows = true;
   }, skip: !_actif);
+
+  // 2b. Détail CA : Mobile Money déplié (détail par opérateur, taux, ligne « Autres / écart »). Test séparé pour
+  // pouvoir ne régénérer que cette capture : --plain-name "2b".
+  testWidgets('capture 2b : Détail CA, Mobile Money déplié', (tester) async {
+    debugDisableShadows = false;
+    await preparer(Presentation.automatique);
+    await appareil(tester);
+    await connecterEnMemoire(tester);
+    await ouvrir(tester, 'Détail CA');
+    final cible = find.byKey(const Key('deplier_mobile'));
+    final s = find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first;
+    for (var i = 0; i < 20 && cible.evaluate().isEmpty; i++) {
+      await tester.drag(s, const Offset(0, -300));
+      await pomper(tester, 2);
+    }
+    await tester.tap(cible);
+    await pomper(tester, 10);
+    await Scrollable.ensureVisible(tester.element(cible), alignment: 0.15);
+    await photo(tester, '2b_detail_ca_mobile_money');
+    await fin(tester);
+    debugDisableShadows = true;
+  }, skip: !_actif);
 }
