@@ -11,7 +11,7 @@
 // bas (commun.dart).
 import 'package:flutter/material.dart';
 
-import '../../screens/evolution_stock_screen.dart';
+import '../modules/evolution_stock_nouveau.dart';
 import '../charte.dart';
 import '../composants.dart';
 import '../modules/commun.dart';
@@ -197,7 +197,7 @@ class _ValorisationVague1State extends State<ValorisationVague1> with SingleTick
             key: const Key('valorisation_evolution'),
             tooltip: 'Évolution du stock',
             icon: const Icon(Icons.ssid_chart_outlined),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EvolutionStockScreen())),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EvolutionStockNouveau())),
           ),
           IconButton(
             key: const Key('valorisation_actualiser'),

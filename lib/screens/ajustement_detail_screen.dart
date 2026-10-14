@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/ajustement_detail_model.dart';
-import '../utils/constants.dart';
+import '../donnees/ajustements_donnees.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
 
@@ -30,34 +30,15 @@ class _AjustementDetailScreenState extends State<AjustementDetailScreen> with Ba
 
   Future<void> _loadDetails() async {
     reessai = _loadDetails; // « Réessayer » relance ce chargement
-    // CORRECTION: Ajout des paramètres de pagination
-    final queryParams = {
-      'ajustementId': widget.ajustementId,
-      'page': '1',
-      'start': '0',
-      'limit': '100' // On charge jusqu'à 100 articles pour les détails
-    };
+    // Lecture et analyse partagées avec la nouvelle interface (lib/donnees/ajustements_donnees.dart).
+    final items = await apiDonnees((deco) => Ajustements.details(context, widget.ajustementId, onSessionInvalid: deco));
 
-    final data = await apiGet(
-      AppConstants.ajustementItemsEndpoint,
-      queryParams: queryParams,
-    );
-
-    if (mounted && data is Map<String, dynamic> && data['data'] is List) {
-      final items = (data['data'] as List).map((item) => AjustementDetail.fromJson(item)).toList();
-      double totalPos = 0;
-      double totalNeg = 0;
-      for (var item in items) {
-        if (item.isPositive) {
-          totalPos += item.valeurAjustement;
-        } else {
-          totalNeg += item.valeurAjustement;
-        }
-      }
+    if (mounted && items != null) {
+      final analyse = Ajustements.analyser(items);
       setState(() {
         _details = items;
-        _totalPositif = totalPos;
-        _totalNegatif = totalNeg;
+        _totalPositif = analyse.positif;
+        _totalNegatif = analyse.negatif;
       });
     }
   }

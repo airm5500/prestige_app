@@ -4,22 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/common_data_model.dart';
 import 'package:prestige_app/models/etat_controle_achat_meta_model.dart';
-// CORRECTION: Le chemin d'importation a été corrigé ici
 import '../models/etat_controle_achat_model.dart';
-import '../utils/constants.dart';
+import '../donnees/controle_achat_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
 
-/// Paramètres de GET /etat-control-bon/list-annuelle (écran et comptage à la demande de l'accueil A : mêmes
-/// paramètres, l'accueil utilisant les filtres par défaut de l'écran — période du jour, tous les groupes).
-Map<String, String> parametresEtatControleAchat(DateTime debut, DateTime fin, {String groupeId = ''}) => {
-      'dtStart': DateFormatter.toApiFormat(debut),
-      'dtEnd': DateFormatter.toApiFormat(fin),
-      'groupeId': groupeId,
-      'groupBy': 'GROUP', // Comme spécifié dans l'URL d'exemple
-      'limit': '9999',
-    };
+export '../donnees/controle_achat_donnees.dart' show parametresEtatControleAchat;
 
 class EtatControleAchatScreen extends StatefulWidget {
   const EtatControleAchatScreen({super.key});
@@ -42,29 +33,27 @@ class _EtatControleAchatScreenState extends State<EtatControleAchatScreen> with 
     _fetchGroupesGrossistes();
   }
 
+  // Lectures partagées avec la nouvelle interface (lib/donnees/controle_achat_donnees.dart).
   Future<void> _fetchGroupesGrossistes() async {
     reessai = _fetchGroupesGrossistes; // « Réessayer » relance ce chargement
-    final data = await apiGet(AppConstants.groupeGrossisteEndpoint);
-    if (mounted && data is Map && data['data'] is List) {
+    final groupes = await apiDonnees((deco) => EtatControleAchats.groupes(context, onSessionInvalid: deco));
+    if (mounted && groupes != null) {
       setState(() {
-        _groupesGrossistes = (data['data'] as List).map((item) => CommonData.fromJson(item)).toList();
+        _groupesGrossistes = groupes;
       });
     }
   }
 
   Future<void> _loadData() async {
     reessai = _loadData; // « Réessayer » relance ce chargement
-    final queryParams = parametresEtatControleAchat(_startDate, _endDate, groupeId: _selectedGroupe?.id ?? '');
+    final r = await apiDonnees(
+        (deco) => EtatControleAchats.charger(context, _startDate, _endDate, groupeId: _selectedGroupe?.id ?? '', onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.etatControleAchatEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map) {
+    if (mounted && r != null) {
       setState(() {
-        if (data['data'] is List) {
-          _dataList = (data['data'] as List).map((item) => EtatControleAchat.fromJson(item)).toList();
-        }
-        if (data['metaData'] is Map) {
-          _metaData = EtatControleAchatMeta.fromJson(data['metaData']);
+        _dataList = r.lignes;
+        if (r.totaux != null) {
+          _metaData = r.totaux;
         }
         if (_dataList.isEmpty) {
           errorMessage = "Aucune donnée trouvée pour les critères sélectionnés.";

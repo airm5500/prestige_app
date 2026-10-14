@@ -3,8 +3,7 @@
 import 'package:flutter/material.dart'; // CORRECTION: Le point a été remplacé par deux-points
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/avoir_fournisseur_produit_model.dart';
-import '../utils/constants.dart';
-import '../utils/date_formatter.dart';
+import '../donnees/retours_fournisseurs_donnees.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
 
@@ -29,16 +28,12 @@ class _ListeProduitsRetourScreenState extends State<ListeProduitsRetourScreen> w
 
   Future<void> _loadProduits() async {
     reessai = _loadProduits; // « Réessayer » relance ce chargement
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(widget.startDate),
-      'dtEnd': DateFormatter.toApiFormat(widget.endDate),
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/retours_fournisseurs_donnees.dart).
+    final p = await apiDonnees((deco) => RetoursFournisseurs.produits(context, widget.startDate, widget.endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.avoirsFournisseursEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
+    if (mounted && p != null) {
       setState(() {
-        _produits = data.map((item) => AvoirFournisseurProduit.fromJson(item)).toList();
+        _produits = p;
         if (_produits.isEmpty) {
           errorMessage = "Aucun produit trouvé pour la période sélectionnée.";
         }

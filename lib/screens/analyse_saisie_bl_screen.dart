@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/bon_livraison_stat_model.dart';
-import '../utils/constants.dart';
+import '../donnees/analyse_bl_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -25,17 +25,12 @@ class _AnalyseSaisieBlScreenState extends State<AnalyseSaisieBlScreen> with Base
 
   Future<void> _loadData() async {
     reessai = _loadData; // « Réessayer » relance ce chargement
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'limit': '9999',
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/analyse_bl_donnees.dart).
+    final bl = await apiDonnees((deco) => AnalyseSaisiesBl.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.analyseSaisieBlEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['data'] is List) {
+    if (mounted && bl != null) {
       setState(() {
-        _dataList = (data['data'] as List).map((item) => BonLivraisonStat.fromJson(item)).toList();
+        _dataList = bl;
         _filterData(); // AJOUT: Appliquer les filtres après le chargement
         if (_dataList.isEmpty) {
           errorMessage = "Aucune donnée trouvée pour les critères sélectionnés.";
@@ -44,14 +39,10 @@ class _AnalyseSaisieBlScreenState extends State<AnalyseSaisieBlScreen> with Base
     }
   }
 
-  // AJOUT: Nouvelle fonction pour filtrer les données localement
+  // Filtre local par statut (même règle que la nouvelle interface).
   void _filterData() {
     setState(() {
-      if (_selectedStatus == 'Tous') {
-        _filteredDataList = List.from(_dataList);
-      } else {
-        _filteredDataList = _dataList.where((item) => item.status == _selectedStatus).toList();
-      }
+      _filteredDataList = AnalyseSaisiesBl.filtrer(_dataList, _selectedStatus);
     });
   }
 

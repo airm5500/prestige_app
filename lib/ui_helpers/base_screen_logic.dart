@@ -67,6 +67,15 @@ mixin BaseScreenLogic<T extends StatefulWidget> on State<T> {
     );
   }
 
+  /// Appel d'une fonction de données partagée (lib/donnees/, communes aux deux interfaces) avec la même gestion
+  /// que [apiGet] : chargement, erreur (loadError / errorMessage), session expirée → déconnexion. Null en cas d'échec
+  /// (ou de réponse au format inattendu).
+  Future<R?> apiDonnees<R>(Future<R?> Function(VoidCallback onSessionInvalid) appel) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final r = await safeApiCall(() => appel(() => authProvider.forceLogout()));
+    return r is R ? r : null;
+  }
+
   // AJOUT: Raccourci pour les appels GET V3
   Future<dynamic> apiGetV3(String endpoint, {Map<String, String>? queryParams}) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);

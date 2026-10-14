@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:prestige_app/screens/ajustement_detail_screen.dart';
 import '../models/ajustement_model.dart';
 import '../models/common_data_model.dart';
-import '../utils/constants.dart';
+import '../donnees/ajustements_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -39,12 +39,13 @@ class _SuiviAjustementScreenState extends State<SuiviAjustementScreen> with Base
     super.dispose();
   }
 
+  // Lectures partagées avec la nouvelle interface (lib/donnees/ajustements_donnees.dart).
   Future<void> _fetchTypesAjustement() async {
     reessai = _fetchTypesAjustement; // « Réessayer » relance ce chargement
-    final data = await apiGet(AppConstants.typeAjustementsEndpoint);
-    if (mounted && data is Map<String, dynamic> && data['data'] is List) {
+    final types = await apiDonnees((deco) => Ajustements.types(context, onSessionInvalid: deco));
+    if (mounted && types != null) {
       setState(() {
-        _typesAjustement = (data['data'] as List).map((item) => CommonData.fromJson(item)).toList();
+        _typesAjustement = types;
       });
     }
   }
@@ -53,22 +54,12 @@ class _SuiviAjustementScreenState extends State<SuiviAjustementScreen> with Base
     reessai = _loadData; // « Réessayer » relance ce chargement
     setState(() => _dataList = []);
 
-    // CORRECTION: Ajout des paramètres de pagination
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'typeFiltre': _selectedType?.id ?? '',
-      'page': '1',
-      'start': '0',
-      'limit': '100', // On charge 100 résultats par défaut
-    };
+    final l = await apiDonnees(
+        (deco) => Ajustements.charger(context, _startDate, _endDate, typeId: _selectedType?.id ?? '', onSessionInvalid: deco));
 
-    // CORRECTION: Retrait du paramètre 'apiContext'
-    final data = await apiGet(AppConstants.ajustementEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map<String, dynamic> && data['data'] is List) {
+    if (mounted && l != null) {
       setState(() {
-        _dataList = (data['data'] as List).map((item) => Ajustement.fromJson(item)).toList();
+        _dataList = l;
         if (_dataList.isEmpty) {
           errorMessage = "Aucun ajustement trouvé pour cette période.";
         }

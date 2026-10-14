@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/bon_livraison_model.dart';
 import 'package:prestige_app/models/common_data_model.dart';
 import 'package:prestige_app/services/api_service.dart';
-import 'package:prestige_app/utils/constants.dart';
+import '../donnees/visualisation_bl_donnees.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
 import '../utils/saisie.dart';
@@ -37,11 +36,7 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
   CommonData? _selectedUser;
   String? _selectedStatut;
 
-  final Map<String, String> _statuts = {
-    'TERMINE': 'Terminé',
-    'NON_TRAITE': 'Non Traité',
-    'EN_COURS': 'En Cours',
-  };
+  final Map<String, String> _statuts = VisualisationBl.statuts;
 
   // Résultats
   List<BonLivraisonModel> _bls = [];
@@ -54,7 +49,6 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
 
   // Pagination
   int _currentPage = 1;
-  final int _limit = 20;
   final ScrollController _scrollController = ScrollController();
 
   // Totaux
@@ -97,20 +91,16 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
   }
 
   Future<void> _loadFilters() async {
-    final api = Provider.of<ApiService>(context, listen: false);
     if (_filtresErreur != null) setState(() => _filtresErreur = null);
     try {
-      final g = await api.getGrossistes(context);
-      if (!mounted) return;
-      final gr = await api.getGroupeGrossistes(context);
-      if (!mounted) return;
-      final u = await api.getUsers(context);
+      // Listes partagées avec la nouvelle interface (lib/donnees/visualisation_bl_donnees.dart).
+      final o = await VisualisationBl.options(context);
 
       if (mounted) {
         setState(() {
-          _grossistes = g;
-          _groupes = gr;
-          _users = u;
+          _grossistes = o.grossistes;
+          _groupes = o.groupes;
+          _users = o.utilisateurs;
         });
       }
     } catch (e) {
@@ -120,7 +110,6 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
   }
 
   Future<void> _fetchData({bool loadMore = false}) async {
-    final api = Provider.of<ApiService>(context, listen: false);
 
     if (!loadMore) {
       setState(() {
@@ -136,23 +125,22 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
     }
 
     try {
-      final result = await api.getBonLivraisons(
+      final result = await VisualisationBl.page(
         context,
-        search: Saisie.recherche(_searchController.text),
+        recherche: _searchController.text,
         grossisteId: _selectedGrossiste?.id ?? '',
         groupeId: _selectedGroupe?.id ?? '',
         userId: _selectedUser?.id ?? '',
-        statut: _selectedStatut ?? '',
-        dtStart: _dateStartController.text,
-        dtEnd: _dateEndController.text,
+        statut: _selectedStatut,
+        debut: DateTime.parse(_dateStartController.text),
+        fin: DateTime.parse(_dateEndController.text),
         page: _currentPage,
-        limit: _limit,
       );
 
       if (mounted) {
         setState(() {
-          final newData = result['data'] as List<BonLivraisonModel>;
-          _totalBl = result['total'];
+          final newData = result.bons;
+          _totalBl = result.total;
 
           if (loadMore) {
             _bls.addAll(newData);
@@ -183,9 +171,10 @@ class _VisualisationBlScreenState extends State<VisualisationBlScreen> {
   }
 
   void _recalculateTotals() {
-    _totalHT = _bls.fold(0, (sum, item) => sum + item.montantHT);
-    _totalTVA = _bls.fold(0, (sum, item) => sum + item.montantTVA);
-    _totalTTC = _bls.fold(0, (sum, item) => sum + item.montantTTC);
+    final t = VisualisationBl.totaux(_bls);
+    _totalHT = t.ht;
+    _totalTVA = t.tva;
+    _totalTTC = t.ttc;
   }
 
   // Action pour vider UNIQUEMENT le champ de recherche

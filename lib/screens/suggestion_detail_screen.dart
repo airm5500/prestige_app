@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:prestige_app/models/suggestion_model.dart';
 import '../models/suggestion_item_model.dart';
 import '../models/suggestion_amount_model.dart';
-import '../utils/constants.dart';
+import '../donnees/suggestions_donnees.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
 import '../utils/saisie.dart';
@@ -39,34 +39,35 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
     }
   }
 
+  // Lectures et écritures partagées avec la nouvelle interface (lib/donnees/suggestions_donnees.dart).
   Future<void> _loadItems() async {
-    final data = await apiGet(AppConstants.suggestionListItemsEndpoint, queryParams: {'orderId': widget.suggestion.id, 'limit': '9999'});
-    if (mounted && data is Map && data['data'] is List) {
+    final items = await apiDonnees((deco) => Suggestions.lignes(context, widget.suggestion.id, onSessionInvalid: deco));
+    if (mounted && items != null) {
       setState(() {
-        _items = (data['data'] as List).map((item) => SuggestionItem.fromJson(item)).toList();
+        _items = items;
       });
     }
   }
 
   Future<void> _loadAmount() async {
-    final data = await apiGet('${AppConstants.suggestionAmountEndpoint}/${widget.suggestion.id}');
-    if (mounted && data is Map) {
+    final amount = await apiDonnees((deco) => Suggestions.montant(context, widget.suggestion.id, onSessionInvalid: deco));
+    if (mounted && amount != null) {
       setState(() {
-        _amount = SuggestionAmount.fromJson(data as Map<String, dynamic>);
+        _amount = amount;
       });
     }
   }
 
   Future<void> _updateQuantity(String itemId, String newQuantity) async {
-    final int? qte = Saisie.entier(newQuantity, min: 0, max: Saisie.maxQuantite);
+    final int? qte = Suggestions.quantite(newQuantity);
     if (qte == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Quantité invalide (0 à ${Saisie.maxQuantite}) : non enregistrée.')),
+        const SnackBar(content: Text(Suggestions.messageQuantiteInvalide)),
       );
       return;
     }
 
-    final r = await apiPost(AppConstants.suggestionUpdateQteEndpoint, {'itemId': itemId, 'qte': qte});
+    final r = await apiDonnees((deco) => Suggestions.enregistrerQuantite(context, itemId, qte, onSessionInvalid: deco));
     if (!mounted) return;
     if (r == null) {
       // Échec (réseau, serveur, session…) : la quantité n'est PAS enregistrée, on le dit.
@@ -93,7 +94,8 @@ class _SuggestionDetailScreenState extends State<SuggestionDetailScreen> with Ba
     );
 
     if (confirm == true) {
-      final r = await apiDelete('${AppConstants.suggestionDeleteItemEndpoint}/$itemId');
+      if (!mounted) return;
+      final r = await apiDonnees((deco) => Suggestions.supprimerLigne(context, itemId, onSessionInvalid: deco));
       if (!mounted) return;
       if (r == null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

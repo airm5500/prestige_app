@@ -1,17 +1,12 @@
 // lib/screens/retours_fournisseurs_screen.dart
 
-import 'dart:io';
-import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:prestige_app/models/fournisseur_model.dart';
-import 'package:prestige_app/models/suggestion_item_model.dart';
 import 'package:prestige_app/screens/liste_produits_retour_screen.dart';
 import 'package:prestige_app/screens/retour_fournisseur_detail_screen.dart';
-import 'package:share_plus/share_plus.dart';
 import '../models/retour_fournisseur_model.dart';
-import '../utils/constants.dart';
+import '../donnees/retours_fournisseurs_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -40,12 +35,13 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
     _fetchGrossistes();
   }
 
+  // Lectures partagées avec la nouvelle interface (lib/donnees/retours_fournisseurs_donnees.dart).
   Future<void> _fetchGrossistes() async {
     reessai = _fetchGrossistes; // « Réessayer » relance ce chargement
-    final data = await apiGet(AppConstants.grossistesEndpoint);
-    if (mounted && data is Map && data['data'] is List) {
+    final f = await apiDonnees((deco) => RetoursFournisseurs.fournisseurs(context, onSessionInvalid: deco));
+    if (mounted && f != null) {
       setState(() {
-        _fournisseurs = (data['data'] as List).map((item) => Fournisseur.fromJson(item)).toList();
+        _fournisseurs = f;
       });
     }
   }
@@ -56,22 +52,18 @@ class _RetoursFournisseursScreenState extends State<RetoursFournisseursScreen> w
       _retours = [];
     });
 
-    final queryParams = {
-      'query': Saisie.recherche(_searchController.text),
-      'fourId': _selectedFournisseur?.fournisseurId ?? '',
-      'filtre': _filtre == 'TOUT' ? '' : _filtre,
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'page': '1',
-      'start': '0',
-      'limit': '9999',
-    };
+    final filtre = FiltreReponse.values.firstWhere((f) => f.valeur == (_filtre == 'TOUT' ? '' : _filtre), orElse: () => FiltreReponse.tout);
+    final r = await apiDonnees((deco) => RetoursFournisseurs.retours(context,
+        recherche: _searchController.text,
+        fourId: _selectedFournisseur?.fournisseurId ?? '',
+        filtre: filtre,
+        debut: _startDate,
+        fin: _endDate,
+        onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.retoursFournisseursEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['results'] is List) {
+    if (mounted && r != null) {
       setState(() {
-        _retours = (data['results'] as List).map((item) => RetourFournisseur.fromJson(item)).toList();
+        _retours = r;
         if (_retours.isEmpty) {
           errorMessage = "Aucun retour fournisseur trouvé pour les critères sélectionnés.";
         }

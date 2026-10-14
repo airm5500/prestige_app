@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:prestige_app/models/common_data_model.dart';
 import 'package:prestige_app/models/etat_stock_article_model.dart';
 import 'package:prestige_app/services/api_service.dart';
-import 'package:prestige_app/utils/constants.dart';
+import '../donnees/etat_stock_donnees.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
 import '../utils/saisie.dart';
@@ -44,14 +43,7 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
   int _totalArticles = 0;
   final ScrollController _scrollController = ScrollController();
 
-  final Map<String, String> _stockFilters = {
-    'EQUAL': 'Egal (=)',
-    'LESS': 'Inférieur (<)',
-    'GREATER': 'Supérieur (>)',
-    'GREATER_EQUAL': 'Sup. ou Egal (>=)',
-    'LESS_EQUAL': 'Inf. ou Egal (<=)',
-    'NOT': 'Différent (!=)',
-  };
+  final Map<String, String> _stockFilters = EtatStock.comparaisons;
 
   @override
   void initState() {
@@ -81,17 +73,15 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    final apiService = Provider.of<ApiService>(context, listen: false);
     if (_filtresErreur != null) setState(() => _filtresErreur = null);
     try {
-      final rayons = await apiService.getRayons(context);
-      if (!mounted) return;
-      final grossistes = await apiService.getGrossistes(context);
+      // Listes partagées avec la nouvelle interface (lib/donnees/etat_stock_donnees.dart).
+      final options = await EtatStock.options(context);
 
       if (mounted) {
         setState(() {
-          _rayons = rayons;
-          _grossistesMap = {for (var g in grossistes) g.id: g.libelle};
+          _rayons = options.rayons;
+          _grossistesMap = options.grossistes;
         });
       }
     } catch (e) {
@@ -101,24 +91,14 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
   }
 
   Future<void> _searchArticles({bool loadMore = false}) async {
-    if (_selectedStockFilter != null &&
-        _stockValueController.text.isNotEmpty &&
-        Saisie.entier(_stockValueController.text, min: -Saisie.maxQuantite, max: Saisie.maxQuantite) == null) {
+    final erreurFiltre = EtatStock.erreurFiltre(_selectedStockFilter, _stockValueController.text);
+    if (erreurFiltre != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Quantité invalide (nombre entier, ${Saisie.maxQuantite} au plus).')),
+        SnackBar(content: Text(erreurFiltre)),
       );
       _stockFocusNode.requestFocus();
       return;
     }
-    if (_selectedStockFilter != null && _stockValueController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saisissez une quantité pour le filtre stock')),
-      );
-      _stockFocusNode.requestFocus();
-      return;
-    }
-
-    final apiService = Provider.of<ApiService>(context, listen: false);
 
     if (!loadMore) {
       setState(() {
@@ -135,22 +115,22 @@ class _EtatStockScreenState extends State<EtatStockScreen> {
     }
 
     try {
-      final result = await apiService.getEtatStockArticles(
+      final result = await EtatStock.page(
         context,
-        query: Saisie.recherche(_searchController.text),
+        recherche: _searchController.text,
         codeRayon: _selectedRayon?.id ?? '',
-        stock: _stockValueController.text.trim(),
-        filtreStock: _selectedStockFilter ?? '',
+        quantite: _stockValueController.text,
+        comparaison: _selectedStockFilter,
         page: _currentPage,
       );
 
       if (mounted) {
         setState(() {
-          _totalArticles = result['total'];
+          _totalArticles = result.total;
           if (loadMore) {
-            _articles.addAll(result['data']);
+            _articles.addAll(result.articles);
           } else {
-            _articles = result['data'];
+            _articles = result.articles;
           }
           _isLoading = false;
         });

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/retour_fournisseur_detail_model.dart';
-import '../utils/constants.dart';
+import '../donnees/retours_fournisseurs_donnees.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
 
@@ -27,18 +27,12 @@ class _RetourFournisseurDetailScreenState extends State<RetourFournisseurDetailS
 
   Future<void> _loadDetails() async {
     reessai = _loadDetails; // « Réessayer » relance ce chargement
-    final queryParams = {
-      'retourId': widget.retourId,
-      'page': '1',
-      'start': '0',
-      'limit': '9999',
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/retours_fournisseurs_donnees.dart).
+    final d = await apiDonnees((deco) => RetoursFournisseurs.details(context, widget.retourId, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.retourFournisseurDetailEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['data'] is List) {
+    if (mounted && d != null) {
       setState(() {
-        _details = (data['data'] as List).map((item) => RetourFournisseurDetail.fromJson(item)).toList();
+        _details = d;
         if (_details.isEmpty) {
           errorMessage = "Aucun détail trouvé pour ce retour.";
         }

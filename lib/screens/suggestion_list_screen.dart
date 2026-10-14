@@ -1,16 +1,9 @@
 // lib/screens/suggestion_list_screen.dart
 
-import 'dart:io';
-import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart'; // Nécessaire pour les permissions
-import 'package:device_info_plus/device_info_plus.dart';     // Nécessaire pour la version Android
-import 'package:prestige_app/models/suggestion_item_model.dart';
 import 'package:prestige_app/models/suggestion_model.dart';
 import 'package:prestige_app/screens/suggestion_detail_screen.dart';
-// import 'package:share_plus/share_plus.dart'; // Plus besoin de share_plus ici
-import '../utils/constants.dart';
+import '../donnees/suggestions_donnees.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../utils/date_formatter.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -33,10 +26,11 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
 
   Future<void> _loadSuggestions() async {
     reessai = _loadSuggestions; // « Réessayer » relance ce chargement
-    final data = await apiGet(AppConstants.suggestionListEndpoint, queryParams: {'limit': '50'});
-    if (mounted && data is Map && data['data'] is List) {
+    // Lecture partagée avec la nouvelle interface (lib/donnees/suggestions_donnees.dart).
+    final liste = await apiDonnees((deco) => Suggestions.liste(context, onSessionInvalid: deco));
+    if (mounted && liste != null) {
       setState(() {
-        _suggestions = (data['data'] as List).map((item) => Suggestion.fromJson(item)).toList();
+        _suggestions = liste;
         if (_suggestions.isEmpty) {
           errorMessage = "Aucune suggestion de commande disponible.";
         }
@@ -45,7 +39,7 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
   }
 
   Future<void> _openSuggestion(Suggestion suggestion) async {
-    await apiGet('${AppConstants.suggestionSetPendingEndpoint}/${suggestion.id}');
+    await apiDonnees((deco) => Suggestions.ouvrir(context, suggestion.id, onSessionInvalid: deco));
     if (mounted) {
       Navigator.push(
         context,
@@ -68,7 +62,8 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
     );
 
     if (confirm == true) {
-      final r = await apiDelete('${AppConstants.suggestionDeleteEndpoint}/$suggestionId');
+      if (!mounted) return;
+      final r = await apiDonnees((deco) => Suggestions.supprimer(context, suggestionId, onSessionInvalid: deco));
       if (!mounted) return;
       if (r == null) {
         // Échec : la suggestion n'est PAS supprimée, on le dit (au lieu de recharger en silence).
@@ -82,89 +77,33 @@ class _SuggestionListScreenState extends State<SuggestionListScreen> with BaseSc
     }
   }
 
-  // MODIFICATION : Ajout du timestamp pour garantir un fichier unique à chaque export
+  // Ajout du timestamp pour garantir un fichier unique à chaque export (lib/donnees/suggestions_donnees.dart).
   Future<void> _exportSuggestion(Suggestion suggestion) async {
     // 1. Récupération des données API
-    final itemsData = await apiGet(AppConstants.suggestionListItemsEndpoint, queryParams: {'orderId': suggestion.id, 'limit': '9999'});
-
-    if (mounted && itemsData is Map && itemsData['data'] is List) {
-      final items = (itemsData['data'] as List).map((item) => SuggestionItem.fromJson(item)).toList();
-
-      // 2. Création du CSV
-      List<List<dynamic>> rows = [];
-      rows.add(['cip', 'qte']);
-      for (var item in items) {
-        rows.add([item.cip, item.quantiteSuggeree]);
+    final items = await apiDonnees((deco) => Suggestions.lignes(context, suggestion.id, onSessionInvalid: deco));
+    if (!mounted || items == null) return;
+    try {
+      // 2. Création du CSV, 3. permissions et écriture
+      final fileName = await Suggestions.enregistrerCsv(Suggestions.nomFichier(suggestion), Suggestions.csv(items));
+      if (!mounted) return;
+      if (fileName == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission refusée'), backgroundColor: Colors.orange),
+        );
+        return;
       }
-
-      String csv = const ListToCsvConverter(fieldDelimiter: ';').convert(rows);
-
-      // 3. Gestion des Permissions
-      bool hasPermission = false;
-      if (Platform.isAndroid) {
-        final androidInfo = await DeviceInfoPlugin().androidInfo;
-        if (androidInfo.version.sdkInt >= 33) {
-          hasPermission = true;
-        } else {
-          var status = await Permission.storage.request();
-          hasPermission = status.isGranted;
-        }
-      } else {
-        hasPermission = true;
-      }
-
-      if (hasPermission) {
-        try {
-          Directory? directory;
-          if (Platform.isAndroid) {
-            directory = Directory('/storage/emulated/0/Download');
-            if (!await directory.exists()) {
-              directory = await getExternalStorageDirectory();
-            }
-          } else {
-            directory = await getApplicationDocumentsDirectory();
-          }
-
-          if (directory != null) {
-            // Nettoyage du nom
-            final safeName = suggestion.name.replaceAll(RegExp(r'[^\w\s\.-]'), '');
-
-            // --- AJOUT CLÉ : On ajoute l'heure exacte au nom du fichier ---
-            // Cela empêche l'écrasement et force l'apparition du fichier
-            final timestamp = DateTime.now().millisecondsSinceEpoch;
-            final fileName = 'suggestion_${safeName}_$timestamp.csv';
-            // Exemple de résultat : suggestion_Commande1_1704895623.csv
-            // -------------------------------------------------------------
-
-            final path = '${directory.path}/$fileName';
-
-            final file = File(path);
-            // On force l'écriture immédiate sur le disque avec flush: true
-            await file.writeAsString(csv, flush: true);
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Fichier enregistré : $fileName'), // On affiche juste le nom pour que ce soit lisible
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission refusée'), backgroundColor: Colors.orange),
-          );
-        }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fichier enregistré : $fileName'), // On affiche juste le nom pour que ce soit lisible
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }

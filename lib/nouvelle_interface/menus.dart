@@ -3,8 +3,10 @@
 // (présentation C). Les titres sont ceux de l'ancien accueil : ils servent aussi de clé à « Personnaliser
 // l'accueil » (ordre et menus masqués, partagés par les deux interfaces). Chaque menu ouvre l'écran du module
 // d'origine (mêmes données, mêmes routes serveur), présenté avec le thème de la nouvelle interface, sauf les
-// modules refaits (lot 1, lib/nouvelle_interface/modules/ : Rapport d'Activité, Détail CA, Analyse Article,
-// Fiche Article, Suivi Péremption, Suivi Crédit), qui ouvrent leur nouvel écran (mêmes données, même logique).
+// modules refaits (lib/nouvelle_interface/modules/), qui ouvrent leur nouvel écran (mêmes données, même logique) :
+// lot 1 (Rapport d'Activité, Détail CA, Analyse Article, Fiche Article, Suivi Péremption, Suivi Crédit) et lot 2,
+// achats et stock (Suggestions, État de Stock, Visualisation BL, État Contrôle Achat, Retours fournisseurs,
+// Évolution stock, Analyse Saisies BL, Suivi Ajustements).
 // « Fournisseurs » (liste des fournisseurs) n'est plus proposé dans la nouvelle interface (demande du
 // pharmacien) ; il reste dans l'ancienne.
 import 'package:flutter/material.dart';
@@ -12,30 +14,30 @@ import 'package:flutter/material.dart';
 import '../presences/presences_screen.dart';
 import '../providers/home_settings_provider.dart';
 import '../screens/achats_fournisseurs_screen.dart';
-import '../screens/analyse_saisie_bl_screen.dart';
 import '../screens/annulation_vente_screen.dart';
 import '../screens/ca_credit_screen.dart';
 import '../screens/ca_global_screen.dart';
-import '../screens/etat_controle_achat_screen.dart';
-import '../screens/etat_stock_screen.dart';
-import '../screens/evolution_stock_screen.dart';
 import '../screens/fichier_journal_screen.dart';
 import '../screens/marge_produits_vendus_screen.dart';
 import '../screens/recap_caisse_screen.dart';
-import '../screens/retours_fournisseurs_screen.dart';
 import '../screens/stat_tva_screen.dart';
-import '../screens/suggestion_list_screen.dart';
 import '../screens/suivi_20_80_screen.dart';
-import '../screens/suivi_ajustement_screen.dart';
 import '../screens/tableau_bord_analyse_menu_screen.dart';
 import '../screens/tableau_bord_ratio_screen.dart';
-import '../screens/visualisation_bl_screen.dart';
 import 'charte.dart';
+import 'modules/ajustements_nouveau.dart';
+import 'modules/analyse_bl_nouveau.dart';
 import 'modules/articles_nouveau.dart';
+import 'modules/controle_achat_nouveau.dart';
 import 'modules/detail_ca_nouveau.dart';
+import 'modules/etat_stock_nouveau.dart';
+import 'modules/evolution_stock_nouveau.dart';
 import 'modules/rapport_activite_nouveau.dart';
+import 'modules/retours_fournisseurs_nouveau.dart';
+import 'modules/suggestions_nouveau.dart';
 import 'modules/suivi_credit_nouveau.dart';
 import 'modules/suivi_peremption_nouveau.dart';
+import 'modules/visualisation_bl_nouveau.dart';
 import 'vague1/alertes_vague1.dart';
 import 'vague1/journaux_vague1.dart';
 import 'vague1/profil_acces.dart';
@@ -125,11 +127,11 @@ final menusModules = <MenuModule>[
   MenuModule('Fichier Journal', 'Actions des utilisateurs', Icons.history_edu_outlined, Famille.equipe, Question.equipe,
       () => const FichierJournalScreen()),
   MenuModule('Etat Contrôle Achat', 'Contrôle des bons sur l\'année', Icons.fact_check_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const EtatControleAchatScreen()),
+      Question.fournisseurs, () => const ControleAchatNouveau()),
   MenuModule('Marge Produits Vendus', 'Marge par produit', Icons.percent_outlined, Famille.analyses, Question.vendu,
       () => const MargeProduitsVendusScreen()),
   MenuModule('Analyse Saisies BL', 'Saisie des bons de livraison', Icons.document_scanner_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const AnalyseSaisieBlScreen()),
+      Question.fournisseurs, () => const AnalyseBlNouveau()),
   MenuModule('Suivi Crédit', 'Reste à payer par client', Icons.request_quote_outlined, Famille.credits, Question.credits,
       () => const SuiviCreditNouveau()),
   MenuModule('Tableau: Analyses', 'Évolutions des ventes et des achats', Icons.analytics_outlined, Famille.analyses,
@@ -147,23 +149,23 @@ final menusModules = <MenuModule>[
   MenuModule('Suivi Péremption', 'Produits bientôt périmés', Icons.warning_amber_rounded, Famille.stock, Question.commander,
       () => const SuiviPeremptionNouveau()),
   MenuModule('Evolution Stock', 'Valeur du stock dans le temps', Icons.ssid_chart_outlined, Famille.stock, Question.commander,
-      () => const EvolutionStockScreen()),
+      () => const EvolutionStockNouveau()),
   MenuModule('Valorisation', 'Valeur du stock à une date', Icons.inventory_2_outlined, Famille.stock, Question.commander,
       () => const ValorisationVague1(), responsables: true), // réservée (décision du pharmacien, 3.1.0)
   MenuModule('Suivi Ajustements', 'Corrections de stock', Icons.rule_folder_outlined, Famille.stock, Question.commander,
-      () => const SuiviAjustementScreen()),
+      () => const AjustementsNouveau()),
   MenuModule('Achats Fourn.', 'Achats par fournisseur', Icons.shopping_cart_checkout_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const AchatsFournisseursScreen()),
   MenuModule('Retours Fournisseurs', 'Retours et avoirs', Icons.assignment_return_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const RetoursFournisseursScreen()),
+      Question.fournisseurs, () => const RetoursFournisseursNouveau()),
   MenuModule('Suggestions', 'Suggestions de commande', Icons.lightbulb_outline, Famille.stock, Question.commander,
-      () => const SuggestionListScreen()),
+      () => const SuggestionsNouveau()),
   MenuModule('Annulation Ventes', 'Annuler une vente (protégé)', Icons.cancel_presentation_outlined, Famille.ventes,
       Question.vendu, () => const AnnulationVenteScreen()),
   MenuModule('Etat de Stock', 'Stock par rayon et grossiste', Icons.warehouse_outlined, Famille.stock, Question.commander,
-      () => const EtatStockScreen()),
+      () => const EtatStockNouveau()),
   MenuModule('Visualisation BL', 'Bons de livraison du jour', Icons.receipt_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const VisualisationBlScreen()),
+      Question.fournisseurs, () => const VisualisationBlNouveau()),
   MenuModule('Présences', 'Présence du jour, période, pointage', Icons.badge_outlined, Famille.equipe, Question.equipe,
       () => const PresencesScreen()),
   // Vague 1 des nouveaux menus (lecture seule) : administrateur et pharmacien seulement.

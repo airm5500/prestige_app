@@ -4,11 +4,19 @@
 // d'ergonomie le rend alors automatiquement à toutes les tailles d'écran.
 import 'package:flutter/widgets.dart';
 import 'package:prestige_app/nouvelle_interface/menus.dart';
+import 'package:prestige_app/nouvelle_interface/modules/ajustements_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/analyse_bl_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/controle_achat_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/etat_stock_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/evolution_stock_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/rapport_activite_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/retours_fournisseurs_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suggestions_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suivi_credit_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/visualisation_bl_nouveau.dart';
 import 'package:prestige_app/presences/presences_screen.dart';
 import 'package:prestige_app/screens/achats_fournisseurs_screen.dart';
 import 'package:prestige_app/screens/analyse_article_screen.dart';
@@ -101,8 +109,25 @@ final modulesLot1 = <ModuleLot1>[
   ModuleLot1('Suivi Crédit', 'Suivi des Crédits', () => const SuiviCreditScreen(), () => const SuiviCreditNouveau(), SuiviCreditNouveau),
 ];
 
+/// Modules refaits du lot 2 (achats et stock) : même déclaration que le lot 1.
+final modulesLot2 = <ModuleLot1>[
+  ModuleLot1('Suggestions', 'Suggestions de Commande', () => const SuggestionListScreen(), () => const SuggestionsNouveau(), SuggestionsNouveau),
+  ModuleLot1('Etat de Stock', 'État de Stock', () => const EtatStockScreen(), () => const EtatStockNouveau(), EtatStockNouveau),
+  ModuleLot1('Visualisation BL', 'Visualisation BL', () => const VisualisationBlScreen(), () => const VisualisationBlNouveau(), VisualisationBlNouveau),
+  ModuleLot1('Etat Contrôle Achat', 'Etat de Contrôle des Achats', () => const EtatControleAchatScreen(), () => const ControleAchatNouveau(),
+      ControleAchatNouveau),
+  ModuleLot1('Retours Fournisseurs', 'Retours Fournisseurs', () => const RetoursFournisseursScreen(), () => const RetoursFournisseursNouveau(),
+      RetoursFournisseursNouveau),
+  ModuleLot1('Evolution Stock', 'Évolution du Stock', () => const EvolutionStockScreen(), () => const EvolutionStockNouveau(), EvolutionStockNouveau),
+  ModuleLot1('Analyse Saisies BL', 'Analyse des Saisies BL', () => const AnalyseSaisieBlScreen(), () => const AnalyseBlNouveau(), AnalyseBlNouveau),
+  ModuleLot1('Suivi Ajustements', 'Suivi des Ajustements', () => const SuiviAjustementScreen(), () => const AjustementsNouveau(), AjustementsNouveau),
+];
+
+/// Tous les modules refaits (lots 1 et 2) : leurs nouveaux écrans ne tolèrent aucun écart d'ergonomie.
+List<ModuleLot1> get modulesRefaits => [...modulesLot1, ...modulesLot2];
+
 /// Modules de la NOUVELLE interface (ceux de l'accueil d'origine moins « Fournisseurs ») : écran ouvert par son menu
-/// (nouvel écran pour le lot 1, écran d'origine sinon).
+/// (nouvel écran pour les modules refaits, écran d'origine sinon).
 List<ModuleAccueil> get modulesNouvelleInterface => [
       for (final m in modulesAccueil)
         for (final menu in menusModules.where((x) => x.titre == m.tuile)) ModuleAccueil(m.tuile, m.titreEcran, ({Key? key}) => menu.ecran()),

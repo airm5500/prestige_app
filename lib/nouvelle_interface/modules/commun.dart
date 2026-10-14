@@ -272,7 +272,11 @@ class CarteLigne extends StatelessWidget {
   final Widget? pied;
   final Color? bande;
   final VoidCallback? onTap;
-  const CarteLigne({super.key, required this.titre, this.lignes = const [], this.valeur, this.libelleValeur, this.etiquette, this.pied, this.bande, this.onTap});
+
+  /// Action en fin de carte (menu « ⋮ »…), à la place du chevron.
+  final Widget? action;
+  const CarteLigne(
+      {super.key, required this.titre, this.lignes = const [], this.valeur, this.libelleValeur, this.etiquette, this.pied, this.bande, this.onTap, this.action});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -296,7 +300,10 @@ class CarteLigne extends StatelessWidget {
                 Text(valeur!, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Charte.navy)),
               ]),
             ],
-            if (onTap != null) const Padding(padding: EdgeInsets.only(left: 4, top: 2), child: Icon(Icons.chevron_right, color: Charte.gris)),
+            if (action != null)
+              action!
+            else if (onTap != null)
+              const Padding(padding: EdgeInsets.only(left: 4, top: 2), child: Icon(Icons.chevron_right, color: Charte.gris)),
           ]),
         ),
       );
@@ -310,9 +317,13 @@ class TableauDense extends StatelessWidget {
 
   /// Dernière ligne en gras (total).
   final List<String>? total;
-  const TableauDense({super.key, required this.colonnes, required this.lignes, this.onTap, this.total});
 
-  Widget _ligne(List<String> cellules, {bool entete = false, bool gras = false}) => Container(
+  /// Action en fin de ligne (menu « ⋮ »…), à la place du chevron ; [largeurFin] : sa largeur.
+  final Widget Function(int index)? fin;
+  final double largeurFin;
+  const TableauDense({super.key, required this.colonnes, required this.lignes, this.onTap, this.total, this.fin, this.largeurFin = 48});
+
+  Widget _ligne(List<String> cellules, {bool entete = false, bool gras = false, int? index}) => Container(
         constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Row(children: [
@@ -333,7 +344,10 @@ class TableauDense extends StatelessWidget {
                 ),
               ),
             ),
-          if (onTap != null) SizedBox(width: 24, child: entete || gras ? null : const Icon(Icons.chevron_right, color: Charte.gris, size: 20)),
+          if (fin != null)
+            SizedBox(width: largeurFin, child: index == null ? null : fin!(index))
+          else if (onTap != null)
+            SizedBox(width: 24, child: entete || gras ? null : const Icon(Icons.chevron_right, color: Charte.gris, size: 20)),
         ]),
       );
 
@@ -351,7 +365,7 @@ class TableauDense extends StatelessWidget {
           for (var i = 0; i < lignes.length; i++)
             Material(
               color: i.isOdd ? Charte.page : Charte.blanc,
-              child: InkWell(onTap: onTap == null ? null : () => onTap!(i), child: _ligne(lignes[i])),
+              child: InkWell(onTap: onTap == null ? null : () => onTap!(i), child: _ligne(lignes[i], index: i)),
             ),
           if (total != null)
             Container(
@@ -370,12 +384,16 @@ class ListeOuTableau extends StatelessWidget {
   final List<String> Function(int index) cellules;
   final void Function(int index)? onTap;
   final List<String>? total;
-  const ListeOuTableau({super.key, required this.nombre, required this.carte, required this.colonnes, required this.cellules, this.onTap, this.total});
+
+  /// Action en fin de ligne du tableau (voir [TableauDense.fin]).
+  final Widget Function(int index)? fin;
+  const ListeOuTableau(
+      {super.key, required this.nombre, required this.carte, required this.colonnes, required this.cellules, this.onTap, this.total, this.fin});
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
         if (c.maxWidth >= largeurTableau) {
-          return TableauDense(colonnes: colonnes, lignes: [for (var i = 0; i < nombre; i++) cellules(i)], onTap: onTap, total: total);
+          return TableauDense(colonnes: colonnes, lignes: [for (var i = 0; i < nombre; i++) cellules(i)], onTap: onTap, total: total, fin: fin);
         }
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (var i = 0; i < nombre; i++) carte(i)]);
       });
@@ -542,7 +560,7 @@ class MenuExports extends StatelessWidget {
             PopupMenuItem<int>(
               key: Key('export_$i'),
               value: i,
-              child: Row(children: [Icon(actions[i].icone, color: Charte.navy), const SizedBox(width: 12), Text(actions[i].libelle)]),
+              child: Row(children: [Icon(actions[i].icone, color: Charte.navy), const SizedBox(width: 12), Flexible(child: Text(actions[i].libelle))]),
             ),
         ],
       );

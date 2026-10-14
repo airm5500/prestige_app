@@ -1,18 +1,13 @@
 // lib/screens/evolution_stock_screen.dart
 
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
-import '../models/valorisation_model.dart';
 import '../models/evolution_stock_point_model.dart';
-import '../utils/constants.dart';
+import '../donnees/evolution_stock_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../services/journal_app.dart';
@@ -56,32 +51,12 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseSc
       _dataPoints = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/evolution_stock_donnees.dart).
+    final points = await apiDonnees((deco) => EvolutionStock.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    // Utilisation de la méthode centralisée 'apiGet'
-    final data = await apiGet(AppConstants.valorisationAllEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
-      List<EvolutionStockPoint> tempList = [];
-      int dayDifference = _endDate.difference(_startDate).inDays;
-
-      if (data.length != dayDifference + 1) {
-        JournalApp.debug('Evolution stock : nombre de points différent de la période');
-      }
-
-      for (int i = 0; i < data.length; i++) {
-        final valorisationData = ValorisationStock.fromJson(data[i]);
-        final dateForPoint = _startDate.add(Duration(days: i));
-        tempList.add(EvolutionStockPoint(date: dateForPoint, data: valorisationData));
-      }
-
-      tempList.sort((a, b) => a.date.compareTo(b.date));
-
+    if (mounted && points != null) {
       setState(() {
-        _dataPoints = tempList;
+        _dataPoints = points;
       });
     }
     // La gestion du chargement et des erreurs est automatique !
@@ -93,28 +68,7 @@ class _EvolutionStockScreenState extends State<EvolutionStockScreen> with BaseSc
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
-      final pngBytes = byteData.buffer.asUint8List();
-
-      final pdf = pw.Document();
-      pdf.addPage(pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text('Évolution de la Valeur d\'Achat du Stock', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 8),
-              pw.Text('Période du ${DateFormatter.toDisplayFormat(_startDate)} au ${DateFormatter.toDisplayFormat(_endDate)}'),
-              pw.SizedBox(height: 20),
-              pw.Image(pw.MemoryImage(pngBytes)),
-              pw.SizedBox(height: 20),
-              pw.Text('Généré par Prestige App', style: pw.TextStyle(font: pw.Font.helveticaOblique())),
-            ],
-          );
-        },
-      ));
-
-      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+      await EvolutionStock.imprimerPdf(byteData.buffer.asUint8List(), _startDate, _endDate);
     } catch (e) {
       JournalApp.debug('Evolution stock, PDF : ${e.runtimeType}');
       if (mounted) {
