@@ -71,7 +71,7 @@ final casAffichageNouvelle = <CasAffichage>[
       enNouvelle(ecranConnecte(() => const AccueilNouveau()),
           p: Presentation.tableauDeBord,
           donnees: (s) => s
-            ..quand(AppConstants.suiviPeremptionEndpoint, ReponseFausse.erreurServeur())
+            ..quand('/tableau-bord/alertes', ReponseFausse.erreurServeur())
             ..quand(AppConstants.etatControleAchatEndpoint, ReponseFausse.json(DonneesFictives.etatControleAchat()).apres(const Duration(seconds: 30))),
           ensuite: compterAlertes(['alerte_peremption_echec', 'alerte_controle_encours']))),
   CasAffichage('Onglet Analyses', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: onglet('Analyses'))),

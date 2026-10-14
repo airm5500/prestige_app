@@ -3,20 +3,21 @@
 // (décision du pharmacien : ne pas surcharger le serveur). Aucun appel au démarrage, au retour sur l'accueil, à
 // l'actualisation des chiffres du jour ni en boucle : seul l'appui sur ⟳ d'une alerte la compte.
 //
-// Le nombre est lu sur les routes EXISTANTES, avec EXACTEMENT les paramètres des modules à leur ouverture
-// (aucune nouvelle route serveur) :
-//  - Suivi Péremption : GET /fichearticle/perimes?query=&nbreMois=&codeRayon=&codeGrossiste=&dtStart=&dtEnd=
-//    &page=1&start=0&limit=20 (première page de l'écran) → champ « total » (lots listés par l'écran) ;
+//  - Produits proches de la péremption : depuis la vague 1, nombre de LOTS qui périment d'ici 6 mois lu dans
+//    l'appel unique des alertes du tableau de bord, GET /tableau-bord/alertes?per=6&rup=7&ren=7&sug=2&nv=30
+//    (vague1/alertes_vague1.dart : même ⟳, mêmes états, même mémoire que l'écran « Alertes ») ; touchée, l'alerte
+//    ouvre la liste de ces mêmes lots (GET /tableau-bord/alertes/liste?type=peremptions). Les lots déjà périmés,
+//    que liste aussi le module Suivi Péremption, n'y sont pas comptés (d'où le libellé « d'ici 6 mois ») ;
 //  - Etat Contrôle Achat : GET /etat-control-bon/list-annuelle?dtStart=<jour>&dtEnd=<jour>&groupeId=&groupBy=GROUP
 //    &limit=9999 (filtres par défaut de l'écran : période du jour, tous les groupes) → « Total Bons » (metaData).
-// La seconde route renvoie toute la liste pour compter (voir docs/serveur/ROUTES_DE_COMPTAGE.md).
+//    L'appel des alertes du tableau de bord ne compte pas les bons contrôlés : cette alerte garde sa route.
+// Cette route renvoie toute la liste pour compter (voir docs/serveur/ROUTES_DE_COMPTAGE.md).
 //
 // Dernier résultat et heure mémorisés (par serveur et par compte, aussi après redémarrage) et réaffichés au
 // retour (« il y a 12 min »). Échecs distincts : serveur injoignable, délai dépassé, session expirée (retour à la
 // connexion par le mécanisme existant d'ApiService / AuthProvider), erreur du serveur ; l'accueil reste utilisable.
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -24,19 +25,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/etat_controle_achat_meta_model.dart';
 import '../models/etat_controle_achat_model.dart';
-import '../models/suivi_peremption_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../screens/etat_controle_achat_screen.dart';
-import '../screens/suivi_peremption_screen.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 import 'charte.dart';
 import 'composants.dart';
+import 'vague1/alertes_vague1.dart';
 
 /// Alertes de l'accueil A dont le nombre se compte à la demande.
 enum AlerteAccueil {
-  peremption('peremption', 'lot', 'lots', 'Actualiser le nombre de produits proches de la péremption'),
+  peremption('peremption', 'lot', 'lots', 'Actualiser les alertes (péremption, ruptures, suggestions…)'),
   controleAchat('controle', 'bon', 'bons', 'Actualiser le nombre de bons de livraison contrôlés');
 
   final String cle;
@@ -119,9 +119,6 @@ String momentComptage(DateTime le, DateTime maintenant) {
   return 'le ${deux(le.day)}/${deux(le.month)} à $heure';
 }
 
-/// Nombre de lots que l'écran Suivi Péremption liste (réponse vide du serveur : aucun produit).
-int compterPeremption(SuiviPeremptionResponse? r) => r == null ? 0 : math.max(r.total, r.data.length);
-
 /// « Total Bons » que l'écran Etat Contrôle Achat affiche pour cette réponse (aucune ligne : « Aucune donnée »,
 /// soit 0) ; sans metaData, la somme de la colonne « Nb Bons ».
 int compterBonsControle(dynamic reponse) {
@@ -140,7 +137,10 @@ int compterBonsControle(dynamic reponse) {
 /// Comptages à la demande des alertes de l'accueil A (un seul pour toute l'application : l'état survit au
 /// passage dans un module ou un autre onglet).
 class AlertesAccueil extends ChangeNotifier {
-  AlertesAccueil._();
+  AlertesAccueil._() {
+    // L'alerte péremption suit l'appel unique des alertes du tableau de bord (comptage fait ici ou sur l'écran Alertes).
+    AlertesTableauBord.instance.addListener(notifyListeners);
+  }
   static final instance = AlertesAccueil._();
 
   /// Délai maximal d'un comptage (le reste de l'accueil n'attend jamais).
@@ -156,7 +156,14 @@ class AlertesAccueil extends ChangeNotifier {
   String? _cle;
   int _generation = 0;
 
-  EtatAlerte etat(AlerteAccueil a) => _etats[a] ?? const EtatAlerte();
+  EtatAlerte etat(AlerteAccueil a) {
+    if (a == AlerteAccueil.peremption) {
+      final e = AlertesTableauBord.instance.etat;
+      final d = e.dernier;
+      return EtatAlerte(dernier: d == null ? null : ComptageAlerte(d.peremptionsLots, e.le!), enCours: e.enCours, echec: e.echec);
+    }
+    return _etats[a] ?? const EtatAlerte();
+  }
 
   /// Clé des résultats mémorisés : serveur visé et compte connecté (jamais les nombres d'un autre compte).
   static String cleDe(BuildContext context) {
@@ -168,6 +175,7 @@ class AlertesAccueil extends ChangeNotifier {
   /// Prépare l'état pour [cle] (sans aucun appel au serveur) : relit les derniers résultats mémorisés.
   /// Peut être appelé pendant la construction de l'accueil (ne notifie qu'après la lecture).
   void preparer(String cle) {
+    AlertesTableauBord.instance.preparer(cle);
     if (cle == _cle) return;
     _cle = cle;
     _etats.clear();
@@ -180,7 +188,7 @@ class AlertesAccueil extends ChangeNotifier {
         final j = jsonDecode(brut);
         if (j is! Map || j['cle'] != cle) return;
         var change = false;
-        for (final a in AlerteAccueil.values) {
+        for (final a in AlerteAccueil.values.where((a) => a != AlerteAccueil.peremption)) {
           final c = ComptageAlerte.depuisJson(j[a.cle]);
           if (c != null && _etats[a]?.dernier == null && !(etat(a).enCours)) {
             _etats[a] = EtatAlerte(dernier: c, echec: etat(a).echec);
@@ -196,6 +204,7 @@ class AlertesAccueil extends ChangeNotifier {
 
   /// Oublie tout (tests) : état en mémoire ; les préférences ne sont pas touchées.
   void oublier() {
+    AlertesTableauBord.instance.oublier();
     _generation++;
     _cle = null;
     _etats.clear();
@@ -204,6 +213,7 @@ class AlertesAccueil extends ChangeNotifier {
 
   /// Compte [a] (appui sur ⟳). Ignoré si un comptage de cette alerte est déjà en cours (double appui).
   Future<void> compter(BuildContext context, AlerteAccueil a) async {
+    if (a == AlerteAccueil.peremption) return AlertesTableauBord.instance.actualiser(context);
     if (etat(a).enCours) return;
     preparer(cleDe(context));
     final generation = _generation;
@@ -228,7 +238,7 @@ class AlertesAccueil extends ChangeNotifier {
   static Future<int> _appel(BuildContext context, AlerteAccueil a) async {
     switch (a) {
       case AlerteAccueil.peremption:
-        return compterPeremption(await ApiService().getSuiviPeremption(context, page: 1, limit: SuiviPeremptionScreen.taillePage));
+        throw StateError('compté par AlertesTableauBord');
       case AlerteAccueil.controleAchat:
         final jour = DateTime.now();
         final r = await ApiService().get(context, AppConstants.etatControleAchatEndpoint, queryParams: parametresEtatControleAchat(jour, jour));

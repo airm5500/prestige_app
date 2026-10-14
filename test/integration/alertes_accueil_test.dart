@@ -1,11 +1,14 @@
 // Intégration : comptage à la demande des alertes de l'accueil A (AlertesAccueil) contre le faux serveur Prestige
-// joint en HTTP RÉEL. Mêmes routes et MÊMES paramètres que les modules à leur ouverture, session de la connexion ;
+// joint en HTTP RÉEL. Péremption : appel unique des alertes du tableau de bord (vague 1, mêmes paramètres que l'écran
+// Alertes) ; contrôle des BL : mêmes route et paramètres que le module à son ouverture ; session de la connexion ;
 // succès, mémoire (même serveur et même compte), 401 (retour à la connexion par le mécanisme existant), 500,
 // serveur arrêté, délai borné, anti double appui ; et, dans l'application entière, AUCUN appel tant qu'on n'a pas
 // touché ⟳ (ni au démarrage, ni à l'actualisation des chiffres du jour, ni en changeant d'onglet).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/alertes_vague1.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/donnees_vague1.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/login_screen.dart';
@@ -17,17 +20,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../outils/contexte_api.dart';
 import '../support/application.dart';
 import '../support/donnees_fictives.dart';
+import '../support/donnees_vague1.dart';
 import '../support/faux_serveur_prestige.dart';
 import '../support/nouvelle_interface.dart';
 
 final serveur = FauxServeurPrestige();
-const routePeremption = AppConstants.suiviPeremptionEndpoint;
+const routePeremption = ApiAlertes.routeComptage;
 const routeControle = AppConstants.etatControleAchatEndpoint;
 
-/// Paramètres envoyés par l'écran Suivi Péremption à son ouverture (première page, aucun filtre).
-const parametresPeremption = {
-  'query': '', 'nbreMois': '', 'codeRayon': '', 'codeGrossiste': '', 'dtStart': '', 'dtEnd': '', 'page': '1', 'start': '0', 'limit': '20',
-};
+/// Paramètres de l'appel unique des alertes du tableau de bord (comme l'écran Alertes et le tableau de bord web).
+const parametresPeremption = {'per': '6', 'rup': '7', 'ren': '7', 'sug': '2', 'nv': '30'};
 
 /// Paramètres de l'écran Etat Contrôle Achat avec ses filtres par défaut (période du jour, tous les groupes).
 Map<String, String> parametresControle() {
@@ -74,7 +76,7 @@ void main() {
   });
 
   group('Succès : mêmes routes et paramètres que les modules', () {
-    testWidgets('Suivi Péremption : GET /fichearticle/perimes, première page de l\'écran, session envoyée → 3 lots', (tester) async {
+    testWidgets('Péremption : GET /tableau-bord/alertes (appel unique), session envoyée → 3 lots', (tester) async {
       final app = await connecte(tester);
       expect(etat(AlerteAccueil.peremption).dernier, isNull);
       await compter(tester, app, AlerteAccueil.peremption);
@@ -128,12 +130,13 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       expect(etat(AlerteAccueil.peremption).dernier, isNull);
       final prefs = await tester.runAsync(SharedPreferences.getInstance);
-      expect(prefs!.getString(AlertesAccueil.clePreferences), contains('"peremption"'));
+      expect(prefs!.getString(AlertesTableauBord.clePreferences), contains('"peremptions"'));
+      expect(prefs.getString(AlertesTableauBord.clePreferences), contains(AlertesAccueil.cleDe(app.ctx)));
     });
 
     testWidgets('anti double appui : deux appuis rapprochés = une seule requête', (tester) async {
       final app = await connecte(tester);
-      serveur.quand(routePeremption, ReponseFausse.json(DonneesFictives.perimes()).apres(const Duration(milliseconds: 300)));
+      serveur.quand(routePeremption, ReponseFausse.json(DonneesVague1.alertes()).apres(const Duration(milliseconds: 300)));
       await tester.runAsync(() => Future.wait([
             AlertesAccueil.instance.compter(app.ctx, AlerteAccueil.peremption),
             AlertesAccueil.instance.compter(app.ctx, AlerteAccueil.peremption),

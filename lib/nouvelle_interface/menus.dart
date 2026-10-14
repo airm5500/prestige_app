@@ -7,6 +7,10 @@ import 'package:flutter/material.dart';
 
 import '../presences/presences_screen.dart';
 import '../providers/home_settings_provider.dart';
+import 'vague1/alertes_vague1.dart';
+import 'vague1/journaux_vague1.dart';
+import 'vague1/profil_acces.dart';
+import 'vague1/valorisation_vague1.dart';
 import '../screens/achats_fournisseurs_screen.dart';
 import '../screens/analyse_article_screen.dart';
 import '../screens/analyse_saisie_bl_screen.dart';
@@ -32,7 +36,6 @@ import '../screens/suivi_credit_screen.dart';
 import '../screens/suivi_peremption_screen.dart';
 import '../screens/tableau_bord_analyse_menu_screen.dart';
 import '../screens/tableau_bord_ratio_screen.dart';
-import '../screens/valorisation_screen.dart';
 import '../screens/visualisation_bl_screen.dart';
 import 'charte.dart';
 
@@ -94,7 +97,10 @@ class MenuModule {
   final Famille famille;
   final Question question;
   final Widget Function() ecran;
-  const MenuModule(this.titre, this.sousTitre, this.icone, this.famille, this.question, this.ecran);
+
+  /// Réservé à l'administrateur et au pharmacien (nouveaux menus, vague1/profil_acces.dart).
+  final bool responsables;
+  const MenuModule(this.titre, this.sousTitre, this.icone, this.famille, this.question, this.ecran, {this.responsables = false});
 
   /// Format attendu par l'écran « Personnaliser l'accueil » (commun aux deux interfaces).
   Map<String, dynamic> get pourPersonnalisation => {'title': titre, 'icon': icone, 'color': Charte.navy};
@@ -138,7 +144,7 @@ final menusModules = <MenuModule>[
   MenuModule('Evolution Stock', 'Valeur du stock dans le temps', Icons.ssid_chart_outlined, Famille.stock, Question.commander,
       () => const EvolutionStockScreen()),
   MenuModule('Valorisation', 'Valeur du stock à une date', Icons.inventory_2_outlined, Famille.stock, Question.commander,
-      () => const ValorisationScreen()),
+      () => const ValorisationVague1()),
   MenuModule('Suivi Ajustements', 'Corrections de stock', Icons.rule_folder_outlined, Famille.stock, Question.commander,
       () => const SuiviAjustementScreen()),
   MenuModule('Fournisseurs', 'Liste et coordonnées', Icons.people_alt_outlined, Famille.fournisseurs, Question.fournisseurs,
@@ -157,6 +163,13 @@ final menusModules = <MenuModule>[
       Question.fournisseurs, () => const VisualisationBlScreen()),
   MenuModule('Présences', 'Présence du jour, période, pointage', Icons.badge_outlined, Famille.equipe, Question.equipe,
       () => const PresencesScreen()),
+  // Vague 1 des nouveaux menus (lecture seule) : administrateur et pharmacien seulement.
+  MenuModule('Alertes', 'Ruptures, péremptions, suggestions, négatifs', Icons.notifications_active_outlined, Famille.stock,
+      Question.commander, () => const AlertesScreen(), responsables: true),
+  MenuModule('Retraits et abandons', 'Produits retirés, ventes abandonnées', Icons.remove_shopping_cart_outlined, Famille.ventes,
+      Question.equipe, () => const RetraitsAbandonsScreen(), responsables: true),
+  MenuModule('Ventes modifiées', 'Produits, client ou date changés après coup', Icons.edit_note_outlined, Famille.ventes,
+      Question.equipe, () => const VentesModifieesScreen(), responsables: true),
 ];
 
 /// Menus affichés : ordre de « Personnaliser l'accueil », menus masqués retirés.
@@ -164,7 +177,8 @@ List<MenuModule> menusVisibles(HomeSettingsProvider reglages) {
   final ordre = {for (var i = 0; i < reglages.featureOrder.length; i++) reglages.featureOrder[i]: i};
   int rang(MenuModule m) => ordre[m.titre] ?? 1000 + menusModules.indexOf(m);
   final tries = [...menusModules]..sort((a, b) => rang(a).compareTo(rang(b)));
-  return [for (final m in tries) if (!reglages.disabledFeatures.contains(m.titre)) m];
+  final responsable = ProfilAcces.responsable;
+  return [for (final m in tries) if (!reglages.disabledFeatures.contains(m.titre) && (responsable || !m.responsables)) m];
 }
 
 /// Menus de [famille] parmi [menus] (ordre conservé).

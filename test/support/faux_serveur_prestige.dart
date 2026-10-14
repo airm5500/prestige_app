@@ -21,6 +21,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'donnees_fictives.dart';
+import 'donnees_vague1.dart';
 
 /// Requête reçue par le faux serveur.
 class RequeteRecue {
@@ -231,6 +232,7 @@ class FauxServeurPrestige {
     quand('/rh/droits', ReponseFausse.json({'success': true, 'valider': true}), methode: 'GET');
     route('/rh/mobile/code', (_) => ReponseFausse.json(DonneesFictives.codePointage(_codesServis++)), methode: 'GET');
     quand('/rh/mobile/terminaux', ReponseFausse.json(DonneesFictives.terminaux()), methode: 'GET');
+    installerRoutesVague1(this);
   }
 
   static List<Map<String, Object?>> _filtrer(List<Map<String, Object?>> liste, String champ, String? recherche) {

@@ -24,6 +24,9 @@ import 'composants.dart';
 import 'menus.dart';
 import 'presentation.dart';
 import 'reglages_nouveaux.dart';
+import 'vague1/alertes_vague1.dart';
+import 'vague1/donnees_vague1.dart' show ReglagesAlertes, TypeAlerte;
+import 'vague1/profil_acces.dart';
 
 /// Passe en mode local / distant (même contrôle que l'ancien accueil : adresse distante requise).
 Future<void> basculerServeur(BuildContext context, {VoidCallback? apres}) async {
@@ -283,6 +286,7 @@ class _AccueilTableauDeBord extends StatelessWidget {
     MenuModule? menu(String titre) => menus.where((m) => m.titre == titre).firstOrNull;
     final peremption = menu('Suivi Péremption');
     final controle = menu('Etat Contrôle Achat');
+    final toutesAlertes = ProfilAcces.responsable && menu('Alertes') != null;
 
     return RefreshIndicator(
       onRefresh: actualiser,
@@ -325,7 +329,7 @@ class _AccueilTableauDeBord extends StatelessWidget {
                   ]),
                 ),
               ),
-            if (peremption != null || controle != null) const TitreSection('À surveiller'),
+            if (peremption != null || controle != null || toutesAlertes) const TitreSection('À surveiller'),
             // Nombres comptés à la demande seulement (bouton ⟳ de chaque alerte), jamais automatiquement.
             if (peremption != null)
               AlerteComptee(
@@ -333,8 +337,10 @@ class _AccueilTableauDeBord extends StatelessWidget {
                 alerte: AlerteAccueil.peremption,
                 bande: Charte.rouge,
                 titre: 'Produits proches de la péremption',
-                detail: 'Lots périmés ou proches de l\'être',
-                onTap: () => ouvrirModule(context, peremption),
+                // Même appel et même nombre que l'écran Alertes (vague 1) : lots qui périment d'ici 6 mois.
+                detail: 'Lots qui périment d\'ici ${ReglagesAlertes.moisPeremption} mois',
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.peremptions))),
               ),
             if (peremption != null && controle != null) const SizedBox(height: 8),
             if (controle != null)
@@ -346,6 +352,11 @@ class _AccueilTableauDeBord extends StatelessWidget {
                 detail: 'Bons contrôlés aujourd\'hui, tous groupes',
                 onTap: () => ouvrirModule(context, controle),
               ),
+            // Vague 1 : toutes les alertes du tableau de bord (administrateur et pharmacien).
+            if (toutesAlertes) ...[
+              if (peremption != null || controle != null) const SizedBox(height: 8),
+              const CarteToutesAlertes(),
+            ],
             if (menus.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24),
