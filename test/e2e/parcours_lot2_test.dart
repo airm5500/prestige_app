@@ -262,10 +262,21 @@ void main() {
     expect(serveur.recues(route).last.parametres, containsPair('dtStart', jour(hier)));
     expect(serveur.recues(route).last.parametres, containsPair('dtEnd', jour(hier)));
     await stabiliser(tester);
-    await filtrer(tester, () => toucher(tester, find.byKey(const Key('filtre_statut_EN_COURS')), tours: 2));
+    // 3.8.0 (A1) : le statut part dans « statutControle », le paramètre que le serveur lit (« checked » reste vide) ;
+    // le faux serveur filtre comme le vrai : 23 bons dont 7 contrôlés (TERMINE) → 16 non contrôlés.
+    expect(find.byKey(const Key('filtre_utilisateur')), findsNothing);
+    await filtrer(tester, () async {
+      expect(find.byKey(const Key('filtre_utilisateur')), findsNothing, reason: 'filtre utilisateur ignoré par le serveur : plus proposé');
+      expect(find.byKey(const Key('filtre_utilisateur_a_venir')), findsOneWidget);
+      await toucher(tester, find.byKey(const Key('filtre_statut_NON_CONTROLE')), tours: 2);
+    });
     await attendreQue(tester, () => serveur.recues(route).length == 3, raison: 'statut');
-    expect(serveur.recues(route).last.parametres, containsPair('checked', 'EN_COURS'));
+    expect(serveur.recues(route).last.parametres, containsPair('statutControle', 'NON_CONTROLE'));
+    expect(serveur.recues(route).last.parametres, containsPair('checked', ''));
+    expect(serveur.recues(route).last.parametres, containsPair('userId', ''));
     await stabiliser(tester);
+    expect(chiffre(tester, 'total_bl'), '16', reason: 'total du serveur après son filtre');
+    expect(find.text('Contrôle : Non contrôlés'), findsOneWidget);
     await toucher(tester, find.text(DonneesLot2.grossisteB));
     await attendreWidget(tester, find.byKey(const Key('defilement_detail')));
     expect(find.text('Écart 1'), findsOneWidget, reason: 'écart du premier bon : stock théorique 14 − contrôlé 13');

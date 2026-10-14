@@ -3,8 +3,11 @@
 // lib/donnees/visualisation_bl_donnees.dart) : listes des filtres (grossistes, groupes, utilisateurs) et bons de
 // livraison paginés GET /etat-control-bon/list (20 par page, mêmes paramètres), totaux HT / TVA / TTC des bons
 // chargés et « Total BL » du serveur. Mise en page refaite : période commune (aujourd'hui à l'ouverture), recherche
-// contrôlée, filtres (grossiste, groupe, utilisateur, statut) dans la feuille du bas, chiffres clés, bons en cartes
+// contrôlée, filtres (grossiste, groupe, statut) dans la feuille du bas, chiffres clés, bons en cartes
 // (téléphone) ou tableau (tablette), « Afficher plus », détail d'un bon en page (lignes, écarts).
+// 3.8.0 (réponse du pharmacien) : le statut est envoyé dans « statutControle » (Contrôlés / Non contrôlés), le
+// paramètre que le serveur lit, au lieu de « checked » qu'il ignore ; le filtre utilisateur, ignoré par le serveur,
+// n'est plus proposé (mention discrète dans la feuille ; userId reste envoyé vide, comme avant sans choix).
 import 'package:flutter/material.dart';
 
 import '../../donnees/visualisation_bl_donnees.dart';
@@ -41,7 +44,9 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
 
   OptionsVisualisationBl? _options;
   Object? _erreurOptions;
-  CommonData? _grossiste, _groupe, _utilisateur;
+  CommonData? _grossiste, _groupe;
+
+  /// Statut du contrôle (« statutControle » : CONTROLE / NON_CONTROLE ; null = tous).
   String? _statut;
 
   final _bons = <BonLivraisonModel>[];
@@ -83,8 +88,9 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
         recherche: _recherche.text,
         grossisteId: _grossiste?.id ?? '',
         groupeId: _groupe?.id ?? '',
-        userId: _utilisateur?.id ?? '',
-        statut: _statut,
+        // Filtre utilisateur ignoré par le serveur : plus proposé, userId envoyé vide comme avant (aucun choix).
+        userId: '',
+        statutControle: _statut,
         debut: _periode.debut,
         fin: _periode.fin,
         page: page,
@@ -144,20 +150,20 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
     _charger();
   }
 
-  int get _actifs => [_grossiste, _groupe, _utilisateur, _statut].where((x) => x != null).length;
+  int get _actifs => [_grossiste, _groupe, _statut].where((x) => x != null).length;
 
   List<OptionListe>? _opts(List<CommonData>? l) => l == null ? null : [for (final x in l) OptionListe(x.id, x.libelle)];
   static CommonData? _trouver(List<CommonData>? l, String id) => id.isEmpty ? null : l?.where((x) => x.id == id).firstOrNull;
 
   Future<void> _filtres() async {
     if (_options == null && _erreurOptions != null) _chargerOptions();
-    var grossiste = _grossiste?.id ?? '', groupe = _groupe?.id ?? '', utilisateur = _utilisateur?.id ?? '';
+    var grossiste = _grossiste?.id ?? '', groupe = _groupe?.id ?? '';
     String? statut = _statut;
     final applique = await ouvrirFeuilleFiltres(
       context,
       titre: 'Filtrer les bons de livraison',
       effacer: () {
-        grossiste = groupe = utilisateur = '';
+        grossiste = groupe = '';
         statut = null;
       },
       contenu: (ctx, setState) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -182,40 +188,40 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
           tous: 'Tous les groupes',
           onChanged: (v) => setState(() => groupe = v),
         ),
-        const SizedBox(height: 12),
-        ChoixListe(
-          key: const Key('filtre_utilisateur'),
-          libelle: 'Utilisateur',
-          icone: Icons.person_outline,
-          options: _opts(_options?.utilisateurs),
-          erreur: _erreurOptions,
-          valeur: utilisateur,
-          tous: 'Tous les utilisateurs',
-          onChanged: (v) => setState(() => utilisateur = v),
-        ),
+        const SizedBox(height: 4),
+        const Text('Un groupe choisi remplace le grossiste (bons de tous les grossistes du groupe).',
+            style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 14),
-        const Text('Statut', style: TextStyle(color: Charte.gris, fontWeight: FontWeight.w600)),
+        const Text('Contrôle', style: TextStyle(color: Charte.gris, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         PucesChoix<String?>(
-          choix: [(null, 'Tous'), for (final e in VisualisationBl.statuts.entries) (e.key, e.value)],
+          choix: [(null, 'Tous'), for (final e in VisualisationBl.statutsControle.entries) (e.key, e.value)],
           valeur: statut,
           cle: (v, _) => Key('filtre_statut_${v ?? 'tous'}'),
           onChanged: (v) => setState(() => statut = v),
         ),
+        const SizedBox(height: 4),
+        const Text('« Contrôlés » : contrôle terminé ; « Non contrôlés » : non traités ou en cours.',
+            style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        const Text('Filtre par utilisateur : proposé quand le serveur Prestige le prendra en compte.',
+            key: Key('filtre_utilisateur_a_venir'), style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontStyle: FontStyle.italic)),
       ]),
     );
     if (!applique || !mounted) return;
     setState(() {
       _grossiste = _trouver(_options?.grossistes, grossiste);
       _groupe = _trouver(_options?.groupes, groupe);
-      _utilisateur = _trouver(_options?.utilisateurs, utilisateur);
       _statut = statut;
     });
     _charger();
   }
 
   void _retirerFiltres() {
-    setState(() => _grossiste = _groupe = _utilisateur = _statut = null);
+    setState(() {
+      _grossiste = _groupe = null;
+      _statut = null;
+    });
     _charger();
   }
 
@@ -233,8 +239,7 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
             EtiquettesFiltres(etiquettes: [
               if (_grossiste != null) 'Grossiste : ${_grossiste!.libelle}',
               if (_groupe != null) 'Groupe : ${_groupe!.libelle}',
-              if (_utilisateur != null) 'Utilisateur : ${_utilisateur!.libelle}',
-              if (_statut != null) 'Statut : ${libelleStatutBl(_statut!)}',
+              if (_statut != null) 'Contrôle : ${VisualisationBl.statutsControle[_statut] ?? _statut}',
             ], onRetirer: _retirerFiltres),
             const SizedBox(height: 8),
             ..._corps(),

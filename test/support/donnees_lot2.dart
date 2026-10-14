@@ -160,7 +160,16 @@ class DonneesLot2 {
 
   static ReponseFausse listeBons(RequeteRecue r) {
     final q = (r.parametres['search'] ?? '').toLowerCase();
-    final l = [for (final b in bons()) if (q.isEmpty || '${b['strREFLIVRAISON']}'.toLowerCase().contains(q)) b];
+    // Comme le serveur (FiltresControleAchat) : « statutControle » CONTROLE = contrôle terminé, NON_CONTROLE = le
+    // reste, autre valeur ou vide = tous ; filtré AVANT la pagination (total juste). « checked » et « userId » sont
+    // ignorés, comme par le vrai serveur.
+    final statut = (r.parametres['statutControle'] ?? '').toUpperCase();
+    bool garde(Map<String, Object?> b) => switch (statut) {
+          'CONTROLE' => b['checked'] == 'TERMINE',
+          'NON_CONTROLE' => b['checked'] != 'TERMINE',
+          _ => true,
+        };
+    final l = [for (final b in bons()) if ((q.isEmpty || '${b['strREFLIVRAISON']}'.toLowerCase().contains(q)) && garde(b)) b];
     final start = int.tryParse(r.parametres['start'] ?? '0') ?? 0;
     final limit = int.tryParse(r.parametres['limit'] ?? '20') ?? 20;
     return ReponseFausse.json({'total': l.length, 'data': l.skip(start).take(limit).toList()});

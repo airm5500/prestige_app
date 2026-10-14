@@ -578,7 +578,10 @@ class ApiService {
         String grossisteId = '',
         String groupeId = '',
         String userId = '',
-        String statut = '', // "checked" dans l'API
+        String statut = '', // "checked" dans l'API (écran d'origine ; ignoré par le serveur actuel)
+        // Filtre de statut LU par le serveur (EtatControlBonResource.list : TOUS, CONTROLE, NON_CONTROLE), envoyé
+        // seulement s'il est choisi (nouvelle interface, 3.8.0) : sans lui, la requête reste celle d'origine.
+        String statutControle = '',
         String dtStart = '',
         String dtEnd = '',
         int page = 1,
@@ -596,6 +599,7 @@ class ApiService {
             'groupeId': groupeId,
             'userId': userId,
             'checked': statut, // TERMINE, NON_TRAITE, etc.
+            if (statutControle.isNotEmpty) 'statutControle': statutControle,
             'dtStart': dtStart,
             'dtEnd': dtEnd,
             'page': page.toString(),

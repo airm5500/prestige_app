@@ -75,6 +75,10 @@ final casLot2 = <CasAffichage>[
   // Visualisation BL
   CasAffichage('Lot 2 · Visualisation BL remplie', _lot2(() => const VisualisationBlNouveau())),
   CasAffichage('Lot 2 · Visualisation BL filtres', _lot2(() => const VisualisationBlNouveau(), ensuite: _filtres)),
+  // 3.8.0 (A1) : filtre « Non contrôlés » (statutControle) appliqué, étiquette affichée.
+  CasAffichage('Lot 2 · Visualisation BL filtre Non contrôlés',
+      _lot2(() => const VisualisationBlNouveau(),
+          ensuite: puis([_filtres, toucherVisible(() => find.byKey(const Key('filtre_statut_NON_CONTROLE'))), toucherVisible(() => find.byKey(const Key('filtres_appliquer')))]))),
   CasAffichage('Lot 2 · Visualisation BL détail',
       _lot2(() => const VisualisationBlNouveau(), ensuite: toucherVisible(() => find.text(DonneesLot2.grossisteB), attendu: 'defilement_detail'))),
   // État Contrôle Achat

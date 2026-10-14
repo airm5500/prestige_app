@@ -378,7 +378,7 @@ void main() {
     final listesN = journal((r) => r.chemin != route);
     final ouvertureN = params(route);
     final totauxN = {for (final l in ['Total BL', 'HT', 'TVA', 'TTC']) l: norm(valeurNouvelle(l))};
-    await filtrer(tester, () => toucher(tester, find.byKey(const Key('filtre_statut_TERMINE')), 3));
+    await filtrer(tester, () => toucher(tester, find.byKey(const Key('filtre_statut_CONTROLE')), 3));
     await filtrer(tester, () => choisirDansListe(tester, find.byKey(const Key('filtre_grossiste')), DonneesLot2.grossisteB));
     final filtresN = params(route);
     await demonter(tester);
@@ -391,7 +391,12 @@ void main() {
     expect(totauxN, totauxO);
     expect(filtresO.last, containsPair('checked', 'TERMINE'));
     expect(filtresO.last, containsPair('grossisteId', 'GRO-B'));
-    expect(filtresN, filtresO);
+    // 3.8.0 (A1, décision du pharmacien) : la nouvelle interface envoie le statut dans « statutControle » (lu par le
+    // serveur : CONTROLE = contrôle terminé = « TERMINE » d'origine) au lieu de « checked » (ignoré par le serveur).
+    // Seule différence admise : checked vide + statutControle ; tous les autres paramètres restent identiques.
+    expect(filtresN, [
+      for (final p in filtresO) {...p, 'checked': '', if (p['checked']!.isNotEmpty) 'statutControle': 'CONTROLE'},
+    ]);
   });
 
   testWidgets('Visualisation BL : page suivante (défilement d\'origine = « Afficher plus ») avec les mêmes paramètres', (tester) async {

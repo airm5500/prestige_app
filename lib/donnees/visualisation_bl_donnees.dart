@@ -4,6 +4,12 @@
 // GET /etat-control-bon/list (ApiService.getBonLivraisons : search, grossisteId, groupeId, userId, checked, dtStart,
 // dtEnd au format yyyy-MM-dd, page, start, limit 20, group / sort). Totaux HT / TVA / TTC = somme des bons chargés
 // (même calcul que l'écran d'origine) ; « Total BL » = total annoncé par le serveur.
+// Ce que le serveur LIT réellement (EtatControlBonResource.list, vérifié en 3.8.0) : search, grossisteId, groupeId
+// (un groupe choisi remplace le grossiste : grossistes du groupe), dtStart, dtEnd, start, limit, statutControle
+// (TOUS / CONTROLE / NON_CONTROLE : contrôle terminé ou non, filtré AVANT la pagination, total juste) et ecart. Il
+// IGNORE userId et checked. L'écran d'origine envoie toujours « checked » (inchangé) ; la nouvelle interface envoie
+// « statutControle » ([statutsControle]) et n'offre plus le filtre utilisateur tant que le serveur ne le lit pas
+// (demande : docs/serveur/DEMANDE_FILTRES_LISTES.md).
 import 'package:flutter/widgets.dart';
 
 import '../models/bon_livraison_model.dart';
@@ -45,6 +51,13 @@ class VisualisationBl {
     'EN_COURS': 'En Cours',
   };
 
+  /// Statuts du filtre LU par le serveur (valeur de « statutControle » → libellé), nouvelle interface (3.8.0).
+  /// « Contrôlés » = contrôle terminé (statut TERMINE) ; « Non contrôlés » = non traité ou en cours.
+  static const statutsControle = {
+    'CONTROLE': 'Contrôlés',
+    'NON_CONTROLE': 'Non contrôlés',
+  };
+
   static Future<OptionsVisualisationBl> options(BuildContext context) async {
     final api = ApiService();
     final g = await api.getGrossistes(context);
@@ -62,6 +75,7 @@ class VisualisationBl {
     String groupeId = '',
     String userId = '',
     String? statut,
+    String? statutControle,
     required DateTime debut,
     required DateTime fin,
     required int page,
@@ -73,6 +87,7 @@ class VisualisationBl {
       groupeId: groupeId,
       userId: userId,
       statut: statut ?? '',
+      statutControle: statutControle ?? '',
       dtStart: DateFormatter.toApiFormat(debut),
       dtEnd: DateFormatter.toApiFormat(fin),
       page: page,
