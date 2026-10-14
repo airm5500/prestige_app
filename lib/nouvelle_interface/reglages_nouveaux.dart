@@ -2,8 +2,8 @@
 // Réglages de la nouvelle interface (page ouverte par le bouton engrenage de l'accueil, plus un onglet) :
 //  - Apparence : « Nouvelle interface » (retour à l'ancienne, mémorisé) et présentation A / B / C (mémorisée sur
 //    l'appareil, valable pour tous les comptes ; seul l'administrateur la change : compte « admin », ou code
-//    administrateur demandé) ; taille de l'écran (Automatique / Compact / Très compact, code administrateur,
-//    docs/TAILLE_ECRAN.md) ;
+//    administrateur demandé) ; taille de l'écran (Automatique / Compact / Très compact, docs/TAILLE_ECRAN.md ; même
+//    règle que la présentation depuis la 3.8.0 : sans code pour le compte « admin », code pour les autres) ;
 //  - Serveur : mode local / distant, configuration du serveur ;
 //  - Accueil : personnaliser (ordre et menus masqués, communs aux deux interfaces) ;
 //  - Compte : utilisateur, officine, licence, déconnexion.
@@ -75,8 +75,8 @@ class OngletReglages extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
-              // Affichage : taille de l'écran (code administrateur, appliquée au prochain lancement).
-              const TailleEcranSetting(couleurAide: Charte.gris),
+              // Affichage : taille de l'écran (appliquée au prochain lancement) ; compte « admin » : sans code (3.8.0).
+              TailleEcranSetting(couleurAide: Charte.gris, administrateur: admin),
             ],
           ),
           CarteSection(

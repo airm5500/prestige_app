@@ -5,6 +5,9 @@
 // protégées), appliqué au prochain lancement ; la fenêtre qui suit le choix propose « Plus tard » ou « Relancer
 // maintenant » (retour à l'accueil, interface reconstruite ; la session — cookie, compte, licence — est gardée :
 // les providers sont au-dessus de l'interface réduite).
+// 3.8.0 (réponse du pharmacien) : comme la présentation A / B / C, le compte « admin » change ce réglage SANS code
+// dans la nouvelle interface ([administrateur] = PresentationPrefs.estAdministrateur) ; les autres comptes saisissent
+// le code administrateur. Ancienne interface (Configuration) : inchangée, code toujours demandé.
 import 'package:flutter/material.dart';
 
 import '../ui/taille_ecran.dart';
@@ -19,7 +22,10 @@ class TailleEcranSetting extends StatefulWidget {
 
   /// Marge horizontale des lignes (16 dans les cartes de la nouvelle interface, 4 dans la Configuration).
   final double marge;
-  const TailleEcranSetting({super.key, this.verifierPin, this.couleurAide, this.marge = 16});
+
+  /// Compte administrateur connecté : changement sans code (nouvelle interface seulement ; défaut : code demandé).
+  final bool administrateur;
+  const TailleEcranSetting({super.key, this.verifierPin, this.couleurAide, this.marge = 16, this.administrateur = false});
 
   static String detail(TailleEcran t) => switch (t) {
         TailleEcran.automatique => 'Taille définie par Android',
@@ -34,7 +40,7 @@ class TailleEcranSetting extends StatefulWidget {
 class _TailleEcranSettingState extends State<TailleEcranSetting> {
   Future<void> _changer(TailleEcran t) async {
     if (t == TailleEcranReglage.enregistree) return;
-    final ok = await (widget.verifierPin ?? PinCodeDialog.show)(context);
+    final ok = widget.administrateur || await (widget.verifierPin ?? PinCodeDialog.show)(context);
     if (!ok || !mounted) return;
     await TailleEcranReglage.enregistrer(t);
     if (!mounted) return;
@@ -81,8 +87,8 @@ class _TailleEcranSettingState extends State<TailleEcranSetting> {
           contentPadding: marge,
           leading: const Icon(Icons.aspect_ratio),
           title: const Text('Taille de l\'écran', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('Code administrateur demandé'),
-          trailing: const Icon(Icons.lock_outline, size: 18, semanticLabel: 'Réservé à l\'administrateur'),
+          subtitle: Text(widget.administrateur ? 'Pour tous les comptes de ce téléphone' : 'Code administrateur demandé'),
+          trailing: widget.administrateur ? null : const Icon(Icons.lock_outline, size: 18, semanticLabel: 'Réservé à l\'administrateur'),
         ),
         for (final t in TailleEcran.values)
           RadioListTile<TailleEcran>(

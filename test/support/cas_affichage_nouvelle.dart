@@ -16,7 +16,9 @@ import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/screens/serveur_injoignable_screen.dart';
 import 'package:prestige_app/screens/settings_screen.dart';
+import 'package:prestige_app/nouvelle_interface/charte.dart';
 import 'package:prestige_app/utils/constants.dart';
+import 'package:prestige_app/widgets/taille_ecran_reglage.dart';
 
 import 'cas_affichage.dart';
 import 'catalogue_ecrans.dart';
@@ -90,6 +92,11 @@ final casAffichageNouvelle = <CasAffichage>[
     await toucherReglages(tester);
     await tester.pump(const Duration(milliseconds: 500));
   })),
+  // 3.8.0 (D1) : taille de l'écran pour le compte « admin » (sans code, sans cadenas).
+  CasAffichage('Réglages · taille de l\'écran (administrateur)', enNouvelle(ecranConnecte(() => Scaffold(
+        appBar: AppBar(title: const Text('Réglages')),
+        body: ListView(children: const [TailleEcranSetting(couleurAide: Charte.gris, administrateur: true)]),
+      )))),
   for (final q in Question.values) CasAffichage('Question C : ${q.titre}', enNouvelle(ecranConnecte(() => QuestionScreen(question: q)))),
   CasAffichage('Tous les menus (C)', enNouvelle(ecranConnecte(() => const TousLesMenusScreen()))),
   // Modules ouverts par leur menu (nouvel écran pour le lot 1), « Fournisseurs » n'en fait plus partie.

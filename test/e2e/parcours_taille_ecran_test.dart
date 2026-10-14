@@ -226,6 +226,56 @@ void main() {
     await terminer(tester);
   });
 
+  // 3.8.0 (D1, réponse du pharmacien) : comme la présentation A / B / C, le compte « admin » change la taille SANS
+  // code dans la nouvelle interface ; les autres comptes saisissent le code (tests ci-dessus, inchangés).
+  void connexionAdmin() {
+    serveur.controlerSession = false;
+    serveur.quand('/user/auth', ReponseFausse.json({...DonneesFictives.utilisateur(), 'str_LOGIN': 'admin'},
+        entetes: {'set-cookie': 'JSESSIONID=fictif-admin; Path=/prestige; HttpOnly'}), methode: 'POST');
+  }
+
+  testWidgets('nouvelle interface, compte « admin » : taille changée SANS code (comme la présentation)', (tester) async {
+    v2s(tester);
+    connexionAdmin();
+    await jusquAccueilNouveau(tester);
+    await definirCode(tester);
+    await toucherReglages(tester);
+    await amenerReglage(tester, 'compact');
+    expect(find.text('Code administrateur demandé'), findsNothing);
+    expect(find.text('Pour tous les comptes de ce téléphone'), findsOneWidget);
+    await choisir(tester, 'tresCompact');
+    expect(find.byKey(const Key('pin_admin_saisie')), findsNothing, reason: 'administrateur : aucun code');
+    expect(find.byKey(const ValueKey('taille-ecran-relancer')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('taille-ecran-plus-tard')));
+    await stabiliser(tester, tours: 4);
+    expect((await prefs(tester)).getString(TailleEcranReglage.cle), 'tresCompact');
+    await terminer(tester);
+  });
+
+  testWidgets('ancienne interface, compte « admin » : Configuration inchangée, le code reste demandé', (tester) async {
+    v2s(tester);
+    connexionAdmin();
+    preparerTelephone(serveur); // interface d'origine
+    await lancerApplication(tester);
+    await attendreWidget(tester, find.byType(LoginScreen));
+    await stabiliser(tester);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Identifiant'), DonneesFictives.identifiant);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Mot de passe'), DonneesFictives.motDePasse);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Connexion'));
+    await attendreWidget(tester, find.byType(HomeScreen));
+    await stabiliser(tester);
+    await definirCode(tester);
+    await tester.tap(find.byTooltip('Configuration IP'));
+    await attendreWidget(tester, find.byType(SettingsScreen));
+    await stabiliser(tester, tours: 4);
+    await choisir(tester, 'compact');
+    expect(find.byKey(const Key('pin_admin_saisie')), findsOneWidget, reason: 'ancienne interface : code toujours demandé');
+    await tester.tap(find.text('Annuler'));
+    await stabiliser(tester, tours: 4);
+    expect(TailleEcranReglage.enregistree, TailleEcran.automatique);
+    await terminer(tester);
+  });
+
   testWidgets('téléphone 1080 × 2400 : Automatique ne change rien, pas de mention « Compact appliqué »', (tester) async {
     tester.view.devicePixelRatio = 2.625;
     tester.view.physicalSize = const Size(1080, 2400);

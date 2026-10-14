@@ -55,6 +55,10 @@ même transformation ; le texte reste net (rendu vectoriel).
 - **Code administrateur** : chaque changement passe par `PinCodeDialog.show`, la même fenêtre que les autres zones
   protégées (configuration du serveur, présentation, annulation de vente) ; Annuler ou code faux : rien n'est
   enregistré. Le code est demandé à tous les comptes (réglage de l'appareil, comme dans Prestige Mobile).
+  **Depuis la 3.8.0** (réponse du pharmacien), dans la **nouvelle interface**, la règle est celle de la présentation
+  A / B / C : le compte **« admin »** change la taille **sans code** (ni cadenas, sous-titre « Pour tous les comptes de
+  ce téléphone ») ; les autres comptes saisissent le code. L'ancienne interface (Configuration) demande toujours le
+  code, à tous les comptes.
 - Choix enregistré pour le **prochain lancement** ; la fenêtre qui suit propose « **Plus tard** » ou « **Relancer
   maintenant** » (retour au premier écran — l'accueil si l'on est connecté —, interface reconstruite ; la session
   reste ouverte).
