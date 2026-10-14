@@ -548,7 +548,7 @@ void main() {
     await demonter(tester);
 
     await monter(tester, m.nouveau, nouvelle: true);
-    final septJours = params(route);
+    final ouvertureN = params(route);
     serveur.oublierRequetes();
     await tester.ensureVisible(find.byKey(const Key('periode_aujourdhui')));
     await toucher(tester, find.byKey(const Key('periode_aujourdhui')));
@@ -558,7 +558,9 @@ void main() {
     await demonter(tester);
 
     final j = DateTime.now();
-    expect(septJours.single, {'dtStart': jour(DateTime(j.year, j.month, j.day - 6)), 'dtEnd': jour(j)});
+    // 3.8.0 (A4) : seule attente adaptée, la période d'ouverture du nouvel écran (« Ce mois », choix du pharmacien,
+    // au lieu de « 7 jours ») ; pour la même période (« Aujourd'hui »), même requête et mêmes points qu'à l'origine.
+    expect(ouvertureN.single, {'dtStart': jour(DateTime(j.year, j.month, 1)), 'dtEnd': jour(j)});
     expect(reqO.single, {'dtStart': jour(j), 'dtEnd': jour(j)});
     expect(reqN, reqO);
     expect(pointsN, pointsO);

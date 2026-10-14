@@ -330,16 +330,18 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('Évolution stock : 7 jours à l\'ouverture, chiffres, menu Exporter (PDF), retour', (tester) async {
+  // 3.8.0 (A4, choix du pharmacien) : ouverture sur « Ce mois » (1er du mois → aujourd'hui) au lieu de « 7 jours ».
+  testWidgets('Évolution stock : « Ce mois » à l\'ouverture, chiffres, menu Exporter (PDF), retour', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
     final m = module('Evolution Stock');
     await ouvrir(tester, m);
     await attendreWidget(tester, find.byKey(const Key('chiffre_fin')));
     expect(serveur.recues(AppConstants.valorisationAllEndpoint).single.parametres,
-        {'dtStart': jour(DateTime(aujourdhui.year, aujourdhui.month, aujourdhui.day - 6)), 'dtEnd': jour(aujourdhui)});
-    expect(chiffre(tester, 'fin'), formaterMontant(DonneesLot2.valeurInitiale + 6 * DonneesLot2.pasJournalier));
-    expect(chiffre(tester, 'variation'), '+${formaterMontant(6 * DonneesLot2.pasJournalier)}');
+        {'dtStart': jour(DateTime(aujourdhui.year, aujourdhui.month, 1)), 'dtEnd': jour(aujourdhui)});
+    final jours = aujourdhui.day - 1;
+    expect(chiffre(tester, 'fin'), formaterMontant(DonneesLot2.valeurInitiale + jours * DonneesLot2.pasJournalier));
+    if (jours > 0) expect(chiffre(tester, 'variation'), '+${formaterMontant(jours * DonneesLot2.pasJournalier)}');
     await toucher(tester, find.byKey(const Key('menu_exports')));
     expect(find.text('PDF du graphique'), findsOneWidget);
     await tester.tapAt(const Offset(10, 600));

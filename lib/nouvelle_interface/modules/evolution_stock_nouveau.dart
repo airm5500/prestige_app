@@ -1,8 +1,8 @@
 // lib/nouvelle_interface/modules/evolution_stock_nouveau.dart
 // Évolution du Stock de la nouvelle interface. Mêmes données que l'écran d'origine (EvolutionStock,
 // lib/donnees/evolution_stock_donnees.dart) : GET /valorisation/all?dtStart=&dtEnd=, un point par jour (valeur
-// d'achat du stock). Mise en page refaite : période commune (chargée à l'ouverture sur « 7 jours » : une courbe a
-// besoin de plusieurs jours), chiffres clés (début, fin, variation, plus haut, plus bas), courbe, jour par jour
+// d'achat du stock). Mise en page refaite : période commune (chargée à l'ouverture sur « Ce mois » depuis la 3.8.0,
+// choix du pharmacien ; « 7 jours » avant : une courbe a besoin de plusieurs jours), chiffres clés (début, fin, variation, plus haut, plus bas), courbe, jour par jour
 // (cartes sur téléphone, tableau sur tablette), PDF du graphique d'origine dans le menu Exporter.
 import 'dart:ui' as ui;
 
@@ -29,7 +29,7 @@ class EvolutionStockNouveau extends StatefulWidget {
 }
 
 class _EvolutionStockNouveauState extends State<EvolutionStockNouveau> with ChargementSuivi<EvolutionStockNouveau, List<EvolutionStockPoint>> {
-  late Periode _periode = Periode.rapide(PeriodeRapide.septJours, widget.maintenant());
+  late Periode _periode = Periode.rapide(PeriodeRapide.ceMois, widget.maintenant());
   final _cleGraphique = GlobalKey();
 
   /// Jours affichés dans « jour par jour » (les plus récents d'abord) avant « Afficher tout ».

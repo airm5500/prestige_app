@@ -150,13 +150,14 @@ void main() {
 
   const routeTableau = AppConstants.tableauBordAchatsVentesEndpoint;
 
-  testWidgets('Tableau : Analyses : jour, chiffres, « 7 jours », vue Ventes du graphique, détail d\'un jour, retour', (tester) async {
+  // 3.8.0 (B1, choix du pharmacien) : ouverture sur « Ce mois » (1er du mois → aujourd'hui) au lieu d'« Aujourd'hui ».
+  testWidgets('Tableau : Analyses : « Ce mois », chiffres, « 7 jours », vue Ventes du graphique, détail d\'un jour, retour', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
     final m = module('Tableau: Analyses');
     await ouvrir(tester, m);
     await attendreWidget(tester, find.byKey(const Key('chiffre_ventes')));
-    expect(serveur.recues(routeTableau).single.parametres, {'dtStart': jour(aujourdhui), 'dtEnd': jour(aujourdhui)});
+    expect(serveur.recues(routeTableau).single.parametres, {'dtStart': jour(DateTime(aujourdhui.year, aujourdhui.month, 1)), 'dtEnd': jour(aujourdhui)});
     expect(chiffre(tester, 'ventes'), formaterMontant(DonneesLot3.totalVentes));
     expect(chiffre(tester, 'achats'), formaterMontant(DonneesLot3.totalAchats));
     expect(chiffre(tester, 'ratio'), '1,55');

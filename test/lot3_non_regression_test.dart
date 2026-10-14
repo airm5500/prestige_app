@@ -186,6 +186,12 @@ void main() {
     await demonter(tester);
 
     await monter(tester, m.nouveau, nouvelle: true);
+    // 3.8.0 (B1) : ouverture sur « Ce mois » (choix du pharmacien) ; pour la même période (« Aujourd'hui »), même
+    // requête que l'origine.
+    final ouvertureN = params(routeTableau);
+    serveur.oublierRequetes();
+    await tester.ensureVisible(find.byKey(const Key('periode_aujourdhui')));
+    await toucher(tester, find.byKey(const Key('periode_aujourdhui')));
     final jourN = params(routeTableau);
     final graphiquesN = <String, List<List<FlSpot>>>{};
     for (final nom in ['comparee', 'achats', 'ventes']) {
@@ -204,6 +210,8 @@ void main() {
     await demonter(tester);
 
     expect(jourO.single, duJour);
+    final j = DateTime.now();
+    expect(ouvertureN.single, {'dtStart': jour(DateTime(j.year, j.month, 1)), 'dtEnd': jour(j)});
     expect(jourN, jourO);
     if (moisDernierPossible) {
       expect(moisO.single, duMoisDernier);

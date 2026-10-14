@@ -1,8 +1,8 @@
 // lib/nouvelle_interface/modules/tableau_analyses_nouveau.dart
 // Tableau : Analyses de la nouvelle interface. Mêmes données que l'écran d'origine et ses trois graphiques
 // (TableauBord, lib/donnees/tableau_bord_donnees.dart) : GET /ws/ca-achats-ventes?dtStart=&dtEnd=, une ligne par jour
-// triée par date. Mise en page refaite : période commune chargée dès l'ouverture (« Aujourd'hui », comme les dates
-// par défaut d'origine), chiffres clés (achats, ventes, écart, ratio ventes / achats et norme 1,51), UN graphique
+// triée par date. Mise en page refaite : période commune chargée dès l'ouverture (« Ce mois » depuis la 3.8.0, choix
+// du pharmacien : une courbe d'un seul jour n'a pas de sens ; « Aujourd'hui » avant), chiffres clés (achats, ventes, écart, ratio ventes / achats et norme 1,51), UN graphique
 // avec le choix Comparée / Achats / Ventes (les trois écrans d'origine), lisible sur téléphone (légende, axes
 // abrégés, valeurs au toucher ; achats en pointillés à marqueurs carrés, ventes en trait plein à marqueurs ronds),
 // jour par jour (cartes sur téléphone, tableau sur tablette), détail d'un jour en feuille.
@@ -40,7 +40,7 @@ class TableauAnalysesNouveau extends StatefulWidget {
 }
 
 class _TableauAnalysesNouveauState extends State<TableauAnalysesNouveau> with ChargementSuivi<TableauAnalysesNouveau, List<TableauBordAchatsVentes>> {
-  late Periode _periode = Periode.rapide(PeriodeRapide.aujourdhui, widget.maintenant());
+  late Periode _periode = Periode.rapide(PeriodeRapide.ceMois, widget.maintenant());
   VueAnalyse _vue = VueAnalyse.comparee;
 
   @override
