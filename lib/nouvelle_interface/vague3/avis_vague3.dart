@@ -10,6 +10,10 @@
 //    à jour avec le statut renvoyé, sans relecture) ;
 //  - « Traiter » : statut Nouveau / Lu / Traité et note interne (1500 caractères, nettoyée comme le serveur), POST
 //    /avis-clients/avis/{id}/traiter, un envoi par appui ;
+//  - « Remettre en Nouveau » (3.8.0, demande du pharmacien) : bouton visible dans le détail d'un avis Lu ou Traité,
+//    seulement avec droits.repondre ; même route « traiter » avec le statut NOUVEAU (accepté par le serveur :
+//    AvisClientService.traiter) et la note interne ENREGISTRÉE renvoyée telle quelle (le serveur réécrit la note à
+//    chaque traitement : elle n'est donc pas effacée) ; confirmation légère, un envoi par appui ;
 //  - onglet « Analyse » : GET /avis-clients/analyse?du=&au= (synthèse comparée à la période précédente, alertes —
 //    touchables : elles filtrent la liste —, points forts / à améliorer, notes, critères, thèmes, employés cités,
 //    mots-clés, évolution).
@@ -677,6 +681,37 @@ class _AvisDetailScreenState extends State<AvisDetailScreen> with ChargementSuiv
     }
   }
 
+  /// « Remettre en Nouveau » : confirmation légère, puis UN envoi (statut NOUVEAU, note interne enregistrée inchangée).
+  Future<void> _remettreEnNouveau() async {
+    final a = donnees;
+    if (_envoi || !widget.droits.repondre || a == null || a.statut == StatutAvis.nouveau) return;
+    setState(() => _envoi = true);
+    try {
+      final oui = await confirmer(
+        context,
+        titre: 'Remettre en « Nouveau »',
+        texte: 'Cet avis apparaîtra de nouveau comme non lu pour toute l\'équipe. La note interne est gardée.',
+        oui: 'Oui, remettre en Nouveau',
+      );
+      if (!oui || !mounted) return;
+      final maj = await ApiAvis.traiter(context, widget.id, StatutAvis.nouveau, a.noteInterne);
+      if (!mounted) return;
+      final b = maj ?? a.avecStatut(StatutAvis.nouveau, noteInterne: a.noteInterne);
+      setState(() {
+        donnees = b;
+        _statut = b.statut ?? StatutAvis.nouveau;
+      });
+      widget.onMisAJour?.call(b);
+      messageResultat(context, 'Avis remis en « Nouveau ».');
+    } catch (e) {
+      if (!mounted) return;
+      final d = DiagnosticErreur.de(e);
+      messageResultat(context, 'Avis non remis en Nouveau : ${d.cause == CauseErreur.autre ? d.message : '${d.titre}. ${d.message}'}', echec: true);
+    } finally {
+      if (mounted) setState(() => _envoi = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = donnees;
@@ -755,6 +790,16 @@ class _AvisDetailScreenState extends State<AvisDetailScreen> with ChargementSuiv
       ]);
     }
     return CarteSection(key: const Key('avis_traitement'), titre: 'Traiter', icone: Icons.assignment_turned_in_outlined, enfants: [
+      if (a.statut == StatutAvis.lu || a.statut == StatutAvis.traite) ...[
+        OutlinedButton.icon(
+          key: const Key('avis_remettre_nouveau'),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          onPressed: _envoi ? null : _remettreEnNouveau,
+          icon: const Icon(Icons.mark_email_unread_outlined),
+          label: const Text('Remettre en Nouveau'),
+        ),
+        const SizedBox(height: 12),
+      ],
       PucesChoix<StatutAvis>(
         choix: [for (final s in StatutAvis.values) (s, s.libelle)],
         valeur: _statut,
