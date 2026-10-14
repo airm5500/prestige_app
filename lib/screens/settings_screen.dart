@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../utils/adresse_serveur.dart';
 import '../utils/constants.dart';
 import '../widgets/pin_code_dialog.dart';
+import '../widgets/taille_ecran_reglage.dart';
 import '../utils/saisie.dart';
 import '../interface_version.dart';
 import '../nouvelle_interface/charte.dart';
@@ -216,6 +217,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 // Retour à la nouvelle interface (choix mémorisé sur le téléphone).
                 const InterfaceVersionTile(),
+                // Taille de l'écran (code administrateur, appliquée au prochain lancement ; docs/TAILLE_ECRAN.md).
+                const TailleEcranSetting(),
                 const SizedBox(height: 12),
                 Padding(key: const Key('reglages_version'), padding: const EdgeInsets.only(bottom: 8), child: VersionAffichee(couleur: Colors.grey.shade700)),
               ],

@@ -4,6 +4,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/ui/taille_ecran.dart';
+
+import 'contraste_interface.dart';
 
 /// Appareil simulé : taille en pixels physiques et densité (pixels par dp).
 class ProfilAppareil {
@@ -55,14 +58,35 @@ const guidesAccessibilite = <String, AccessibilityGuideline>{
   'contraste du texte insuffisant': textContrastGuideline,
 };
 
+/// Facteur de la taille de l'écran réellement appliqué à l'appareil simulé (3.7.0, docs/TAILLE_ECRAN.md) :
+/// en Automatique, Compact (0,9) sur un petit écran — Sunmi 720×1440 px (360 × 720 dp), Sunmi 1080×1920 px
+/// (411 × 731 dp) et téléphone 360 × 640 dp —, 1,0 ailleurs.
+double facteurEcran(WidgetTester tester) => TailleEcranReglage.effective(
+        TailleEcranReglage.active.value, tester.view.physicalSize / tester.view.devicePixelRatio)
+    .facteur;
+
+/// Cibles tactiles : 48 dp DE L'INTERFACE. Interface réduite (petit écran, Compact / Très compact) : 48 × facteur
+/// dp réels (43,2 / 38,4 dp), réduction voulue (docs/TAILLE_ECRAN.md) ; règle Android inchangée ailleurs.
+AccessibilityGuideline ciblesTactiles(double facteur) => facteur == 1.0
+    ? androidTapTargetGuideline
+    : MinimumTapTargetGuideline(size: Size.square(48 * facteur), link: 'https://support.google.com/accessibility/android/answer/7101858');
+
 /// Évalue les guides d'accessibilité ; renvoie les écarts, un par élément fautif, en clair :
 /// « cible tactile < 48 dp : « Retour » 40×40 dp », « cible tactile sans libellé : bouton à (206, 4) »,
 /// « contraste du texte insuffisant : « Connexion » 2.34:1 (attendu 4.5:1, 16 px) #FFFFFF / #2EBF91 ».
 Future<List<String>> evaluerAccessibilite(WidgetTester tester, {Set<String> guides = const {}}) async {
   final ecarts = <String>[];
+  final facteur = facteurEcran(tester);
   for (final e in guidesAccessibilite.entries) {
     if (guides.isNotEmpty && !guides.contains(e.key)) continue;
-    final r = await e.value.evaluate(tester);
+    // Interface réduite (taille de l'écran) : cibles de 48 dp de l'interface, contraste mesuré à la résolution de
+    // l'interface (support/contraste_interface.dart). Taille normale : règles de Flutter telles quelles.
+    final guide = e.value == androidTapTargetGuideline
+        ? ciblesTactiles(facteur)
+        : e.value == textContrastGuideline && facteur != 1.0
+            ? ContrasteInterface(facteur)
+            : e.value;
+    final r = await guide.evaluate(tester);
     if (r.passed) continue;
     final entrees = (r.reason ?? '').split(RegExp(r'(?=SemanticsNode#)')).where((t) => t.trim().isNotEmpty);
     for (final t in entrees) {

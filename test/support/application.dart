@@ -19,6 +19,7 @@ import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/services/journal_app.dart';
 import 'package:prestige_app/services/pin_securise.dart';
+import 'package:prestige_app/ui/taille_ecran.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'faux_serveur_prestige.dart';
@@ -36,12 +37,21 @@ void restaurerClient() {
   ApiService.client = http.Client();
 }
 
+/// Taille de l'écran enregistrée sur le téléphone préparé par [preparerTelephone] (tests de la taille de l'écran,
+/// docs/TAILLE_ECRAN.md) ; à remettre à Automatique en fin de test.
+TailleEcran tailleEcranPreparee = TailleEcran.automatique;
+
 /// Préférences et stockage sûr d'un téléphone déjà configuré pour viser [serveur].
 /// [nouvelle] : version de l'interface (les tests écrits pour l'interface d'origine la demandent explicitement :
 /// la nouvelle interface est celle par défaut) ; [presentation] : présentation A / B / C de la nouvelle interface.
 void preparerTelephone(FauxServeurPrestige serveur,
     {Map<String, Object> autres = const {}, bool nouvelle = false, Presentation presentation = Presentation.automatique}) {
   InterfaceVersion.useNew.value = nouvelle;
+  // Taille de l'écran : [tailleEcranPreparee] (Automatique par défaut : Compact d'office sur les petits écrans),
+  // enregistrée et appliquée comme après un lancement (main() la lit avant runApp).
+  TailleEcranReglage.reinitialiser();
+  TailleEcranReglage.enregistree = tailleEcranPreparee;
+  TailleEcranReglage.appliquerMaintenant();
   PresentationPrefs.choix.value = presentation;
   // Nombres des alertes de l'accueil A : rien de compté ni de mémorisé d'un test à l'autre.
   AlertesAccueil.instance.oublier();
@@ -49,6 +59,7 @@ void preparerTelephone(FauxServeurPrestige serveur,
   AlertesAccueil.delaiMax = AlertesAccueil.delaiParDefaut;
   SharedPreferences.setMockInitialValues(serveur.preferencesApp(autres: {
     InterfaceVersion.cle: nouvelle,
+    if (tailleEcranPreparee != TailleEcran.automatique) TailleEcranReglage.cle: tailleEcranPreparee.name,
     PresentationPrefs.cle: presentation.name,
     ...autres,
   }));

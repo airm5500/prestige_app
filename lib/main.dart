@@ -19,10 +19,13 @@ import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'interface_version.dart';
 import 'nouvelle_interface/charte.dart';
+import 'ui/taille_ecran.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await InterfaceVersion.load();
+  // Taille de l'écran (3.7.0, docs/TAILLE_ECRAN.md) : lue une fois, appliquée par RacineTailleEcran.
+  await TailleEcranReglage.charger();
   runApp(applicationPrestige());
 }
 
@@ -124,8 +127,11 @@ class PrestigeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Taille de l'écran (Automatique / Compact / Très compact ; Compact d'office en Automatique sur un petit
+    // écran) : au-dessus de la SEULE MaterialApp, sous les providers (session gardée à « Relancer maintenant »).
     // Nouvelle ou ancienne interface (réglage mémorisé, effet immédiat) : thème et écrans d'accueil.
-    return ValueListenableBuilder<bool>(
+    return RacineTailleEcran(
+      child: ValueListenableBuilder<bool>(
       valueListenable: InterfaceVersion.useNew,
       // Clé liée à la version : changer d'interface reconstruit l'application (pas d'animation entre deux thèmes
       // incompatibles) et ramène à l'accueil de la version choisie ; la connexion (providers) est conservée.
@@ -147,6 +153,7 @@ class PrestigeApp extends StatelessWidget {
       locale: const Locale('fr', 'FR'),
       home: accueil ?? const AppLifecycleObserver(child: AuthWrapper()),
     ),
+      ),
     );
   }
 }

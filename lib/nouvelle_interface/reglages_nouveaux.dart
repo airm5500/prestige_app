@@ -2,7 +2,8 @@
 // Réglages de la nouvelle interface (page ouverte par le bouton engrenage de l'accueil, plus un onglet) :
 //  - Apparence : « Nouvelle interface » (retour à l'ancienne, mémorisé) et présentation A / B / C (mémorisée sur
 //    l'appareil, valable pour tous les comptes ; seul l'administrateur la change : compte « admin », ou code
-//    administrateur demandé) ;
+//    administrateur demandé) ; taille de l'écran (Automatique / Compact / Très compact, code administrateur,
+//    docs/TAILLE_ECRAN.md) ;
 //  - Serveur : mode local / distant, configuration du serveur ;
 //  - Accueil : personnaliser (ordre et menus masqués, communs aux deux interfaces) ;
 //  - Compte : utilisateur, officine, licence, déconnexion.
@@ -21,6 +22,7 @@ import 'composants.dart';
 import 'menus.dart';
 import 'presentation.dart';
 import '../version_app.dart';
+import '../widgets/taille_ecran_reglage.dart';
 
 /// Page des Réglages (bouton engrenage en haut à droite de l'accueil).
 class ReglagesScreen extends StatelessWidget {
@@ -72,6 +74,9 @@ class OngletReglages extends StatelessWidget {
                   effective: PresentationPrefs.effective(choix, tablette: tablette),
                 ),
               ),
+              const Divider(height: 1),
+              // Affichage : taille de l'écran (code administrateur, appliquée au prochain lancement).
+              const TailleEcranSetting(couleurAide: Charte.gris),
             ],
           ),
           CarteSection(
