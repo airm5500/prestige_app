@@ -5,6 +5,9 @@
 // analyse (valeurs ajoutée / retirée). Mise en page refaite : période commune (chargée à l'ouverture sur
 // « Aujourd'hui »), motif dans la feuille du bas, chiffres clés, cartes (téléphone) ou tableau (tablette), détail en
 // page avec l'analyse en chiffres clés.
+// 3.8.0 (réponse du pharmacien) : « Afficher plus » au-delà de 100. Le serveur pagine (start / limit, « total ») :
+// page suivante start=100, 200… avec EXACTEMENT les filtres de la première page (période et motif lus à ce moment).
+// Serveur sans « total » : les 100 premiers comme avant, avec l'avertissement « Limite du serveur atteinte ».
 import 'package:flutter/material.dart';
 
 import '../../donnees/ajustements_donnees.dart';
@@ -33,6 +36,12 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
   Object? _erreurTypes;
   CommonData? _type;
 
+  // Pagination (3.8.0) : total annoncé par le serveur (null : serveur sans total), filtres de la première page.
+  int? _total;
+  bool _suiteEnCours = false;
+  int _lecture = 0;
+  ({Periode periode, String typeId})? _filtresLus;
+
   @override
   void initState() {
     super.initState();
@@ -53,9 +62,50 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
     }
   }
 
-  Future<void> _charger() => charger(() async =>
-      await Ajustements.charger(context, _periode.debut, _periode.fin, typeId: _type?.id ?? '', onSessionInvalid: sessionInvalide(context)) ??
-      const <Ajustement>[]);
+  /// Première page (filtres du moment) : la requête d'origine (start=0, limit=100).
+  Future<void> _charger() {
+    final f = _filtresLus = (periode: _periode, typeId: _type?.id ?? '');
+    final g = ++_lecture;
+    setState(() {
+      _total = null;
+      _suiteEnCours = false;
+    });
+    return charger(() async {
+      final p = await Ajustements.page(context, f.periode.debut, f.periode.fin, typeId: f.typeId, start: 0, onSessionInvalid: sessionInvalide(context));
+      if (g == _lecture) _total = p.total;
+      return p.ajustements;
+    });
+  }
+
+  /// Le serveur annonce-t-il d'autres ajustements que ceux chargés ?
+  bool get _aSuite {
+    final n = donnees?.length ?? 0;
+    return _total != null && n > 0 && n < _total!;
+  }
+
+  /// Page suivante (« Afficher plus ») : mêmes filtres que la première page, start = ajustements déjà chargés.
+  Future<void> _suite() async {
+    final f = _filtresLus;
+    final deja = donnees;
+    if (_suiteEnCours || enCours || !_aSuite || f == null || deja == null) return;
+    final g = _lecture;
+    setState(() => _suiteEnCours = true);
+    try {
+      final p = await Ajustements.page(context, f.periode.debut, f.periode.fin,
+          typeId: f.typeId, start: deja.length, onSessionInvalid: sessionInvalide(context));
+      if (!mounted || g != _lecture) return;
+      setState(() {
+        donnees = [...deja, ...p.ajustements];
+        // Page vide : rien de plus à attendre (total figé sur ce qui est chargé).
+        _total = p.ajustements.isEmpty ? donnees!.length : (p.total ?? _total);
+        _suiteEnCours = false;
+      });
+    } catch (e) {
+      if (!mounted || g != _lecture) return;
+      setState(() => _suiteEnCours = false);
+      messageResultat(context, DiagnosticErreur.de(e).message, echec: true);
+    }
+  }
 
   void _changerPeriode(Periode p) {
     setState(() => _periode = p);
@@ -112,11 +162,30 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
       return const [EtatVide(titre: 'Aucun ajustement trouvé', texte: 'Aucun ajustement pour cette période.', icone: Icons.rule_folder_outlined)];
     }
     final operateurs = {for (final a in l) a.userFullName}.length;
+    // Serveur sans « total » qui a rendu une page entière : d'autres ajustements peuvent manquer (comme avant).
+    final limite = _total == null && l.length >= Ajustements.taillePage;
+    final total = _total ?? l.length;
     return [
       GrilleKpi([
-        ChiffreCle(libelle: 'Ajustements', valeur: formaterNombre(l.length), id: 'ajustements', enAvant: true, detail: l.length >= 100 ? '100 premiers' : null),
-        ChiffreCle(libelle: 'Opérateurs', valeur: formaterNombre(operateurs), id: 'operateurs'),
+        ChiffreCle(
+          libelle: 'Ajustements',
+          valeur: formaterNombre(total),
+          id: 'ajustements',
+          enAvant: true,
+          detail: limite ? '100 premiers' : (l.length < total ? '${formaterNombre(l.length)} chargés' : null),
+        ),
+        ChiffreCle(libelle: 'Opérateurs', valeur: formaterNombre(operateurs), id: 'operateurs', detail: l.length < total ? 'parmi les chargés' : null),
       ]),
+      if (limite) ...[
+        const SizedBox(height: 10),
+        const Encadre(
+          key: Key('ajustements_limite'),
+          titre: 'Limite du serveur atteinte',
+          texte: 'Le serveur n\'indique pas le nombre total d\'ajustements : seuls les 100 premiers sont affichés. Réduisez la période ou filtrez par motif.',
+          icone: Icons.info_outline,
+          avertissement: true,
+        ),
+      ],
       const TitreSection('Ajustements'),
       ListeOuTableau(
         nombre: l.length,
@@ -129,6 +198,7 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
           onTap: () => _ouvrir(l[i]),
         ),
       ),
+      if (_total != null && total > Ajustements.taillePage) PiedPagination(affichees: l.length, total: total, enCours: _suiteEnCours, onPlus: _suite),
     ];
   }
 }

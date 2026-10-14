@@ -219,6 +219,8 @@ class DonneesLot2 {
           {'lgAJUSTEMENTID': 'AJU-TEST-2', 'description': 'AJUSTEMENT FICTIF INVENTAIRE', 'userFullName': 'EMPLOYE Fictif Deux', 'dtUPDATED': '13/10/2026',
             'heure': '16:40', 'details': ''},
         ],
+        // Comme le vrai serveur (MouvementProduitImpl.ajsutements) : nombre d'ajustements de la période.
+        'total': 2,
       };
   static Map<String, Object?> produitsAjustement() => {
         'data': [

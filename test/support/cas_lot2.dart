@@ -51,6 +51,18 @@ Future<void> Function(WidgetTester, FauxServeurPrestige) _lot2(Widget Function()
 Future<void> _filtres(WidgetTester tester) => toucher(find.byKey(const Key('bouton_filtres')))(tester);
 Future<void> _exporter(WidgetTester tester) => toucher(find.byKey(const Key('menu_exports')))(tester);
 
+/// Ajustements fictifs paginés comme le serveur (start / limit ; « total » sauf [avecTotal] = false).
+ReponseFausse ajustementsPagines(RequeteRecue r, int nombre, {bool avecTotal = true}) {
+  final start = int.tryParse(r.parametres['start'] ?? '0') ?? 0, limit = int.tryParse(r.parametres['limit'] ?? '100') ?? 100;
+  return ReponseFausse.json({
+    'data': [
+      for (var i = start + 1; i <= (start + limit).clamp(0, nombre); i++)
+        {'lgAJUSTEMENTID': 'AJU-$i', 'description': 'AJUSTEMENT FICTIF N$i', 'userFullName': 'EMPLOYE Fictif', 'dtUPDATED': '13/10/2026', 'heure': '10:15'},
+    ],
+    if (avecTotal) 'total': nombre,
+  });
+}
+
 final casLot2 = <CasAffichage>[
   // Suggestions
   CasAffichage('Lot 2 · Suggestions remplies', _lot2(() => const SuggestionsNouveau())),
@@ -100,6 +112,12 @@ final casLot2 = <CasAffichage>[
   // Suivi Ajustements
   CasAffichage('Lot 2 · Ajustements remplis', _lot2(() => const AjustementsNouveau())),
   CasAffichage('Lot 2 · Ajustements filtres', _lot2(() => const AjustementsNouveau(), ensuite: _filtres)),
+  // 3.8.0 (A3) : « Afficher plus » au-delà de 100 ; serveur sans total : avertissement.
+  CasAffichage('Lot 2 · Ajustements 100 sur 230 (Afficher plus)',
+      _lot2(() => const AjustementsNouveau(), donnees: (s) => s.route(AppConstants.ajustementEndpoint, (r) => ajustementsPagines(r, 230), methode: 'GET'))),
+  CasAffichage('Lot 2 · Ajustements limite du serveur',
+      _lot2(() => const AjustementsNouveau(),
+          donnees: (s) => s.route(AppConstants.ajustementEndpoint, (r) => ajustementsPagines(r, 230, avecTotal: false), methode: 'GET'))),
   CasAffichage('Lot 2 · Ajustement détail',
       _lot2(() => const AjustementsNouveau(), ensuite: toucherVisible(() => find.text('AJUSTEMENT FICTIF CASSE'), attendu: 'defilement_detail'))),
   // Erreurs
