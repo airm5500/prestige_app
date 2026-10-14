@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
-import '../utils/constants.dart';
+import '../donnees/tableau_bord_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import 'evolution_comparative_screen.dart';
@@ -33,24 +33,12 @@ class _TableauBordAnalyseMenuScreenState extends State<TableauBordAnalyseMenuScr
       _dataLoaded = false;
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/tableau_bord_donnees.dart).
+    final lignes = await apiDonnees((deco) => TableauBord.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
+    if (mounted && lignes != null) {
       setState(() {
-        var tempList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
-
-        tempList.sort((a, b) {
-          if (a.dateMvt == null && b.dateMvt == null) return 0;
-          if (a.dateMvt == null) return 1;
-          if (b.dateMvt == null) return -1;
-          return a.dateMvt!.compareTo(b.dateMvt!);
-        });
-        _dataList = tempList;
+        _dataList = TableauBord.trier(lignes);
 
         _dataLoaded = _dataList.isNotEmpty;
         if (!_dataLoaded) {

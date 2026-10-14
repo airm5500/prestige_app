@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/ca_global_model.dart';
-import '../utils/constants.dart';
+import '../donnees/analyses_ventes_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -28,25 +28,12 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
       _caGlobalDataList = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
+    // Lecture (triée par date) partagée avec la nouvelle interface (lib/donnees/analyses_ventes_donnees.dart).
+    final lignes = await apiDonnees((deco) => CaGlobalDonnees.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.caAllEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
-      var tempList = data.map((item) => CaGlobal.fromJson(item)).toList();
-
-      tempList.sort((a, b) {
-        if (a.mvtDate == null && b.mvtDate == null) return 0;
-        if (a.mvtDate == null) return 1;
-        if (b.mvtDate == null) return -1;
-        return a.mvtDate!.compareTo(b.mvtDate!);
-      });
-
+    if (mounted && lignes != null) {
       setState(() {
-        _caGlobalDataList = tempList;
+        _caGlobalDataList = lignes;
       });
     }
   }
@@ -140,24 +127,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
     );
   }
 
-  CaGlobal get _aggregatedGlobalData {
-    if (_caGlobalDataList.isEmpty) {
-      return CaGlobal(montantCredit: 0, remiseSurCA: 0, totCB: 0, totChq: 0, totEsp: 0, totMobile: 0, totTVA: 0, totVirement: 0);
-    }
-    return _caGlobalDataList.reduce((acc, current) {
-      return CaGlobal(
-        montantCredit: acc.montantCredit + current.montantCredit,
-        mvtDate: null,
-        remiseSurCA: acc.remiseSurCA + current.remiseSurCA,
-        totCB: acc.totCB + current.totCB,
-        totChq: acc.totChq + current.totChq,
-        totEsp: acc.totEsp + current.totEsp,
-        totMobile: acc.totMobile + current.totMobile,
-        totTVA: acc.totTVA + current.totTVA,
-        totVirement: acc.totVirement + current.totVirement,
-      );
-    });
-  }
+  CaGlobal get _aggregatedGlobalData => CaGlobalDonnees.cumul(_caGlobalDataList); // cumul partagé (même calcul)
 
   Widget _buildGlobalTotalsTable() {
     final data = _aggregatedGlobalData;
@@ -189,7 +159,7 @@ class _CaGlobalScreenState extends State<CaGlobalScreen> with BaseScreenLogic<Ca
             _buildDataRow("Remise sur CA:", currencyFormat.format(data.remiseSurCA)),
             _buildDataRow("Total TVA:", currencyFormat.format(data.totTVA)),
             const SizedBox(height:10),
-            _buildDataRow("TOTAL CA NET:", currencyFormat.format(data.totalCa - data.remiseSurCA), isTotal: true, isNet: true),
+            _buildDataRow("TOTAL CA NET:", currencyFormat.format(CaGlobalDonnees.net(data)), isTotal: true, isNet: true),
           ],
         ),
       ),

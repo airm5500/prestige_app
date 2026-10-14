@@ -1,23 +1,13 @@
 // lib/screens/ratios_mensuels_screen.dart
 
+export '../donnees/tableau_bord_donnees.dart' show MonthlyRatioData;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/tableau_bord_achats_ventes_model.dart';
+import '../donnees/tableau_bord_donnees.dart';
 import '../utils/constants.dart';
-import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
-
-class MonthlyRatioData {
-  final int month;
-  double totalAchats;
-  double totalVentes;
-
-  MonthlyRatioData({required this.month, this.totalAchats = 0.0, this.totalVentes = 0.0});
-
-  double get ratio => totalAchats == 0 ? 0.0 : totalVentes / totalAchats;
-  String get monthName => DateFormat.MMMM('fr_FR').format(DateTime(0, month));
-}
 
 class RatiosMensuelsScreen extends StatefulWidget {
   const RatiosMensuelsScreen({super.key});
@@ -39,33 +29,15 @@ class _RatiosMensuelsScreenState extends State<RatiosMensuelsScreen> with BaseSc
 
   Future<void> _loadMonthlyData() async {
     reessai = _loadMonthlyData; // « Réessayer » relance ce chargement
-    final now = DateTime.now();
-    final startDate = DateTime(now.year, 1, 1);
-    final endDate = now;
+    // Lecture et cumul par mois partagés avec la nouvelle interface (lib/donnees/tableau_bord_donnees.dart).
+    final (startDate, endDate) = TableauBord.anneeEnCours(DateTime.now());
+    final dailyData = await apiDonnees((deco) => TableauBord.charger(context, startDate, endDate, onSessionInvalid: deco));
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(startDate),
-      'dtEnd': DateFormatter.toApiFormat(endDate),
-    };
-
-    final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
-      final dailyData = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
-
-      final Map<int, MonthlyRatioData> aggregatedData = {};
-
-      for (var item in dailyData) {
-        if (item.dateMvt != null) {
-          final month = item.dateMvt!.month;
-          aggregatedData.putIfAbsent(month, () => MonthlyRatioData(month: month));
-          aggregatedData[month]!.totalAchats += item.montantAchat;
-          aggregatedData[month]!.totalVentes += item.montantVente;
-        }
-      }
+    if (mounted && dailyData != null) {
+      final aggregated = TableauBord.mensuels(dailyData);
 
       setState(() {
-        _monthlyData = aggregatedData.values.toList()..sort((a, b) => a.month.compareTo(b.month));
+        _monthlyData = aggregated;
         if (_monthlyData.isEmpty) {
           errorMessage = "Aucune donnée trouvée pour l'année en cours.";
         }

@@ -7,15 +7,22 @@ import 'package:prestige_app/nouvelle_interface/menus.dart';
 import 'package:prestige_app/nouvelle_interface/modules/ajustements_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/analyse_bl_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/ca_credit_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/ca_global_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/controle_achat_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/etat_stock_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/evolution_stock_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/marge_produits_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/rapport_activite_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/retours_fournisseurs_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/stat_tva_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_2080_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suggestions_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suivi_credit_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/tableau_analyses_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/tableau_ratios_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/visualisation_bl_nouveau.dart';
 import 'package:prestige_app/presences/presences_screen.dart';
 import 'package:prestige_app/screens/achats_fournisseurs_screen.dart';
@@ -123,8 +130,22 @@ final modulesLot2 = <ModuleLot1>[
   ModuleLot1('Suivi Ajustements', 'Suivi des Ajustements', () => const SuiviAjustementScreen(), () => const AjustementsNouveau(), AjustementsNouveau),
 ];
 
-/// Tous les modules refaits (lots 1 et 2) : leurs nouveaux écrans ne tolèrent aucun écart d'ergonomie.
-List<ModuleLot1> get modulesRefaits => [...modulesLot1, ...modulesLot2];
+/// Modules refaits du lot 3 (analyses) : même déclaration que les lots 1 et 2.
+final modulesLot3 = <ModuleLot1>[
+  ModuleLot1('Tableau: Analyses', 'Tableau: Menu Analyses', () => const TableauBordAnalyseMenuScreen(), () => const TableauAnalysesNouveau(),
+      TableauAnalysesNouveau),
+  ModuleLot1('Tableau: Ratios', 'Tableau: Ratios Achats/Ventes', () => const TableauBordRatioScreen(), () => const TableauRatiosNouveau(),
+      TableauRatiosNouveau),
+  ModuleLot1('Suivi 20/80', 'Suivi 20/80', () => const Suivi2080Screen(), () => const Suivi2080Nouveau(), Suivi2080Nouveau),
+  ModuleLot1('Stat TVA', 'Statistiques TVA', () => const StatTvaScreen(), () => const StatTvaNouveau(), StatTvaNouveau),
+  ModuleLot1('Marge Produits Vendus', 'Marge Produits Vendus', () => const MargeProduitsVendusScreen(), () => const MargeProduitsNouveau(),
+      MargeProduitsNouveau),
+  ModuleLot1('CA Crédit', 'Ventes à Crédit', () => const CaCreditScreen(), () => const CaCreditNouveau(), CaCreditNouveau),
+  ModuleLot1('CA Global', 'CA Global', () => const CaGlobalScreen(), () => const CaGlobalNouveau(), CaGlobalNouveau),
+];
+
+/// Tous les modules refaits (lots 1, 2 et 3) : leurs nouveaux écrans ne tolèrent aucun écart d'ergonomie.
+List<ModuleLot1> get modulesRefaits => [...modulesLot1, ...modulesLot2, ...modulesLot3];
 
 /// Modules de la NOUVELLE interface (ceux de l'accueil d'origine moins « Fournisseurs ») : écran ouvert par son menu
 /// (nouvel écran pour les modules refaits, écran d'origine sinon).

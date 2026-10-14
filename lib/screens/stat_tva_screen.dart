@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/stat_tva_model.dart';
-import '../utils/constants.dart';
+import '../donnees/analyses_ventes_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -29,17 +29,13 @@ class _StatTvaScreenState extends State<StatTvaScreen> with BaseScreenLogic<Stat
       _stats = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'typeVente': _typeVente,
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/analyses_ventes_donnees.dart).
+    final type = TypeVente.values.firstWhere((t) => t.valeur == _typeVente);
+    final lignes = await apiDonnees((deco) => StatTvaDonnees.charger(context, _startDate, _endDate, type, onSessionInvalid: deco));
 
-    final data = await apiGetV3(AppConstants.statTvaEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['data'] is List) {
+    if (mounted && lignes != null) {
       setState(() {
-        _stats = (data['data'] as List).map((item) => StatTva.fromJson(item)).toList();
+        _stats = lignes;
         if (_stats.isEmpty) {
           errorMessage = "Aucune statistique de TVA trouvée pour les critères sélectionnés.";
         }

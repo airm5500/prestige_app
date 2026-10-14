@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/suivi_20_80_model.dart';
-import '../utils/constants.dart';
+import '../donnees/analyses_ventes_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -35,24 +35,14 @@ class _Suivi2080ScreenState extends State<Suivi2080Screen> with BaseScreenLogic<
       _dataList = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      // Vide ou hors bornes (0) : 50 par défaut, comme avant pour un champ vide.
-      'limit': (Saisie.entier(_limitController.text, min: 1, max: Saisie.maxLignes) ?? 50).toString(),
-      'codeFamile': '',
-      'codeRayon': '',
-      'codeGrossiste': '',
-      'qtyOrCa': 'false',
-      'page': '1',
-      'start': '0',
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/analyses_ventes_donnees.dart) ; nombre d'articles
+    // vide ou hors bornes (0) : 50 par défaut, comme avant pour un champ vide.
+    final limite = Suivi2080Donnees.limite(_limitController.text);
+    final lignes = await apiDonnees((deco) => Suivi2080Donnees.charger(context, _startDate, _endDate, limite, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.suivi2080Endpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['data'] is List) {
+    if (mounted && lignes != null) {
       setState(() {
-        _dataList = (data['data'] as List).map((item) => Suivi2080.fromJson(item)).toList();
+        _dataList = lignes;
         if (_dataList.isEmpty) {
           errorMessage = "Aucune donnée trouvée pour les critères sélectionnés.";
         }

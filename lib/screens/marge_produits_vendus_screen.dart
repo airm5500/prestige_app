@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/models/marge_produit_vendu_model.dart';
-import '../utils/constants.dart';
+import '../donnees/analyses_ventes_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -39,17 +39,12 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
 
   Future<void> _loadData() async {
     reessai = _loadData; // « Réessayer » relance ce chargement
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'limit': '9999',
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/analyses_ventes_donnees.dart).
+    final lignes = await apiDonnees((deco) => MargeDonnees.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.margeProduitsVendusEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['data'] is List) {
+    if (mounted && lignes != null) {
       setState(() {
-        _dataList = (data['data'] as List).map((item) => MargeProduitVendu.fromJson(item)).toList();
+        _dataList = lignes;
         _filterLocally();
         if (_dataList.isEmpty) {
           errorMessage = "Aucune donnée trouvée pour les critères sélectionnés.";
@@ -59,32 +54,9 @@ class _MargeProduitsVendusScreenState extends State<MargeProduitsVendusScreen> w
   }
 
   void _filterLocally() {
-    final int? margeQuery = int.tryParse(_margeController.text);
+    // Filtre local partagé avec la nouvelle interface (même règle).
     setState(() {
-      if (margeQuery == null || _margeController.text.isEmpty) {
-        _filteredDataList = List.from(_dataList);
-      } else {
-        _filteredDataList = _dataList.where((item) {
-          switch (_selectedOperator) {
-            case '>':
-              return item.margePourcentage > margeQuery;
-            case '<':
-              return item.margePourcentage < margeQuery;
-            case '>=':
-              return item.margePourcentage >= margeQuery;
-            case '<=':
-              return item.margePourcentage <= margeQuery;
-            case '!=':
-              return item.margePourcentage != margeQuery;
-          // AJOUT: Logique pour le filtre "Environ"
-            case '~=':
-              return (item.margePourcentage >= margeQuery - 1) && (item.margePourcentage <= margeQuery + 1);
-            case '=':
-            default:
-              return item.margePourcentage == margeQuery;
-          }
-        }).toList();
-      }
+      _filteredDataList = MargeDonnees.filtrer(_dataList, OperateurMarge.de(_selectedOperator), _margeController.text);
     });
   }
 

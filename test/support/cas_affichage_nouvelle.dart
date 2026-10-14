@@ -25,6 +25,7 @@ import 'donnees_vague1.dart';
 import 'faux_serveur_prestige.dart';
 import 'nouvelle_interface.dart';
 import 'cas_lot2.dart';
+import 'cas_lot3.dart';
 
 /// [ouvrir] dans la nouvelle interface, présentation [p] (données de l'accueil A fournies par le serveur).
 Future<void> Function(WidgetTester, FauxServeurPrestige) enNouvelle(Future<void> Function(WidgetTester, FauxServeurPrestige) ouvrir,
@@ -95,6 +96,7 @@ final casAffichageNouvelle = <CasAffichage>[
   for (final e in _etatsOrigine) CasAffichage(e.nom, enNouvelle(ecranConnecte(e.ecran, recherche: e.recherche))),
   ...casLot1,
   ...casLot2,
+  ...casLot3,
 ];
 
 /// États supplémentaires des modules d'origine encore ouverts dans la nouvelle interface (ceux d'Analyse et de Fiche
@@ -165,7 +167,7 @@ final casLot1 = <CasAffichage>[
 ];
 
 /// Noms des cas qui sont des écrans de MODULES d'origine (seuls à pouvoir garder leurs écarts connus). Les modules
-/// refaits (lots 1 et 2) n'en font pas partie : aucun écart toléré sur leurs nouveaux écrans.
+/// refaits (lots 1, 2 et 3) n'en font pas partie : aucun écart toléré sur leurs nouveaux écrans.
 final modulesOuEtats = <String>{
   for (final m in modulesNouvelleInterface)
     if (!modulesRefaits.any((l) => l.tuile == m.tuile)) m.tuile,

@@ -6,7 +6,8 @@
 // modules refaits (lib/nouvelle_interface/modules/), qui ouvrent leur nouvel écran (mêmes données, même logique) :
 // lot 1 (Rapport d'Activité, Détail CA, Analyse Article, Fiche Article, Suivi Péremption, Suivi Crédit) et lot 2,
 // achats et stock (Suggestions, État de Stock, Visualisation BL, État Contrôle Achat, Retours fournisseurs,
-// Évolution stock, Analyse Saisies BL, Suivi Ajustements). Nouveaux menus réservés à l'administrateur et au
+// Évolution stock, Analyse Saisies BL, Suivi Ajustements) et lot 3, analyses (Tableau : Analyses, Tableau : Ratios,
+// Suivi 20/80, Stat TVA, Marge Produits Vendus, CA Crédit, CA Global). Nouveaux menus réservés à l'administrateur et au
 // pharmacien : vague 1 (vague1/), vague 2 (vague2/), vague 3 (vague3/ : Pointage BL, Avis, Rappels traitement).
 // « Fournisseurs » (liste des fournisseurs) n'est plus proposé dans la nouvelle interface (demande du
 // pharmacien) ; il reste dans l'ancienne.
@@ -16,28 +17,28 @@ import '../presences/presences_screen.dart';
 import '../providers/home_settings_provider.dart';
 import '../screens/achats_fournisseurs_screen.dart';
 import '../screens/annulation_vente_screen.dart';
-import '../screens/ca_credit_screen.dart';
-import '../screens/ca_global_screen.dart';
 import '../screens/fichier_journal_screen.dart';
-import '../screens/marge_produits_vendus_screen.dart';
 import '../screens/recap_caisse_screen.dart';
-import '../screens/stat_tva_screen.dart';
-import '../screens/suivi_20_80_screen.dart';
-import '../screens/tableau_bord_analyse_menu_screen.dart';
-import '../screens/tableau_bord_ratio_screen.dart';
 import 'charte.dart';
 import 'modules/ajustements_nouveau.dart';
 import 'modules/analyse_bl_nouveau.dart';
 import 'modules/articles_nouveau.dart';
+import 'modules/ca_credit_nouveau.dart';
+import 'modules/ca_global_nouveau.dart';
 import 'modules/controle_achat_nouveau.dart';
 import 'modules/detail_ca_nouveau.dart';
 import 'modules/etat_stock_nouveau.dart';
 import 'modules/evolution_stock_nouveau.dart';
+import 'modules/marge_produits_nouveau.dart';
 import 'modules/rapport_activite_nouveau.dart';
 import 'modules/retours_fournisseurs_nouveau.dart';
+import 'modules/stat_tva_nouveau.dart';
+import 'modules/suivi_2080_nouveau.dart';
 import 'modules/suggestions_nouveau.dart';
 import 'modules/suivi_credit_nouveau.dart';
 import 'modules/suivi_peremption_nouveau.dart';
+import 'modules/tableau_analyses_nouveau.dart';
+import 'modules/tableau_ratios_nouveau.dart';
 import 'modules/visualisation_bl_nouveau.dart';
 import 'vague1/alertes_vague1.dart';
 import 'vague1/journaux_vague1.dart';
@@ -121,9 +122,9 @@ final menusModules = <MenuModule>[
   MenuModule('Détail CA', 'Comptant, crédit, modes de paiement', Icons.payments_outlined, Famille.ventes, Question.vendu,
       () => const DetailCaNouveau()),
   MenuModule('CA Crédit', 'Ventes à crédit par client', Icons.credit_card_outlined, Famille.credits, Question.credits,
-      () => const CaCreditScreen()),
+      () => const CaCreditNouveau()),
   MenuModule('CA Global', 'Chiffre d\'affaires jour par jour', Icons.receipt_long_outlined, Famille.ventes, Question.vendu,
-      () => const CaGlobalScreen()),
+      () => const CaGlobalNouveau()),
   MenuModule('Récap de caisse', 'Encaissements par caissier et période', Icons.point_of_sale_outlined, Famille.ventes,
       Question.vendu, () => const RecapCaisseScreen()),
   MenuModule('Rapport d\'Activité', 'Synthèse ventes, achats, règlements', Icons.summarize_outlined, Famille.ventes,
@@ -133,23 +134,23 @@ final menusModules = <MenuModule>[
   MenuModule('Etat Contrôle Achat', 'Contrôle des bons sur l\'année', Icons.fact_check_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const ControleAchatNouveau()),
   MenuModule('Marge Produits Vendus', 'Marge par produit', Icons.percent_outlined, Famille.analyses, Question.vendu,
-      () => const MargeProduitsVendusScreen()),
+      () => const MargeProduitsNouveau()),
   MenuModule('Analyse Saisies BL', 'Saisie des bons de livraison', Icons.document_scanner_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const AnalyseBlNouveau()),
   MenuModule('Suivi Crédit', 'Reste à payer par client', Icons.request_quote_outlined, Famille.credits, Question.credits,
       () => const SuiviCreditNouveau()),
   MenuModule('Tableau: Analyses', 'Évolutions des ventes et des achats', Icons.analytics_outlined, Famille.analyses,
-      Question.vendu, () => const TableauBordAnalyseMenuScreen()),
+      Question.vendu, () => const TableauAnalysesNouveau()),
   MenuModule('Tableau: Ratios', 'Ratios achats / ventes', Icons.compare_arrows_outlined, Famille.analyses, Question.vendu,
-      () => const TableauBordRatioScreen()),
+      () => const TableauRatiosNouveau()),
   MenuModule('Stat TVA', 'Ventes par taux de TVA', Icons.pie_chart_outline, Famille.ventes, Question.vendu,
-      () => const StatTvaScreen()),
+      () => const StatTvaNouveau()),
   MenuModule('Analyse Article', 'Ventes, stock et réserve d\'un article', Icons.query_stats, Famille.analyses,
       Question.commander, () => const AnalyseArticleNouveau()),
   MenuModule('Fiche Article', 'Prix, stock, emplacement', Icons.article_outlined, Famille.analyses, Question.commander,
       () => const FicheArticleNouveau()),
   MenuModule('Suivi 20/80', 'Articles qui font le chiffre', Icons.star_border, Famille.analyses, Question.commander,
-      () => const Suivi2080Screen()),
+      () => const Suivi2080Nouveau()),
   MenuModule('Suivi Péremption', 'Produits bientôt périmés', Icons.warning_amber_rounded, Famille.stock, Question.commander,
       () => const SuiviPeremptionNouveau()),
   MenuModule('Evolution Stock', 'Valeur du stock dans le temps', Icons.ssid_chart_outlined, Famille.stock, Question.commander,

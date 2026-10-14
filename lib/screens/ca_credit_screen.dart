@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/ca_credit_model.dart';
-import '../utils/constants.dart';
+import '../donnees/analyses_ventes_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../widgets/erreurs_chargement.dart';
@@ -48,17 +48,12 @@ class _CaCreditScreenState extends State<CaCreditScreen> with BaseScreenLogic<Ca
       _filteredCaCreditData = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/analyses_ventes_donnees.dart).
+    final lignes = await apiDonnees((deco) => CaCreditDonnees.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    // Utilisation de la méthode centralisée 'apiGet'
-    final data = await apiGet(AppConstants.caCreditEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
+    if (mounted && lignes != null) {
       setState(() {
-        _caCreditData = data.map((item) => CaCredit.fromJson(item)).toList();
+        _caCreditData = lignes;
         _filterCaCreditLocally();
       });
     }
@@ -69,13 +64,7 @@ class _CaCreditScreenState extends State<CaCreditScreen> with BaseScreenLogic<Ca
     final query = _searchController.text.toLowerCase();
     if(mounted){
       setState(() {
-        _filteredCaCreditData = _caCreditData.where((credit) {
-          return query.isEmpty ||
-              credit.clientName.toLowerCase().contains(query) ||
-              credit.ayantDroitName.toLowerCase().contains(query) ||
-              credit.numFacturation.toLowerCase().contains(query) ||
-              credit.tiersPayantLibelle.toLowerCase().contains(query);
-        }).toList();
+        _filteredCaCreditData = CaCreditDonnees.filtrer(_caCreditData, query); // recherche partagée (même règle)
       });
     }
   }

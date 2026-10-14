@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prestige_app/screens/ratios_mensuels_screen.dart';
 import '../models/tableau_bord_achats_ventes_model.dart';
+import '../donnees/tableau_bord_donnees.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
@@ -61,24 +62,19 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
       _dataList = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/tableau_bord_donnees.dart).
+    final lignes = await apiDonnees((deco) => TableauBord.charger(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.tableauBordAchatsVentesEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
+    if (mounted && lignes != null) {
       setState(() {
-        _dataList = data.map((item) => TableauBordAchatsVentes.fromJson(item)).toList();
+        _dataList = lignes;
       });
     }
   }
 
   void _calculerAchatNorme() {
-    final double? montantVente = Saisie.montant(_inputVenteNormeeController.text);
-    if (montantVente != null && montantVente > 0) {
-      final double achatNorme = montantVente / AppConstants.ratioNormeVenteAchat;
+    final double? achatNorme = TableauBord.achatNorme(Saisie.montant(_inputVenteNormeeController.text));
+    if (achatNorme != null) {
       setState(() {
         _resultAchatNorme = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0).format(achatNorme);
       });
@@ -88,9 +84,8 @@ class _TableauBordRatioScreenState extends State<TableauBordRatioScreen> with Ba
   }
 
   void _calculerVenteNormee() {
-    final double? montantAchat = Saisie.montant(_inputAchatNormeController.text);
-    if (montantAchat != null && montantAchat > 0) {
-      final double venteNormee = montantAchat * AppConstants.ratioNormeVenteAchat;
+    final double? venteNormee = TableauBord.venteNormee(Saisie.montant(_inputAchatNormeController.text));
+    if (venteNormee != null) {
       setState(() {
         _resultVenteNormee = NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0).format(venteNormee);
       });
