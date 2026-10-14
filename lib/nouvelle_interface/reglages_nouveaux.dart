@@ -20,6 +20,7 @@ import 'charte.dart';
 import 'composants.dart';
 import 'menus.dart';
 import 'presentation.dart';
+import '../version_app.dart';
 
 /// Page des Réglages (bouton engrenage en haut à droite de l'accueil).
 class ReglagesScreen extends StatelessWidget {
@@ -135,6 +136,8 @@ class OngletReglages extends StatelessWidget {
               ),
             ],
           ),
+          // Version installée, discrète (lue à l'exécution : pubspec.yaml est la seule source).
+          const Padding(key: Key('reglages_version'), padding: EdgeInsets.only(top: 12), child: VersionAffichee(couleur: Charte.gris)),
         ]),
       ),
     ]);

@@ -12,6 +12,7 @@ import '../utils/saisie.dart';
 import '../interface_version.dart';
 import '../nouvelle_interface/charte.dart';
 import '../nouvelle_interface/composants.dart';
+import '../version_app.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -215,6 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 // Retour à la nouvelle interface (choix mémorisé sur le téléphone).
                 const InterfaceVersionTile(),
+                const SizedBox(height: 12),
+                Padding(key: const Key('reglages_version'), padding: const EdgeInsets.only(bottom: 8), child: VersionAffichee(couleur: Colors.grey.shade700)),
               ],
             ),
           ),
@@ -336,6 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: EdgeInsets.fromLTRB(0, 14, 0, 8),
                   enfants: [InterfaceVersionTile()],
                 ),
+                const Padding(key: Key('reglages_version'), padding: EdgeInsets.only(top: 12), child: VersionAffichee(couleur: Charte.gris)),
               ]),
             ),
           ),

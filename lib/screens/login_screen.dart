@@ -16,6 +16,7 @@ import '../providers/licence_provider.dart';
 import '../nouvelle_interface/charte.dart';
 import '../nouvelle_interface/composants.dart';
 import '../nouvelle_interface/presentation.dart';
+import '../version_app.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -307,6 +308,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                               ],
                             ),
+                            // Version installée, discrète (lue à l'exécution : pubspec.yaml est la seule source).
+                            const SizedBox(height: 16),
+                            VersionAffichee(couleur: Colors.grey.shade700),
                           ],
                         ),
                       ),
@@ -469,6 +473,9 @@ class _LoginScreenState extends State<LoginScreen> {
             style: const TextStyle(color: Charte.gris, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ],
+        // Version installée, discrète (lue à l'exécution : pubspec.yaml est la seule source).
+        const SizedBox(height: 20),
+        const VersionAffichee(couleur: Charte.gris),
       ]),
     );
 

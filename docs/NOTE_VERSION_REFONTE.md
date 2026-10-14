@@ -1,5 +1,9 @@
 # Prestige Pharmacien 3.0.0 — nouvelle interface (étape 3)
 
+> **Mise à jour 3.1.0+28** : lot 1 et vague 1 des nouveaux menus réunis, réponses du pharmacien appliquées
+> (période de 3 ans, période en mois du Suivi Péremption, « Ruptures de stock » sur l'accueil A, réglages des
+> alertes sur le mobile, Valorisation réservée), version affichée : voir `NOTE_VERSION_3.1.0.md`.
+>
 > **Mise à jour 3.0.0+27** : Réglages ouverts par le bouton engrenage de l'accueil (barre du bas Accueil · Analyses · Équipe), « Fournisseurs » retiré de la nouvelle interface, six modules refaits : voir `NOTE_VERSION_LOT1.md`.
 >
 > **Mise à jour 3.0.0+26** : nombre des alertes de l'accueil A compté à la demande (voir « Alertes à surveiller »).
@@ -92,3 +96,18 @@ D'où viennent les nombres (mêmes routes et mêmes paramètres que les modules,
 
 La route du contrôle des bons renvoie toute la liste pour en tirer un nombre : une route de comptage légère est
 demandée au serveur (`docs/serveur/ROUTES_DE_COMPTAGE.md`).
+
+## Règle des versions (permanente)
+
+Détail et historique des publications : `docs/VERSIONS_SUNMI.md` (Prestige Pharmacien n'est pas encore publié sur
+le magasin Sunmi).
+
+1. **Une seule source : `pubspec.yaml`** (`version: X.Y.Z+N`) ; Gradle reprend `flutter.versionCode` /
+   `flutter.versionName`, aucun numéro en dur ; l'application lit sa version à l'exécution (`package_info_plus`) et
+   l'affiche en bas de l'écran de connexion et dans les Réglages, dans les deux interfaces.
+2. **X.Y.Z jamais inférieur** à la dernière version publiée sur Sunmi ; **+N strictement supérieur** au versionCode
+   publié.
+3. **Chaque livraison augmente +N d'au moins 1** (même un APK de test).
+
+Le test `test/non_regression/version_sunmi_test.dart` échoue si une de ces règles n'est pas respectée.
+
