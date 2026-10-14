@@ -340,12 +340,12 @@ void main() {
     await demonter(tester);
 
     final base = {'codeFamile': '', 'codeRayon': '', 'codeGrossiste': '', 'qtyOrCa': 'false', 'page': '1', 'start': '0'};
-    expect(jourO.single, {...duJour, 'limit': '50', ...base});
+    expect(jourO.single, {...duJour, 'limit': '50', 'topN': '50', ...base});
     expect(jourN, jourO);
-    expect(limiteO.single, containsPair('limit', '80'));
+    expect(limiteO.single, allOf(containsPair('limit', '80'), containsPair('topN', '80')));
     expect(limiteN, limiteO);
     if (moisDernierPossible) {
-      expect(moisO.single, {...duMoisDernier, 'limit': '50', ...base});
+      expect(moisO.single, {...duMoisDernier, 'limit': '50', 'topN': '50', ...base});
       expect(moisN, moisO);
     }
     expect(montantsO, hasLength(50));

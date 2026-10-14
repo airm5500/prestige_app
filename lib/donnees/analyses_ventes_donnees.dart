@@ -7,6 +7,10 @@
 //    QTY → procédure analyse_20_80_par_quantite, triée par quantité décroissante) : vingtType=QTY est ajouté, et
 //    l'application trie aussi par quantité décroissante (tri stable : sans effet si le serveur l'a fait ; protège
 //    d'un serveur plus ancien qui ignorerait vingtType) ;
+//    3.8.1 (correction) : le serveur limite le nombre d'articles avec « topN » (FamilleArticleRessource lit topN,
+//    Integer ; absent ou ≤ 0 = tous ; appliqué après le classement et les filtres) et IGNORE « limit ». Les deux
+//    interfaces envoient donc topN = nombre choisi (limit reste envoyé, inoffensif pour un serveur plus ancien) et
+//    l'application ne garde que les N premiers si le serveur en renvoie plus (serveur qui ignorerait topN) ;
 //  - Stat TVA : GET /api/v3/tvas?dtStart=&dtEnd=&typeVente= (TOUT, VNO, VO) → « data » ;
 //  - Marge Produits Vendus : GET /datareporting/margeproduitsvendus?dtStart=&dtEnd=&limit=9999 → « data », filtre
 //    LOCAL sur la marge (%) : =, >, <, >=, <=, !=, ~= (± 1) ;
@@ -51,10 +55,12 @@ class Suivi2080Donnees {
   /// Nombre d'articles demandé : entier de 1 à 9 999, sinon 50 (comme l'écran d'origine pour un champ vide).
   static int limite(String? texte) => Saisie.entier(texte, min: 1, max: Saisie.maxLignes) ?? limiteParDefaut;
 
-  /// [critere] quantité : « vingtType=QTY » en plus ; chiffre d'affaires : la requête d'origine, inchangée.
+  /// [critere] quantité : « vingtType=QTY » en plus ; chiffre d'affaires : la requête d'origine. « topN » (3.8.1) :
+  /// le paramètre que le serveur lit vraiment ; « limit » (ignoré par le serveur) est gardé tel quel.
   static Map<String, String> parametres(DateTime debut, DateTime fin, int limite, {CritereVingt critere = CritereVingt.chiffreAffaires}) => {
         ..._dates(debut, fin),
         'limit': limite.toString(),
+        'topN': limite.toString(),
         'codeFamile': '',
         'codeRayon': '',
         'codeGrossiste': '',
@@ -83,8 +89,12 @@ class Suivi2080Donnees {
       {CritereVingt critere = CritereVingt.chiffreAffaires, VoidCallback? onSessionInvalid}) async {
     final l = lire(await ApiService().get(context, AppConstants.suivi2080Endpoint,
         queryParams: parametres(debut, fin, limite, critere: critere), onSessionInvalid: onSessionInvalid));
-    return l == null ? null : classer(l, critere);
+    return l == null ? null : garder(classer(l, critere), limite);
   }
+
+  /// Les [limite] premiers articles (dans l'ordre du classement) : sans effet si le serveur a appliqué topN ;
+  /// protège d'un serveur plus ancien qui l'ignorerait et renverrait tous les articles.
+  static List<Suivi2080> garder(List<Suivi2080> l, int limite) => limite > 0 && l.length > limite ? l.sublist(0, limite) : l;
 
   static int montantTotal(List<Suivi2080> l) => l.fold(0, (s, e) => s + e.montant);
   static int quantiteTotale(List<Suivi2080> l) => l.fold(0, (s, e) => s + e.quantiteVendue);

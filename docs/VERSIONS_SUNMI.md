@@ -14,8 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.8.0+37** (`pubspec.yaml`) : réponses du pharmacien aux questions des
-notes 3.3.0, 3.4.0, 3.5.0 et 3.7.0 (`docs/NOTE_VERSION_3.8.0.md`). Précédentes livraisons :
+Version en préparation (pas encore publiée) : **3.8.1+38** (`pubspec.yaml`) : réponses du pharmacien aux questions de
+la 3.8.0, Suivi 20/80 « Nombre d'articles » appliqué (`topN`) (`docs/NOTE_VERSION_3.8.1.md`). Précédentes livraisons :
+3.8.0+37 (réponses aux questions des notes 3.3.0, 3.4.0, 3.5.0 et 3.7.0, `docs/NOTE_VERSION_3.8.0.md`),
 3.7.0+36 (réglage « Taille de l'écran », `docs/TAILLE_ECRAN.md`, `docs/NOTE_VERSION_3.7.0.md`),
 3.6.1+35 (retours du pharmacien sur le lot 4, `docs/NOTE_VERSION_3.6.1.md`),
 3.6.0+34 (lot 4 de la refonte, « le reste », `docs/NOTE_VERSION_3.6.0.md`),

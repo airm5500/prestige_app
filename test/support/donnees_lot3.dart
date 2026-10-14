@@ -28,8 +28,13 @@ class DonneesLot3 {
   static int get totalAchats => jours.fold(0, (s, j) => s + j.$2);
   static int get totalVentes => jours.fold(0, (s, j) => s + j.$3);
 
-  // --- Suivi 20/80 : 120 articles, montants décroissants ; la réponse respecte « limit » ---
+  // --- Suivi 20/80 : 120 articles, montants décroissants ; la réponse respecte « topN » (comme le serveur) ---
   static const articles2080 = 120;
+  static int topN(String? p) {
+    final n = int.tryParse(p ?? '') ?? 0;
+    return n > 0 ? n : articles2080;
+  }
+
   static Map<String, Object?> suivi2080(int limite) => {
         'data': [
           for (var i = 1; i <= (limite < articles2080 ? limite : articles2080); i++)
@@ -107,7 +112,8 @@ class DonneesLot3 {
 void donneesLot3(FauxServeurPrestige serveur) {
   serveur
     ..quand('/ws/ca-achats-ventes', ReponseFausse.json(DonneesLot3.achatsVentes()), methode: 'GET')
-    ..route('/statfamillearticle/vingtQuatreVingt', (r) => ReponseFausse.json(DonneesLot3.suivi2080(int.tryParse(r.parametres['limit'] ?? '') ?? 50)),
+    // Comme le vrai serveur (3.8.1) : « topN » limite (absent ou ≤ 0 = tous), « limit » est ignoré.
+    ..route('/statfamillearticle/vingtQuatreVingt', (r) => ReponseFausse.json(DonneesLot3.suivi2080(DonneesLot3.topN(r.parametres['topN']))),
         methode: 'GET')
     ..route('/tvas', (r) => ReponseFausse.json(DonneesLot3.statTva(r.parametres['typeVente'] ?? 'TOUT')), methode: 'GET')
     ..quand('/datareporting/margeproduitsvendus', ReponseFausse.json(DonneesLot3.marges()), methode: 'GET')
