@@ -2,6 +2,11 @@
 // Analyses des ventes, logique COMMUNE aux deux interfaces, pour quatre modules d'origine :
 //  - Suivi 20/80 : GET /statfamillearticle/vingtQuatreVingt?dtStart=&dtEnd=&limit=&codeFamile=&codeRayon=
 //    &codeGrossiste=&qtyOrCa=false&page=1&start=0 → « data » (nombre d'articles : 1 à 9 999, 50 par défaut) ;
+//    nouvelle interface (3.8.0) : classement par chiffre d'affaires (défaut, requête inchangée) ou par QUANTITÉ :
+//    le serveur le sait faire (FamilleArticleRessource.vingtQuatreVingt lit « vingtType » = CA / QTY / MARGE ;
+//    QTY → procédure analyse_20_80_par_quantite, triée par quantité décroissante) : vingtType=QTY est ajouté, et
+//    l'application trie aussi par quantité décroissante (tri stable : sans effet si le serveur l'a fait ; protège
+//    d'un serveur plus ancien qui ignorerait vingtType) ;
 //  - Stat TVA : GET /api/v3/tvas?dtStart=&dtEnd=&typeVente= (TOUT, VNO, VO) → « data » ;
 //  - Marge Produits Vendus : GET /datareporting/margeproduitsvendus?dtStart=&dtEnd=&limit=9999 → « data », filtre
 //    LOCAL sur la marge (%) : =, >, <, >=, <=, !=, ~= (± 1) ;
@@ -28,6 +33,15 @@ Map<String, String> _dates(DateTime debut, DateTime fin) => {'dtStart': DateForm
 // Suivi 20/80
 // -----------------------------------------------------------------------------------------------------------------
 
+/// Critère de classement du Suivi 20/80 (nouvelle interface, 3.8.0).
+enum CritereVingt {
+  chiffreAffaires('Chiffre d\'affaires'),
+  quantite('Quantité');
+
+  final String libelle;
+  const CritereVingt(this.libelle);
+}
+
 class Suivi2080Donnees {
   Suivi2080Donnees._();
 
@@ -37,7 +51,8 @@ class Suivi2080Donnees {
   /// Nombre d'articles demandé : entier de 1 à 9 999, sinon 50 (comme l'écran d'origine pour un champ vide).
   static int limite(String? texte) => Saisie.entier(texte, min: 1, max: Saisie.maxLignes) ?? limiteParDefaut;
 
-  static Map<String, String> parametres(DateTime debut, DateTime fin, int limite) => {
+  /// [critere] quantité : « vingtType=QTY » en plus ; chiffre d'affaires : la requête d'origine, inchangée.
+  static Map<String, String> parametres(DateTime debut, DateTime fin, int limite, {CritereVingt critere = CritereVingt.chiffreAffaires}) => {
         ..._dates(debut, fin),
         'limit': limite.toString(),
         'codeFamile': '',
@@ -46,13 +61,30 @@ class Suivi2080Donnees {
         'qtyOrCa': 'false',
         'page': '1',
         'start': '0',
+        if (critere == CritereVingt.quantite) 'vingtType': 'QTY',
       };
+
+  /// Articles dans l'ordre du classement : chiffre d'affaires = ordre du serveur (comme l'origine) ; quantité = tri
+  /// stable par quantité vendue décroissante (à égalité, l'ordre du serveur).
+  static List<Suivi2080> classer(List<Suivi2080> l, CritereVingt critere) {
+    if (critere == CritereVingt.chiffreAffaires) return l;
+    final indices = [for (var i = 0; i < l.length; i++) i]
+      ..sort((a, b) {
+        final c = l[b].quantiteVendue.compareTo(l[a].quantiteVendue);
+        return c != 0 ? c : a.compareTo(b);
+      });
+    return [for (final i in indices) l[i]];
+  }
 
   static List<Suivi2080>? lire(dynamic data) =>
       data is Map && data['data'] is List ? (data['data'] as List).map((item) => Suivi2080.fromJson(item)).toList() : null;
 
-  static Future<List<Suivi2080>?> charger(BuildContext context, DateTime debut, DateTime fin, int limite, {VoidCallback? onSessionInvalid}) async =>
-      lire(await ApiService().get(context, AppConstants.suivi2080Endpoint, queryParams: parametres(debut, fin, limite), onSessionInvalid: onSessionInvalid));
+  static Future<List<Suivi2080>?> charger(BuildContext context, DateTime debut, DateTime fin, int limite,
+      {CritereVingt critere = CritereVingt.chiffreAffaires, VoidCallback? onSessionInvalid}) async {
+    final l = lire(await ApiService().get(context, AppConstants.suivi2080Endpoint,
+        queryParams: parametres(debut, fin, limite, critere: critere), onSessionInvalid: onSessionInvalid));
+    return l == null ? null : classer(l, critere);
+  }
 
   static int montantTotal(List<Suivi2080> l) => l.fold(0, (s, e) => s + e.montant);
   static int quantiteTotale(List<Suivi2080> l) => l.fold(0, (s, e) => s + e.quantiteVendue);

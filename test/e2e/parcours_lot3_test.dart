@@ -229,6 +229,19 @@ void main() {
     await attendreQue(tester, () => serveur.recues(route).length == 3, raison: 'retrait du filtre');
     expect(serveur.recues(route).last.parametres, containsPair('limit', '50'));
     await stabiliser(tester);
+    // 3.8.0 (B3) : classement par quantité (vingtType=QTY), puis retour au chiffre d'affaires (requête d'origine).
+    expect(serveur.recues(route).last.parametres.containsKey('vingtType'), isFalse);
+    final origine = serveur.recues(route).last.parametres;
+    await remonter(tester, find.byKey(const Key('classement_quantite')));
+    await toucher(tester, find.byKey(const Key('classement_quantite')), tours: 2);
+    await attendreQue(tester, () => serveur.recues(route).length == 4, raison: 'par quantité');
+    expect(serveur.recues(route).last.parametres, {...origine, 'vingtType': 'QTY'});
+    await stabiliser(tester);
+    expect(find.text('ARTICLES (PAR QUANTITÉ VENDUE)'), findsOneWidget);
+    await toucher(tester, find.byKey(const Key('classement_chiffreAffaires')), tours: 2);
+    await attendreQue(tester, () => serveur.recues(route).length == 5, raison: 'par chiffre d\'affaires');
+    expect(serveur.recues(route).last.parametres, origine);
+    await stabiliser(tester);
     await revenir(tester, m);
     await terminer(tester);
   });

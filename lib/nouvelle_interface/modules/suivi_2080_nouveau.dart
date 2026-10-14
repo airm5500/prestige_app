@@ -5,6 +5,9 @@
 // commune chargée dès l'ouverture (« Aujourd'hui », dates par défaut d'origine), nombre d'articles (1 à 9 999, 50
 // par défaut) dans la feuille des filtres, chiffres clés, articles dans l'ordre du serveur avec leur rang et leur
 // part du montant affiché, détail d'un article en feuille.
+// 3.8.0 (choix du pharmacien) : puces « Classer par : Chiffre d'affaires | Quantité » sur la vue (défaut : chiffre
+// d'affaires, requête identique à avant) ; quantité : vingtType=QTY (lu par le serveur) et tri par quantité vendue,
+// part de la quantité affichée.
 import 'package:flutter/material.dart';
 
 import '../../donnees/analyses_ventes_donnees.dart';
@@ -28,6 +31,7 @@ class Suivi2080Nouveau extends StatefulWidget {
 class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuivi<Suivi2080Nouveau, List<Suivi2080>>, AffichageParTranches {
   late Periode _periode = Periode.rapide(PeriodeRapide.aujourdhui, widget.maintenant());
   int _limite = Suivi2080Donnees.limiteParDefaut;
+  CritereVingt _critere = CritereVingt.chiffreAffaires;
   final _champLimite = TextEditingController();
 
   @override
@@ -47,7 +51,8 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
   Future<void> _charger() {
     reinitialiserTranches();
     return charger(() async =>
-        await Suivi2080Donnees.charger(context, _periode.debut, _periode.fin, _limite, onSessionInvalid: sessionInvalide(context)) ?? const <Suivi2080>[]);
+        await Suivi2080Donnees.charger(context, _periode.debut, _periode.fin, _limite, critere: _critere, onSessionInvalid: sessionInvalide(context)) ??
+        const <Suivi2080>[]);
   }
 
   void _changerPeriode(Periode p) {
@@ -93,11 +98,23 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
     _charger();
   }
 
-  void _detail(Suivi2080 a, int rang, int total) => ouvrirFeuilleDetail(context, titre: a.libelle, sousTitre: 'Rang $rang · CIP ${a.cip}', lignes: [
-        LigneDetail('Quantité vendue', formaterNombre(a.quantiteVendue)),
+  void _changerCritere(CritereVingt c) {
+    if (c == _critere) return;
+    setState(() => _critere = c);
+    _charger();
+  }
+
+  bool get _parQuantite => _critere == CritereVingt.quantite;
+
+  void _detail(Suivi2080 a, int rang, int total, int quantite) => ouvrirFeuilleDetail(context,
+          titre: a.libelle, sousTitre: 'Rang $rang (${_critere.libelle.toLowerCase()}) · CIP ${a.cip}', lignes: [
+        LigneDetail('Quantité vendue', formaterNombre(a.quantiteVendue), gras: _parQuantite),
         LigneDetail('Stock actuel', formaterNombre(a.stock)),
-        LigneDetail('Montant', formaterMontant(a.montant), gras: true),
-        LigneDetail('Part du montant affiché', total == 0 ? '—' : formaterPourcent(a.montant / total * 100)),
+        LigneDetail('Montant', formaterMontant(a.montant), gras: !_parQuantite),
+        if (_parQuantite)
+          LigneDetail('Part de la quantité affichée', quantite == 0 ? '—' : formaterPourcent(a.quantiteVendue / quantite * 100))
+        else
+          LigneDetail('Part du montant affiché', total == 0 ? '—' : formaterPourcent(a.montant / total * 100)),
       ]);
 
   @override
@@ -109,6 +126,16 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
           onRefresh: _charger,
           child: ListView(key: const Key('defilement_module'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
             SelecteurPeriode(periode: _periode, onChanged: _changerPeriode, maintenant: widget.maintenant),
+            const SizedBox(height: 8),
+            Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 4, children: [
+              const Text('Classer par', style: TextStyle(color: Charte.gris, fontWeight: FontWeight.w600)),
+              PucesChoix<CritereVingt>(
+                choix: [for (final c in CritereVingt.values) (c, c.libelle)],
+                valeur: _critere,
+                cle: (c, _) => Key('classement_${c.name}'),
+                onChanged: _changerCritere,
+              ),
+            ]),
             EtiquettesFiltres(
               etiquettes: [if (_limite != Suivi2080Donnees.limiteParDefaut) '${formaterNombre(_limite)} articles au plus'],
               onRetirer: () {
@@ -130,37 +157,50 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
       return const [EtatVide(titre: 'Aucune donnée trouvée', texte: 'Aucun article pour les critères sélectionnés.', icone: Icons.star_border)];
     }
     final total = Suivi2080Donnees.montantTotal(l);
+    final quantite = Suivi2080Donnees.quantiteTotale(l);
     final n = affichees.clamp(0, l.length);
-    String part(Suivi2080 a) => total == 0 ? '—' : formaterPourcent(a.montant / total * 100);
+    final q = _parQuantite;
+    String part(Suivi2080 a) => q
+        ? (quantite == 0 ? '—' : formaterPourcent(a.quantiteVendue / quantite * 100))
+        : (total == 0 ? '—' : formaterPourcent(a.montant / total * 100));
     return [
       GrilleKpi([
-        ChiffreCle(libelle: 'Montant', valeur: formaterMontant(total), id: 'montant', enAvant: true),
+        ChiffreCle(libelle: 'Montant', valeur: formaterMontant(total), id: 'montant', enAvant: !q),
         ChiffreCle(libelle: 'Articles', valeur: formaterNombre(l.length), id: 'articles', detail: '${formaterNombre(_limite)} demandés au plus'),
-        ChiffreCle(libelle: 'Quantité vendue', valeur: formaterNombre(Suivi2080Donnees.quantiteTotale(l)), id: 'quantite'),
+        ChiffreCle(libelle: 'Quantité vendue', valeur: formaterNombre(quantite), id: 'quantite', enAvant: q),
       ]),
-      const TitreSection('Articles'),
+      TitreSection(q ? 'Articles (par quantité vendue)' : 'Articles'),
       ListeOuTableau(
         nombre: n,
-        onTap: (i) => _detail(l[i], i + 1, total),
-        colonnes: const [
-          Colonne('Rang', flex: 1),
-          Colonne('CIP', flex: 3),
-          Colonne('Produit', flex: 6),
-          Colonne('Qté vendue', flex: 2, droite: true),
-          Colonne('Stock', flex: 2, droite: true),
-          Colonne('Montant', flex: 3, droite: true),
-          Colonne('Part', flex: 2, droite: true),
+        onTap: (i) => _detail(l[i], i + 1, total, quantite),
+        colonnes: [
+          const Colonne('Rang', flex: 1),
+          const Colonne('CIP', flex: 3),
+          const Colonne('Produit', flex: 6),
+          const Colonne('Qté vendue', flex: 2, droite: true),
+          const Colonne('Stock', flex: 2, droite: true),
+          const Colonne('Montant', flex: 3, droite: true),
+          Colonne(q ? 'Part qté' : 'Part', flex: 2, droite: true),
         ],
         cellules: (i) => ['${i + 1}', l[i].cip, l[i].libelle, formaterNombre(l[i].quantiteVendue), formaterNombre(l[i].stock), formaterMontant(l[i].montant), part(l[i])],
-        total: n == l.length ? ['', '', 'Total', formaterNombre(Suivi2080Donnees.quantiteTotale(l)), '', formaterMontant(total), ''] : null,
-        carte: (i) => CarteLigne(
-          titre: '${i + 1}. ${l[i].libelle}',
-          lignes: ['CIP ${l[i].cip}', 'Stock actuel ${formaterNombre(l[i].stock)} · ${part(l[i])} du montant'],
-          etiquette: Etiquette('Qté vendue ${formaterNombre(l[i].quantiteVendue)}', ton: Ton.vert),
-          libelleValeur: 'Montant',
-          valeur: formaterMontant(l[i].montant),
-          onTap: () => _detail(l[i], i + 1, total),
-        ),
+        total: n == l.length ? ['', '', 'Total', formaterNombre(quantite), '', formaterMontant(total), ''] : null,
+        carte: (i) => q
+            ? CarteLigne(
+                titre: '${i + 1}. ${l[i].libelle}',
+                lignes: ['CIP ${l[i].cip}', 'Stock actuel ${formaterNombre(l[i].stock)} · ${part(l[i])} de la quantité'],
+                etiquette: Etiquette('Montant ${formaterMontant(l[i].montant)}', ton: Ton.vert),
+                libelleValeur: 'Qté vendue',
+                valeur: formaterNombre(l[i].quantiteVendue),
+                onTap: () => _detail(l[i], i + 1, total, quantite),
+              )
+            : CarteLigne(
+                titre: '${i + 1}. ${l[i].libelle}',
+                lignes: ['CIP ${l[i].cip}', 'Stock actuel ${formaterNombre(l[i].stock)} · ${part(l[i])} du montant'],
+                etiquette: Etiquette('Qté vendue ${formaterNombre(l[i].quantiteVendue)}', ton: Ton.vert),
+                libelleValeur: 'Montant',
+                valeur: formaterMontant(l[i].montant),
+                onTap: () => _detail(l[i], i + 1, total, quantite),
+              ),
       ),
       piedTranches(l.length),
     ];
