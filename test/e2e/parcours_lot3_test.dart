@@ -1,13 +1,15 @@
 // Bout en bout des modules refaits du LOT 3 (analyses, nouvelle interface) : l'application ENTIÈRE parle en HTTP
 // réel au faux serveur Prestige local. Pour chaque module : ouverture depuis l'accueil (recherche de menu,
 // présentation B), chiffres clés, période, filtres (feuille du bas) ou recherche locale, graphique (choix de la vue),
-// détail, retour à l'accueil. Ces modules n'avaient AUCUN export : pas de menu « Exporter » (vérifié). Puis : erreur
+// détail, retour à l'accueil. Ces modules n'avaient AUCUN export : pas de menu « Exporter » (vérifié), sauf Stat TVA,
+// Marge et CA Crédit qui ont un PDF depuis la 3.8.0 (menu présent ; contenu dans integration/retours_3_8_0_test.dart). Puis : erreur
 // du serveur et « Réessayer », droit manquant (sans Réessayer), serveur injoignable, session expirée pendant un
 // changement de période (retour à la connexion, mécanisme existant).
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
+import 'package:prestige_app/donnees/analyses_pdf.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/composants.dart';
 import 'package:prestige_app/nouvelle_interface/modules/commun.dart';
@@ -53,8 +55,19 @@ Future<void> ouvrir(WidgetTester tester, ModuleLot1 m) async {
   await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text(m.tuile)).first);
   await attendreWidget(tester, find.byType(m.typeNouveau));
   expect(find.widgetWithText(AppBar, m.titreEcran), findsOneWidget);
-  expect(find.byKey(const Key('menu_exports')), findsNothing, reason: 'aucun export à l\'origine');
+  // 3.8.0 (B4) : Stat TVA, Marge et CA Crédit ont un PDF dans « Exporter » ; les autres modules du lot 3 n'en ont pas.
+  if (_avecPdf.contains(m.tuile)) {
+    expect(find.byKey(const Key('menu_exports')), findsOneWidget, reason: 'PDF (3.8.0)');
+  } else {
+    expect(find.byKey(const Key('menu_exports')), findsNothing, reason: 'aucun export à l\'origine');
+  }
 }
+
+/// Modules du lot 3 exportés en PDF depuis la 3.8.0 (tuiles de l'accueil).
+final _avecPdf = {
+  for (final m in modulesLot3)
+    if (const ['Statistiques TVA', 'Marge Produits Vendus', 'Ventes à Crédit'].contains(m.titreEcran)) m.tuile,
+};
 
 Future<void> revenir(WidgetTester tester, ModuleLot1 m) async {
   await retourSysteme(tester);
@@ -320,6 +333,20 @@ void main() {
     expect(chiffre(tester, 'montant'), formaterMontant(12500 + 8300 + 4700));
     await detail(tester, find.text('CLIENT FICTIF GAMMA'), attendus: ['FAC-T-004', DonneesLot3.assuranceA]);
     expect(serveur.recues(route), hasLength(1), reason: 'recherche et filtre locaux');
+    // 3.8.0 (B4) : Exporter → PDF des ventes AFFICHÉES (filtre tiers payant repris), sans requête.
+    final sorties = <(ContenuAnalysePdf, String)>[];
+    final avant = AnalysesPdf.sortie;
+    AnalysesPdf.sortie = (c, nom) async => sorties.add((c, nom));
+    addTearDown(() => AnalysesPdf.sortie = avant);
+    await toucher(tester, find.byKey(const Key('menu_exports')));
+    await toucher(tester, find.text('PDF des ventes à crédit'));
+    await attendreQue(tester, () => sorties.isNotEmpty, raison: 'PDF produit');
+    final (contenu, nom) = sorties.single;
+    expect(nom, 'CA_credit_${jour(aujourdhui)}');
+    expect(contenu.filtres, [('Tiers payant', DonneesLot3.assuranceA)]);
+    expect(contenu.lignes, hasLength(3));
+    expect(contenu.total!.last, formaterMontant(12500 + 8300 + 4700));
+    expect(serveur.recues(route), hasLength(1), reason: 'export sans requête');
     await choisirPeriode(tester, 'hier');
     await attendreQue(tester, () => serveur.recues(route).length == 2, raison: 'hier');
     expect(serveur.recues(route).last.parametres, {'dtStart': jour(hier), 'dtEnd': jour(hier)});

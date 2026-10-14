@@ -58,6 +58,11 @@ Future<void> Function(WidgetTester) toucherGraphique(Type type, Offset decalage)
     };
 
 final casLot3 = <CasAffichage>[
+  // 3.8.0 : Suivi 20/80 par quantité (B3), menus « Exporter » des PDF (B4).
+  CasAffichage('Lot 3 · Suivi 20/80 par quantité', _lot3(() => const Suivi2080Nouveau(), ensuite: toucher(find.byKey(const Key('classement_quantite'))))),
+  CasAffichage('Lot 3 · Stat TVA menu Exporter', _lot3(() => const StatTvaNouveau(), ensuite: toucher(find.byKey(const Key('menu_exports'))))),
+  CasAffichage('Lot 3 · Marge menu Exporter', _lot3(() => const MargeProduitsNouveau(), ensuite: toucher(find.byKey(const Key('menu_exports'))))),
+  CasAffichage('Lot 3 · CA Crédit menu Exporter', _lot3(() => const CaCreditNouveau(), ensuite: toucher(find.byKey(const Key('menu_exports'))))),
   // Tableau : Analyses
   CasAffichage('Lot 3 · Analyses rempli', _lot3(() => const TableauAnalysesNouveau())),
   CasAffichage('Lot 3 · Analyses vue Achats', _lot3(() => const TableauAnalysesNouveau(), ensuite: defilerPuisToucher(() => find.byKey(const Key('graphique_achats'))))),

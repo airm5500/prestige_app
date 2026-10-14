@@ -5,9 +5,12 @@
 // l'ouverture (« Aujourd'hui », dates par défaut d'origine), type de vente dans la feuille des filtres, chiffres
 // clés, anneau des parts (chaque part porte son taux écrit, valeurs du taux touché au centre), tableau par taux avec
 // total (cartes sur téléphone), détail d'un taux en feuille.
+// 3.8.0 (demande du pharmacien) : menu « Exporter » → PDF A4 (AnalysesPdf, lib/donnees/analyses_pdf.dart) avec
+// l'officine, la période, le type de vente, les chiffres clés et le tableau par taux, textes identiques à l'écran.
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../donnees/analyses_pdf.dart';
 import '../../donnees/analyses_ventes_donnees.dart';
 import '../../models/stat_tva_model.dart';
 import '../charte.dart';
@@ -48,8 +51,13 @@ class _StatTvaNouveauState extends State<StatTvaNouveau> with ChargementSuivi<St
 
   Future<void> _charger() {
     _touche = null;
-    return charger(() async =>
-        await StatTvaDonnees.charger(context, _periode.debut, _periode.fin, _type, onSessionInvalid: sessionInvalide(context)) ?? const <StatTva>[]);
+    final lu = (periode: _periode, type: _type);
+    _lu = null;
+    return charger(() async {
+      final r = await StatTvaDonnees.charger(context, lu.periode.debut, lu.periode.fin, lu.type, onSessionInvalid: sessionInvalide(context)) ?? const <StatTva>[];
+      _lu = lu;
+      return r;
+    });
   }
 
   void _changerPeriode(Periode p) {
@@ -79,6 +87,53 @@ class _StatTvaNouveauState extends State<StatTvaNouveau> with ChargementSuivi<St
     _charger();
   }
 
+  /// Chargement lu (période et type de la requête affichée) : le PDF reprend exactement ce qui est affiché.
+  ({Periode periode, TypeVente type})? _lu;
+
+  /// PDF des statistiques affichées (aucune requête, aucun recalcul).
+  Future<void> _pdf() async {
+    final l = donnees;
+    final lu = _lu;
+    if (enCours || erreur != null || l == null || l.isEmpty || lu == null) {
+      messageResultat(context, 'Aucune donnée à exporter', echec: true);
+      return;
+    }
+    final contenu = contenuPdf(l, periode: lu.periode, type: lu.type, officine: officineConnectee(context), imprimeLe: widget.maintenant());
+    try {
+      await AnalysesPdf.sortie(contenu, AnalysesPdf.nom('Stat_TVA', lu.periode.debut, lu.periode.fin));
+    } catch (_) {
+      if (mounted) messageResultat(context, 'Erreur lors de la préparation du PDF.', echec: true);
+    }
+  }
+
+  /// Contenu du PDF : mêmes textes que l'écran (chiffres clés, tableau par taux, total).
+  static ContenuAnalysePdf contenuPdf(List<StatTva> l,
+      {required Periode periode, required TypeVente type, required String officine, required DateTime imprimeLe}) {
+    final ht = StatTvaDonnees.totalHt(l), tva = StatTvaDonnees.totalTva(l), ttc = StatTvaDonnees.totalTtc(l);
+    final parts = StatTvaDonnees.parts(l);
+    String part(int i) => parts.isEmpty ? '—' : formaterPourcent(parts[i]);
+    return ContenuAnalysePdf(
+      officine: officine,
+      titre: 'Statistiques TVA',
+      periode: periode.resume,
+      filtres: [('Type de vente', type.libelle)],
+      imprimeLe: ContenuAnalysePdf.horodatage(imprimeLe),
+      chiffres: [
+        ('Total TTC', formaterMontant(ttc)),
+        ('Total HT', formaterMontant(ht)),
+        ('Total TVA', formaterMontant(tva)),
+        ('Taux de TVA', formaterNombre(l.length)),
+      ],
+      titreDetail: 'Par taux',
+      colonnes: const ['Taux', 'HT', 'TVA', 'TTC', 'Part du TTC'],
+      droite: const {1, 2, 3, 4},
+      lignes: [
+        for (var i = 0; i < l.length; i++) ['${l[i].taux} %', formaterMontant(l[i].totalHt), formaterMontant(l[i].totalTva), formaterMontant(l[i].totalTtc), part(i)],
+      ],
+      total: ['Total', formaterMontant(ht), formaterMontant(tva), formaterMontant(ttc), parts.isEmpty ? '—' : '100 %'],
+    );
+  }
+
   void _detail(StatTva s, double? part) => ouvrirFeuilleDetail(context, titre: 'TVA ${s.taux} %', sousTitre: _type.libelle, lignes: [
         LigneDetail('Total HT', formaterMontant(s.totalHt)),
         LigneDetail('Total TVA', formaterMontant(s.totalTva)),
@@ -89,6 +144,7 @@ class _StatTvaNouveauState extends State<StatTvaNouveau> with ChargementSuivi<St
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Statistiques TVA'), actions: [
+          MenuExports(actions: [ActionExport('PDF des statistiques TVA', Icons.picture_as_pdf_outlined, _pdf)]),
           BoutonFiltres(actifs: _type == TypeVente.tout ? 0 : 1, onPressed: _filtres),
         ]),
         body: RefreshIndicator(

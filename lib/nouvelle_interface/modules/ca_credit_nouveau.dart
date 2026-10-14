@@ -5,8 +5,11 @@
 // commune chargée dès l'ouverture (« Aujourd'hui », dates par défaut d'origine), recherche contrôlée, tiers payant
 // dans la feuille des filtres (filtre local parmi les tiers payants de la période), chiffres clés, cartes
 // (téléphone) ou tableau avec total (tablette) construits 50 par 50, détail d'une vente en feuille.
+// 3.8.0 (demande du pharmacien) : menu « Exporter » → PDF A4 (AnalysesPdf, lib/donnees/analyses_pdf.dart) des ventes
+// AFFICHÉES (recherche et tiers payant appliqués, toutes les lignes), chiffres clés et total identiques à l'écran.
 import 'package:flutter/material.dart';
 
+import '../../donnees/analyses_pdf.dart';
 import '../../donnees/analyses_ventes_donnees.dart';
 import '../../models/ca_credit_model.dart';
 import '../../utils/date_formatter.dart';
@@ -49,10 +52,69 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with ChargementSuivi<
     super.dispose();
   }
 
+  /// Période de la requête affichée (le PDF reprend exactement ce qui est affiché).
+  Periode? _periodeLue;
+
   Future<void> _charger() {
     reinitialiserTranches();
-    return charger(() async =>
-        await CaCreditDonnees.charger(context, _periode.debut, _periode.fin, onSessionInvalid: sessionInvalide(context)) ?? const <CaCredit>[]);
+    final p = _periode;
+    _periodeLue = null;
+    return charger(() async {
+      final r = await CaCreditDonnees.charger(context, p.debut, p.fin, onSessionInvalid: sessionInvalide(context)) ?? const <CaCredit>[];
+      _periodeLue = p;
+      return r;
+    });
+  }
+
+  /// PDF des ventes affichées (aucune requête, aucun recalcul).
+  Future<void> _pdf() async {
+    final tout = donnees;
+    final p = _periodeLue;
+    final l = tout == null ? const <CaCredit>[] : _affichees(tout);
+    if (enCours || erreur != null || l.isEmpty || p == null) {
+      messageResultat(context, 'Aucune donnée à exporter', echec: true);
+      return;
+    }
+    final contenu = contenuPdf(l, tout!.length,
+        periode: p,
+        filtres: [
+          if (_texte.isNotEmpty) ('Recherche', _texte),
+          if (_tiers.isNotEmpty) ('Tiers payant', _tiers),
+        ],
+        officine: officineConnectee(context),
+        imprimeLe: widget.maintenant());
+    try {
+      await AnalysesPdf.sortie(contenu, AnalysesPdf.nom('CA_credit', p.debut, p.fin));
+    } catch (_) {
+      if (mounted) messageResultat(context, 'Erreur lors de la préparation du PDF.', echec: true);
+    }
+  }
+
+  /// Contenu du PDF : mêmes chiffres clés, mêmes lignes et même total que l'écran.
+  static ContenuAnalysePdf contenuPdf(List<CaCredit> l, int ventes,
+      {required Periode periode, required List<(String, String)> filtres, required String officine, required DateTime imprimeLe}) {
+    final total = CaCreditDonnees.total(l);
+    return ContenuAnalysePdf(
+      officine: officine,
+      titre: 'Ventes à crédit (CA Crédit)',
+      periode: periode.resume,
+      filtres: filtres,
+      imprimeLe: ContenuAnalysePdf.horodatage(imprimeLe),
+      chiffres: [
+        ('Montant à crédit', formaterMontant(total)),
+        ('Ventes', formaterNombre(l.length)),
+        ('Clients', formaterNombre({for (final c in l) c.clientName}.length)),
+        ('Tiers payants', formaterNombre({for (final c in l) c.tiersPayantLibelle}.length)),
+        if (l.length != ventes) ('Ventes de la période (sans filtre)', formaterNombre(ventes)),
+      ],
+      titreDetail: 'Ventes à crédit',
+      colonnes: const ['Date', 'Client', 'Ayant droit', 'N° facture', 'Tiers payant', 'Montant'],
+      droite: const {5},
+      lignes: [
+        for (final c in l) [_date(c), c.clientName, _ayantDroitDistinct(c) ? c.ayantDroitName : '', c.numFacturation, c.tiersPayantLibelle, formaterMontant(c.montant)],
+      ],
+      total: ['Total', '', '', '', '', formaterMontant(total)],
+    );
   }
 
   void _changerPeriode(Periode p) {
@@ -112,6 +174,7 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with ChargementSuivi<
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Ventes à Crédit'), actions: [
+          MenuExports(actions: [ActionExport('PDF des ventes à crédit', Icons.picture_as_pdf_outlined, _pdf)]),
           BoutonFiltres(actifs: _tiers.isEmpty ? 0 : 1, onPressed: _filtres),
         ]),
         body: RefreshIndicator(

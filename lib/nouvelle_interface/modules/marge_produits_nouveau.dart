@@ -5,8 +5,12 @@
 // refaite : période commune chargée dès l'ouverture (« Aujourd'hui », dates par défaut d'origine), filtre de marge
 // dans la feuille du bas, recherche contrôlée locale (produit ou CIP), chiffres clés des produits affichés, cartes
 // (téléphone) ou tableau (tablette) construits 50 par 50, détail d'un produit en feuille.
+// 3.8.0 (demande du pharmacien) : menu « Exporter » → PDF A4 (AnalysesPdf, lib/donnees/analyses_pdf.dart) des
+// produits AFFICHÉS (filtre de marge et recherche appliqués, toutes les lignes et pas seulement les 50 construites),
+// chiffres clés et total identiques à l'écran.
 import 'package:flutter/material.dart';
 
+import '../../donnees/analyses_pdf.dart';
 import '../../donnees/analyses_ventes_donnees.dart';
 import '../../models/marge_produit_vendu_model.dart';
 import '../../utils/saisie.dart';
@@ -48,11 +52,69 @@ class _MargeProduitsNouveauState extends State<MargeProduitsNouveau> with Charge
     super.dispose();
   }
 
+  /// Période de la requête affichée (le PDF reprend exactement ce qui est affiché).
+  Periode? _periodeLue;
+
   Future<void> _charger() {
     reinitialiserTranches();
-    return charger(() async =>
-        await MargeDonnees.charger(context, _periode.debut, _periode.fin, onSessionInvalid: sessionInvalide(context)) ?? const <MargeProduitVendu>[]);
+    final p = _periode;
+    _periodeLue = null;
+    return charger(() async {
+      final r = await MargeDonnees.charger(context, p.debut, p.fin, onSessionInvalid: sessionInvalide(context)) ?? const <MargeProduitVendu>[];
+      _periodeLue = p;
+      return r;
+    });
   }
+
+  /// PDF des produits affichés (aucune requête, aucun recalcul).
+  Future<void> _pdf() async {
+    final tout = donnees;
+    final p = _periodeLue;
+    final l = tout == null ? const <MargeProduitVendu>[] : _affiches(tout);
+    if (enCours || erreur != null || l.isEmpty || p == null) {
+      messageResultat(context, 'Aucune donnée à exporter', echec: true);
+      return;
+    }
+    final contenu = contenuPdf(l, tout!.length,
+        periode: p,
+        filtres: [
+          if (_filtreActif) ('Marge', '${_operateur.symbole} $_marge %'),
+          if (_texte.isNotEmpty) ('Recherche', _texte),
+        ],
+        officine: officineConnectee(context),
+        imprimeLe: widget.maintenant());
+    try {
+      await AnalysesPdf.sortie(contenu, AnalysesPdf.nom('Marge_produits_vendus', p.debut, p.fin));
+    } catch (_) {
+      if (mounted) messageResultat(context, 'Erreur lors de la préparation du PDF.', echec: true);
+    }
+  }
+
+  /// Contenu du PDF : mêmes chiffres clés, mêmes lignes et même total que l'écran.
+  static ContenuAnalysePdf contenuPdf(List<MargeProduitVendu> l, int vendus,
+          {required Periode periode, required List<(String, String)> filtres, required String officine, required DateTime imprimeLe}) =>
+      ContenuAnalysePdf(
+        officine: officine,
+        titre: 'Marge Produits Vendus',
+        periode: periode.resume,
+        filtres: filtres,
+        imprimeLe: ContenuAnalysePdf.horodatage(imprimeLe),
+        chiffres: [
+          ('Marge', formaterMontant(MargeDonnees.totalMarge(l))),
+          ('Vente', formaterMontant(MargeDonnees.totalVente(l))),
+          ('Achat', formaterMontant(MargeDonnees.totalAchat(l))),
+          ('Produits', formaterNombre(l.length)),
+          if (l.length != vendus) ('Produits vendus (sans filtre)', formaterNombre(vendus)),
+        ],
+        titreDetail: 'Produits',
+        colonnes: const ['CIP', 'Produit', 'Achat', 'Vente', 'Marge', 'Marge %'],
+        droite: const {2, 3, 4, 5},
+        lignes: [
+          for (final p in l)
+            [p.code, p.libelle, formaterMontant(p.montantAchat), formaterMontant(p.montantVente), formaterMontant(p.montantMarge), '${p.margePourcentage} %'],
+        ],
+        total: ['', 'Total', formaterMontant(MargeDonnees.totalAchat(l)), formaterMontant(MargeDonnees.totalVente(l)), formaterMontant(MargeDonnees.totalMarge(l)), ''],
+      );
 
   void _changerPeriode(Periode p) {
     setState(() => _periode = p);
@@ -137,6 +199,7 @@ class _MargeProduitsNouveauState extends State<MargeProduitsNouveau> with Charge
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Marge Produits Vendus'), actions: [
+          MenuExports(actions: [ActionExport('PDF des marges', Icons.picture_as_pdf_outlined, _pdf)]),
           BoutonFiltres(actifs: _filtreActif ? 1 : 0, onPressed: _filtres),
         ]),
         body: RefreshIndicator(
