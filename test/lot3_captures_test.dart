@@ -3,12 +3,16 @@
 //   CAPTURES_LOT3=1 flutter test test/lot3_captures_test.dart --update-goldens
 // Fichiers produits : docs/maquettes/captures_lot3/*.png, téléphone 1080 × 2400 px (411 × 914 dp), plus des
 // captures tablette 1920 × 1200 px (tableau dense). Même mécanisme que lot2_captures_test.dart.
+// 3.8.0 : Tableau : Analyses ouvert sur « Ce mois », Ratios des 12 derniers mois, Suivi 20/80 par quantité (3d),
+// menus « Exporter » (4d, 5d, 6c) et PDF d'exemple (4e_stat_tva_exemple.pdf, 5e_marge_exemple.pdf,
+// 6d_ca_credit_exemple.pdf, données fictives ; leurs aperçus PNG *_pdf.png sont tirés de ces PDF hors test).
 import 'dart:io';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/donnees/analyses_pdf.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/services/api_service.dart';
@@ -101,6 +105,18 @@ void main() {
     await pomper(tester, 3);
   }
 
+  /// Menu « Exporter » ouvert (photo [nom]), puis PDF produit et enregistré sous [fichier] (données fictives).
+  Future<void> exporter(WidgetTester tester, String nom, String action, String fichier) async {
+    await toucher(tester, find.byKey(const Key('menu_exports')));
+    await photo(tester, nom);
+    final avant = AnalysesPdf.sortie;
+    ContenuAnalysePdf? contenu;
+    AnalysesPdf.sortie = (c, _) async => contenu = c;
+    await toucher(tester, find.text(action));
+    AnalysesPdf.sortie = avant;
+    await tester.runAsync(() async => File('docs/maquettes/captures_lot3/$fichier').writeAsBytesSync(await AnalysesPdf.octets(contenu!)));
+  }
+
   testWidgets('captures des modules du lot 3', (tester) async {
     debugDisableShadows = false;
     await preparer();
@@ -144,6 +160,12 @@ void main() {
     await toucher(tester, find.text('3. PRODUIT FICTIF 20-80 N3'));
     await photo(tester, '3c_suivi_2080_detail');
     await retour(tester);
+    await tester.scrollUntilVisible(find.byKey(const Key('classement_quantite')), -300,
+        scrollable: find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first);
+    await tester.drag(find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first, const Offset(0, 2000));
+    await pomper(tester, 4);
+    await toucher(tester, find.byKey(const Key('classement_quantite')), 12);
+    await photo(tester, '3d_suivi_2080_par_quantite');
     await retour(tester);
 
     // 4. Stat TVA : anneau (part touchée), filtres.
@@ -156,6 +178,7 @@ void main() {
     await toucher(tester, find.byKey(const Key('bouton_filtres')));
     await photo(tester, '4c_stat_tva_filtres');
     await retour(tester);
+    await exporter(tester, '4d_stat_tva_exporter', 'PDF des statistiques TVA', '4e_stat_tva_exemple.pdf');
     await retour(tester);
 
     // 5. Marge Produits Vendus : liste, filtre de marge, détail.
@@ -168,6 +191,7 @@ void main() {
     await photo(tester, '5b_marge_filtres');
     await toucher(tester, find.byKey(const Key('filtres_appliquer')));
     await photo(tester, '5c_marge_filtree');
+    await exporter(tester, '5d_marge_exporter', 'PDF des marges', '5e_marge_exemple.pdf');
     await retour(tester);
 
     // 6. CA Crédit : liste, détail.
@@ -176,6 +200,7 @@ void main() {
     await toucher(tester, find.text('CLIENT FICTIF GAMMA'));
     await photo(tester, '6b_ca_credit_detail');
     await retour(tester);
+    await exporter(tester, '6c_ca_credit_exporter', 'PDF des ventes à crédit', '6d_ca_credit_exemple.pdf');
     await retour(tester);
 
     // 7. CA Global.

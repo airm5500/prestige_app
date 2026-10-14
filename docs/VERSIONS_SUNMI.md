@@ -14,8 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.7.0+36** (`pubspec.yaml`) : réglage « Taille de l'écran » (Automatique /
-Compact / Très compact, `docs/TAILLE_ECRAN.md`, `docs/NOTE_VERSION_3.7.0.md`). Précédentes livraisons :
+Version en préparation (pas encore publiée) : **3.8.0+37** (`pubspec.yaml`) : réponses du pharmacien aux questions des
+notes 3.3.0, 3.4.0, 3.5.0 et 3.7.0 (`docs/NOTE_VERSION_3.8.0.md`). Précédentes livraisons :
+3.7.0+36 (réglage « Taille de l'écran », `docs/TAILLE_ECRAN.md`, `docs/NOTE_VERSION_3.7.0.md`),
 3.6.1+35 (retours du pharmacien sur le lot 4, `docs/NOTE_VERSION_3.6.1.md`),
 3.6.0+34 (lot 4 de la refonte, « le reste », `docs/NOTE_VERSION_3.6.0.md`),
 3.5.0+33 (lot 3, analyses, `docs/NOTE_VERSION_3.5.0.md`), Précédentes livraisons : 3.4.0+32 (vague 3, `docs/NOTE_VERSION_3.4.0.md`), 3.3.0+31 (lot 2 de la refonte, `docs/NOTE_VERSION_3.3.0.md`),

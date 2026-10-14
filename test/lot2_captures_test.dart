@@ -3,6 +3,8 @@
 //   CAPTURES_LOT2=1 flutter test test/lot2_captures_test.dart --update-goldens
 // Fichiers produits : docs/maquettes/captures_lot2/*.png, téléphone 1080 × 2400 px (411 × 914 dp), plus des
 // captures tablette 1920 × 1200 px (tableau dense). Même mécanisme que lot1_captures_test.dart.
+// 3.8.0 : Visualisation BL (filtre « Contrôle » lu par le serveur, 3b et 3d), Évolution du stock ouverte sur « Ce
+// mois » (6), Suivi Ajustements par pages de 100 (8c, 8d).
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -132,7 +134,10 @@ void main() {
     await photo(tester, '3_visualisation_bl');
     await toucher(tester, find.byKey(const Key('bouton_filtres')));
     await photo(tester, '3b_visualisation_bl_filtres');
-    await retour(tester);
+    await toucher(tester, find.byKey(const Key('filtre_statut_NON_CONTROLE')));
+    await toucher(tester, find.byKey(const Key('filtres_appliquer')));
+    await photo(tester, '3d_visualisation_bl_non_controles');
+    await toucher(tester, find.byKey(const Key('filtres_retirer')));
     await toucher(tester, find.text(DonneesLot2.grossisteB));
     await photo(tester, '3c_visualisation_bl_detail');
     await retour(tester);
@@ -169,6 +174,24 @@ void main() {
     await toucher(tester, find.text('AJUSTEMENT FICTIF CASSE'));
     await photo(tester, '8b_ajustement_detail');
     await retour(tester);
+    await retour(tester);
+    // 3.8.0 : plus de 100 ajustements → « Afficher plus » (pages de 100 du serveur).
+    serveur.route('/ajustement', (r) {
+      final start = int.tryParse(r.parametres['start'] ?? '0') ?? 0;
+      return ReponseFausse.json({
+        'data': [
+          for (var i = start + 1; i <= (start + 100).clamp(0, 230); i++)
+            {'lgAJUSTEMENTID': 'AJU-$i', 'description': 'AJUSTEMENT FICTIF N$i', 'userFullName': 'EMPLOYE Fictif', 'dtUPDATED': '13/10/2026', 'heure': '10:15'},
+        ],
+        'total': 230,
+      });
+    }, methode: 'GET');
+    await ouvrir(tester, 'Suivi Ajustements');
+    await photo(tester, '8c_suivi_ajustements_100_sur_230');
+    await tester.scrollUntilVisible(find.byKey(const Key('bouton_afficher_plus')), 600,
+        scrollable: find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first);
+    await pomper(tester, 4);
+    await photo(tester, '8d_suivi_ajustements_afficher_plus');
     await retour(tester);
 
     // 9. Droit manquant (Suggestions).

@@ -2,6 +2,7 @@
 //   CAPTURES_VAGUE3=1 flutter test test/vague3_captures_test.dart --update-goldens
 // Fichiers produits : docs/maquettes/captures_vague3/*.png, téléphone 1080 × 2400 px (411 × 914 dp), plus deux
 // captures tablette 1920 × 1200 px. Police Roboto du SDK Flutter (sous les noms Lato, voir support/polices.dart).
+// 3.8.0 : « Remettre en Nouveau » (17, 18) et « Actualiser la liste » des rappels (19, 20, 21).
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -144,6 +145,18 @@ void main() {
     await onglet(tester, 'Analyse');
     await photo(tester, '9_avis_analyse');
     await retour(tester);
+    await ouvrir(tester, AvisDetailScreen(id: 'AVIS-TEST-4', droits: DroitsAvis.depuis(DonneesVague3.droits())));
+    await tester.scrollUntilVisible(find.byKey(const Key('avis_remettre_nouveau')), 300,
+        scrollable: find.descendant(of: find.byKey(const Key('defilement_detail_avis')), matching: find.byType(Scrollable)).first);
+    await tester.drag(find.descendant(of: find.byKey(const Key('defilement_detail_avis')), matching: find.byType(Scrollable)).first, const Offset(0, -200));
+    await pomper(tester, fois: 4);
+    await photo(tester, '17_avis_remettre_en_nouveau');
+    await tester.tap(find.byKey(const Key('avis_remettre_nouveau')));
+    await pomper(tester, fois: 8);
+    await photo(tester, '18_avis_confirmation_remettre_en_nouveau');
+    await tester.tap(find.byKey(const Key('confirmer_non')));
+    await pomper(tester);
+    await retour(tester);
     serveur.quand('/avis-clients/droits', ReponseFausse.json(DonneesVague3.droits(repondre: false)), methode: 'GET');
     await ouvrir(tester, AvisDetailScreen(id: 'AVIS-TEST-4', droits: DroitsAvis.depuis(DonneesVague3.droits(repondre: false))));
     for (var i = 0; i < 6; i++) {
@@ -166,6 +179,18 @@ void main() {
     await pomper(tester);
     await onglet(tester, 'Analyse');
     await photo(tester, '13_rappels_analyse');
+    await retour(tester);
+    // 3.8.0 : « Actualiser la liste » (confirmation, calcul en cours, liste relue).
+    serveur.route('/rappels-habitude/actualiser', (_) => ReponseFausse.json(resultatActualisation).apres(const Duration(seconds: 4)), methode: 'POST');
+    await ouvrir(tester, const RappelsScreen());
+    await tester.tap(find.byKey(const Key('rappels_recalculer')));
+    await pomper(tester, fois: 8);
+    await photo(tester, '19_rappels_confirmation_actualiser');
+    await tester.tap(find.byKey(const Key('confirmer_oui')));
+    await pomper(tester, fois: 8);
+    await photo(tester, '20_rappels_actualisation_en_cours');
+    await pomperJusqua(tester, () => find.text('Liste actualisée : 2 nouveaux rappels, 1 racheté.').evaluate().isNotEmpty, raison: 'liste relue');
+    await photo(tester, '21_rappels_liste_actualisee');
     await retour(tester);
 
     // 14. Droit manquant.
