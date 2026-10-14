@@ -76,8 +76,8 @@ void main() {
       final titres = [for (final m in menusModules) m.titre];
       expect(titres, isNot(contains('Fournisseurs')));
       expect(titres, containsAll(['Achats Fourn.', 'Retours Fournisseurs', 'Visualisation BL', 'Etat Contrôle Achat', 'Analyse Saisies BL']));
-      expect(menusModules, hasLength(33),
-          reason: '27 menus d\'origine (sans Fournisseurs) + 3 nouveaux menus de la vague 1 + 3 de la vague 2 (le Pilotage est un onglet)');
+      expect(menusModules, hasLength(36),
+          reason: '27 menus d\'origine (sans Fournisseurs) + 3 nouveaux menus de la vague 1 + 3 de la vague 2 (le Pilotage est un onglet) + 3 de la vague 3');
     });
 
     testWidgets('accueil A (familles) : « Fournisseurs » absent, « Retours Fournisseurs » présent', (tester) async {

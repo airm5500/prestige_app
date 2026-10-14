@@ -14,11 +14,11 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.3.0+31** (`pubspec.yaml`) : lot 2 de la refonte, achats et stock
-(Suggestions, État de Stock, Visualisation BL, État Contrôle Achat, Retours fournisseurs, Évolution stock, Analyse
-Saisies BL, Suivi Ajustements ; voir `docs/NOTE_VERSION_3.3.0.md`). Précédentes livraisons : 3.2.1+30 (Mobile Money
-du Détail CA, `docs/NOTE_VERSION_3.2.1.md`), 3.2.0+29 (vague 2, `docs/NOTE_VERSION_3.2.0.md`), 3.1.0+28 (lot 1 et
-vague 1, `docs/NOTE_VERSION_3.1.0.md`).
+Version en préparation (pas encore publiée) : **3.4.0+32** (`pubspec.yaml`) : vague 3 des nouveaux menus, écritures
+légères dont le droit est vérifié par le serveur (Pointage BL, Avis, Rappels traitement ; voir
+`docs/NOTE_VERSION_3.4.0.md`). Précédentes livraisons : 3.3.0+31 (lot 2 de la refonte, `docs/NOTE_VERSION_3.3.0.md`),
+3.2.1+30 (Mobile Money du Détail CA, `docs/NOTE_VERSION_3.2.1.md`), 3.2.0+29 (vague 2, `docs/NOTE_VERSION_3.2.0.md`),
+3.1.0+28 (lot 1 et vague 1, `docs/NOTE_VERSION_3.1.0.md`).
 
 ## Les 3 règles (permanentes)
 

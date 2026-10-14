@@ -249,6 +249,37 @@ class ApiService {
     return decoded;
   }
 
+  /// PUT sans corps, paramètres dans l'adresse (vague 3 : pointage des BL, N° de séquence, référence d'avoir).
+  /// Mêmes natures d'échec que [post] ; délai [delaiPost].
+  Future<Map<String, dynamic>> put(BuildContext context, String endpoint,
+      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+    final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
+    if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
+    JournalApp.debug(JournalApp.requete('PUT', uri));
+    final response = await _envoyer(() => client.put(uri, headers: _getHeaders()), delaiPost);
+    return _objet(_handleResponse(response, onSessionInvalid));
+  }
+
+  /// POST d'un corps JSON avec paramètres dans l'adresse (vague 3 : /rappels-habitude/marquer?statut=).
+  Future<Map<String, dynamic>> postAvecParametres(BuildContext context, String endpoint, Map<String, dynamic> body,
+      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+    final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
+    if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
+    JournalApp.debug(JournalApp.requete('POST', uri));
+    final response = await _envoyer(() => client.post(uri, headers: _getHeaders(), body: jsonEncode(body)), delaiPost);
+    return _objet(_handleResponse(response, onSessionInvalid));
+  }
+
+  static Map<String, dynamic> _objet(dynamic decoded) {
+    if (decoded == null) return <String, dynamic>{};
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
+    }
+    return decoded;
+  }
+
   // --- TÉLÉCHARGEMENT DE FICHIERS (Excel, PDF) ---
 
   static const delaiTelechargement = Duration(seconds: 90);

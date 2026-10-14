@@ -115,7 +115,10 @@ class SelecteurPeriode extends StatelessWidget {
 
   /// Horloge (remplaçable dans les tests).
   final DateTime Function() maintenant;
-  const SelecteurPeriode({super.key, required this.periode, required this.onChanged, this.maintenant = DateTime.now});
+
+  /// Contrôle propre à l'écran (ex. un an au plus pour le pointage des BL), appliqué EN PLUS de [ControlePeriode].
+  final String? Function(DateTime debut, DateTime fin, DateTime maintenant)? controle;
+  const SelecteurPeriode({super.key, required this.periode, required this.onChanged, this.maintenant = DateTime.now, this.controle});
 
   Future<void> _personnaliser(BuildContext context) async {
     final now = maintenant();
@@ -130,7 +133,7 @@ class SelecteurPeriode extends StatelessWidget {
       saveText: 'Valider',
     );
     if (choix == null || !context.mounted) return;
-    final erreur = ControlePeriode.erreur(choix.start, choix.end, now);
+    final erreur = ControlePeriode.erreur(choix.start, choix.end, now) ?? controle?.call(choix.start, choix.end, now);
     if (erreur != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(erreur)));
       return;

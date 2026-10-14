@@ -6,7 +6,8 @@
 // modules refaits (lib/nouvelle_interface/modules/), qui ouvrent leur nouvel écran (mêmes données, même logique) :
 // lot 1 (Rapport d'Activité, Détail CA, Analyse Article, Fiche Article, Suivi Péremption, Suivi Crédit) et lot 2,
 // achats et stock (Suggestions, État de Stock, Visualisation BL, État Contrôle Achat, Retours fournisseurs,
-// Évolution stock, Analyse Saisies BL, Suivi Ajustements).
+// Évolution stock, Analyse Saisies BL, Suivi Ajustements). Nouveaux menus réservés à l'administrateur et au
+// pharmacien : vague 1 (vague1/), vague 2 (vague2/), vague 3 (vague3/ : Pointage BL, Avis, Rappels traitement).
 // « Fournisseurs » (liste des fournisseurs) n'est plus proposé dans la nouvelle interface (demande du
 // pharmacien) ; il reste dans l'ancienne.
 import 'package:flutter/material.dart';
@@ -45,6 +46,9 @@ import 'vague1/valorisation_vague1.dart';
 import 'vague2/ca_zone_vague2.dart';
 import 'vague2/garde_vague2.dart';
 import 'vague2/previsions_vague2.dart';
+import 'vague3/avis_vague3.dart';
+import 'vague3/pointage_vague3.dart';
+import 'vague3/rappels_vague3.dart';
 
 enum Famille { ventes, credits, analyses, stock, fournisseurs, equipe }
 
@@ -183,6 +187,14 @@ final menusModules = <MenuModule>[
       Question.vendu, () => const AnalyseGardeScreen(), responsables: true),
   MenuModule('CA emplacement / famille', 'Chiffre d\'affaires comparé par rayon et famille', Icons.stacked_bar_chart, Famille.analyses,
       Question.vendu, () => const CaZoneScreen(), responsables: true),
+  // Vague 3 (écritures légères dont le droit est vérifié par le serveur, 3.4.0) : administrateur et pharmacien
+  // seulement. Aucun envoi de message (WhatsApp, SMS, e-mail) depuis le mobile.
+  MenuModule('Pointage BL', 'Pointer les BL et avoirs d\'un grossiste', Icons.playlist_add_check, Famille.fournisseurs,
+      Question.fournisseurs, () => const PointageBlScreen(), responsables: true),
+  MenuModule('Avis', 'Avis des clients : lire, traiter, analyser', Icons.reviews_outlined, Famille.credits, Question.equipe,
+      () => const AvisScreen(), responsables: true),
+  MenuModule('Rappels traitement', 'Traitements habituels à préparer', Icons.medication_outlined, Famille.credits,
+      Question.commander, () => const RappelsScreen(), responsables: true),
 ];
 
 /// Menus auxquels le compte connecté a droit : les menus réservés (vague 1) seulement pour l'administrateur et le

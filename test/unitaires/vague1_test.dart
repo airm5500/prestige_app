@@ -399,8 +399,9 @@ void main() {
         final m = menusModules.singleWhere((x) => x.titre == n);
         expect(m.responsables, isTrue, reason: n);
       }
-      // Vague 2 (3.2.0) : trois menus réservés de plus, à la suite.
-      expect(menusModules.where((m) => m.responsables).map((m) => m.titre), [...nouveaux, 'Prévisions', 'Analyse de garde', 'CA emplacement / famille']);
+      // Vague 2 (3.2.0) puis vague 3 (3.4.0) : trois menus réservés de plus chacune, à la suite.
+      expect(menusModules.where((m) => m.responsables).map((m) => m.titre),
+          [...nouveaux, 'Prévisions', 'Analyse de garde', 'CA emplacement / famille', 'Pointage BL', 'Avis', 'Rappels traitement']);
     });
   });
 }
