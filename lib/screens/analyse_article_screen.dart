@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../models/analyse_article_model.dart';
+import '../donnees/articles_donnees.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -48,10 +49,7 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       final searchTerm = _searchController.text.trim();
-      final isNumeric = int.tryParse(searchTerm) != null;
-      final minLength = isNumeric ? 3 : 2;
-
-      if (searchTerm.length >= minLength) {
+      if (RechercheArticles.assezLongPourAnalyse(searchTerm)) {
         if (searchTerm != _lastSearchTerm) {
           _rechercherArticles();
         }
@@ -74,22 +72,12 @@ class _AnalyseArticleScreenState extends State<AnalyseArticleScreen> with BaseSc
 
     _lastSearchTerm = searchTerm;
 
-    final data = await apiGet(
-        AppConstants.infoEndpoint,
-        queryParams: {'search': searchTerm}
-    );
+    // Même route et même lecture que le nouvel écran (lib/donnees/articles_donnees.dart).
+    final data = await apiGet(AppConstants.infoEndpoint, queryParams: {'search': searchTerm});
 
     if (mounted && data != null) {
-      List<dynamic> dataList = [];
-      if (data is Map<String, dynamic> && data['data'] is List) {
-        dataList = data['data'];
-      } else if (data is List) {
-        dataList = data;
-      }
-
       setState(() {
-        var allResults = dataList.map((item) => AnalyseArticle.fromJson(item)).toList();
-        _results = allResults.where((article) => article.libelle.isNotEmpty && article.libelle != 'N/A').toList();
+        _results = RechercheArticles.lireAnalyse(data);
 
         if (_results.isEmpty) {
           errorMessage = "Aucun article valide trouvé pour '$searchTerm'.";

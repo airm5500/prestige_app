@@ -3,13 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:prestige_app/models/achat_recap_model.dart';
 import 'package:prestige_app/models/credit_recap_model.dart';
 import 'package:prestige_app/models/dashboard_recap_model.dart';
 import 'package:prestige_app/models/reglement_recap_model.dart';
-import 'package:prestige_app/models/reglement_type_recap_model.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
-import '../utils/constants.dart';
+import '../donnees/rapport_activite_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -44,33 +42,16 @@ class _RapportActiviteScreenState extends State<RapportActiviteScreen> with Base
     });
 
     try {
-      final queryParams = {
-        'dtStart': DateFormatter.toApiFormat(_startDate),
-        'dtEnd': DateFormatter.toApiFormat(_endDate),
-      };
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-      final results = await Future.wait([
-        apiService.get(context, AppConstants.dashboardRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
-        apiService.get(context, AppConstants.creditsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
-        apiService.get(context, AppConstants.creditTotalsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
-        apiService.get(context, AppConstants.reglementsRecapEndpoint, queryParams: queryParams, onSessionInvalid: authProvider.forceLogout),
-      ]);
+      // Mêmes routes et même lecture que le nouvel écran (lib/donnees/rapport_activite_donnees.dart).
+      final rapport = await RapportActivite.charger(context, _startDate, _endDate, onSessionInvalid: authProvider.forceLogout);
 
       if (mounted) {
         setState(() {
-          if (results[0] is Map && results[0]['data'] is Map) {
-            _dashboardData = DashboardRecap.fromJson(results[0]['data']);
-          }
-          if (results[1] is Map && results[1]['data'] is List) {
-            _credits = (results[1]['data'] as List).map((item) => CreditRecap.fromJson(item)).toList();
-          }
-          if (results[2] is Map) {
-            _creditTotals = CreditTotalsRecap.fromJson(results[2] as Map<String, dynamic>);
-          }
-          if (results[3] is Map && results[3]['data'] is List) {
-            _reglements = (results[3]['data'] as List).map((item) => ReglementRecap.fromJson(item)).toList();
-          }
+          _dashboardData = rapport.dashboard;
+          _credits = rapport.credits;
+          _creditTotals = rapport.creditTotals;
+          _reglements = rapport.reglements;
         });
       }
     } catch (e) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/ca_comptant_model.dart';
+import '../donnees/detail_ca_donnees.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
@@ -44,21 +45,12 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
     reessai = _loadCaComptant; // « Réessayer » relance ce chargement
     setState(() => _caComptantDataList = []);
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
-
-    final data = await apiGet(AppConstants.caComptantEndpoint, queryParams: queryParams);
+    // Même route et même lecture que le nouvel écran (lib/donnees/detail_ca_donnees.dart).
+    final data = await apiGet(AppConstants.caComptantEndpoint, queryParams: DetailCa.parametres(_startDate, _endDate));
 
     if (mounted && data is List) {
       setState(() {
-        var tempList = data.map((item) => CaComptant.fromJson(item)).toList();
-        tempList.sort((a, b) {
-          if (a.mvtDate == null || b.mvtDate == null) return 0;
-          return a.mvtDate!.compareTo(b.mvtDate!);
-        });
-        _caComptantDataList = tempList;
+        _caComptantDataList = DetailCa.lire(data);
       });
     }
   }
@@ -152,38 +144,14 @@ class _CaComptantScreenState extends State<CaComptantScreen> with BaseScreenLogi
     );
   }
 
-  CaComptant get _aggregatedData {
-    if (_caComptantDataList.isEmpty) {
-      return CaComptant(montantCredit: 0, remiseSurCA: 0, totCB: 0, totChq: 0, totEsp: 0, totMobile: 0, totTVA: 0, totVirement: 0);
-    }
-    return _caComptantDataList.reduce((acc, current) {
-      return CaComptant(
-        montantCredit: acc.montantCredit + current.montantCredit,
-        mvtDate: null,
-        remiseSurCA: acc.remiseSurCA + current.remiseSurCA,
-        totCB: acc.totCB + current.totCB,
-        totChq: acc.totChq + current.totChq,
-        totEsp: acc.totEsp + current.totEsp,
-        totMobile: acc.totMobile + current.totMobile,
-        totTVA: acc.totTVA + current.totTVA,
-        totVirement: acc.totVirement + current.totVirement,
-      );
-    });
-  }
+  CaComptant get _aggregatedData => DetailCa.cumul(_caComptantDataList);
 
   Widget _buildPieChartSection() {
     final data = _aggregatedData;
     List<PieChartSectionData> sections = [];
     double totalForPie = 0;
 
-    Map<String, double> pieDataMap = {
-      'Espèces': data.totEsp,
-      'Crédit': data.montantCredit,
-      'Mobile': data.totMobile,
-      'Carte B.': data.totCB,
-      'Chèque': data.totChq,
-      'Virement': data.totVirement,
-    };
+    Map<String, double> pieDataMap = DetailCa.modes(data);
 
     pieDataMap.forEach((key, value) {
       if (value > 0) { totalForPie += value;}

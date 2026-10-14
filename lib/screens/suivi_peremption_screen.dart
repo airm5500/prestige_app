@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import 'package:prestige_app/models/suivi_peremption_model.dart';
 import 'package:prestige_app/services/api_service.dart';
-import 'package:prestige_app/utils/constants.dart';
+import '../donnees/peremption_donnees.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
 import '../utils/saisie.dart';
@@ -16,7 +11,7 @@ class SuiviPeremptionScreen extends StatefulWidget {
   const SuiviPeremptionScreen({Key? key}) : super(key: key);
 
   /// Lignes demandées par page (mêmes paramètres que le comptage à la demande de l'accueil A).
-  static const taillePage = 20;
+  static const taillePage = SuiviPeremption.taillePage;
 
   @override
   _SuiviPeremptionScreenState createState() => _SuiviPeremptionScreenState();
@@ -36,7 +31,6 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
 
   // Pagination
   int _currentPage = 1;
-  final int _limit = SuiviPeremptionScreen.taillePage;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -64,8 +58,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
   }
 
   Future<void> _fetchData({bool loadMore = false}) async {
-    final api = Provider.of<ApiService>(context, listen: false);
-    if (_moisController.text.trim().isNotEmpty && Saisie.entier(_moisController.text, min: 0, max: Saisie.maxMois) == null) {
+    if (!SuiviPeremption.moisValide(_moisController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre de mois invalide (0 à ${Saisie.maxMois}).')));
       return;
     }
@@ -81,23 +74,13 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
     }
 
     try {
-      final result = await api.getSuiviPeremption(
-        context,
-        query: Saisie.recherche(_searchController.text),
-        nbreMois: _moisController.text.trim(),
-        page: _currentPage,
-        limit: _limit,
-      );
+      // Mêmes paramètres et même fusion que le nouvel écran (lib/donnees/peremption_donnees.dart).
+      final result = await SuiviPeremption.page(context, recherche: _searchController.text, mois: _moisController.text, page: _currentPage);
 
       if (mounted) {
         setState(() {
-          if (loadMore && _dataResponse != null && result != null) {
-            // Fusionner les listes
-            _dataResponse = SuiviPeremptionResponse(
-              metaData: result.metaData, // On prend les métadonnées les plus récentes
-              data: [..._dataResponse!.data, ...result.data],
-              total: result.total,
-            );
+          if (loadMore) {
+            _dataResponse = SuiviPeremption.fusionner(_dataResponse, result);
           } else {
             _dataResponse = result;
           }
@@ -129,91 +112,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
       return;
     }
 
-    final pdf = pw.Document();
-    final font = await PdfGoogleFonts.openSansRegular();
-    final fontBold = await PdfGoogleFonts.openSansBold();
-    final items = _dataResponse!.data;
-    final meta = _dataResponse!.metaData;
-    final dateImpression = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
-        theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-        build: (pw.Context context) {
-          return [
-            // En-tête PDF
-            pw.Header(
-              level: 0,
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text("Suivi Péremption", style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                  pw.Text("Imprimé le: $dateImpression", style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 10),
-
-            // Résumé des totaux
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                children: [
-                  _buildPdfSummaryItem("Qté Totale", "${meta.totalQuantiteLot.toInt()}"),
-                  _buildPdfSummaryItem("Val. Achat", "${meta.totalValeurAchat.toInt()}"),
-                  _buildPdfSummaryItem("Val. Vente", "${meta.totalValeurVente.toInt()}"),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 20),
-
-            // Tableau
-            pw.Table.fromTextArray(
-              headers: ['Code', 'Libellé', 'Lot', 'Date Pér.', 'Qté', 'Statut'],
-              data: items.map((item) => [
-                item.codeCip,
-                item.libelle,
-                item.numLot,
-                item.datePerement,
-                item.quantiteLot.toInt().toString(),
-                item.statut
-              ]).toList(),
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
-              cellHeight: 25,
-              cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.centerLeft,
-                2: pw.Alignment.center,
-                3: pw.Alignment.center,
-                4: pw.Alignment.centerRight,
-                5: pw.Alignment.centerLeft,
-              },
-              border: null,
-              rowDecoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5))),
-            ),
-          ];
-        },
-      ),
-    );
-
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Suivi_Peremption_$dateImpression',
-    );
-  }
-
-  pw.Widget _buildPdfSummaryItem(String label, String value) {
-    return pw.Column(
-      children: [
-        pw.Text(label, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-        pw.Text(value, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-      ],
-    );
+    await SuiviPeremption.imprimerPdf(_dataResponse!);
   }
 
   // --- POPUP DETAIL ---

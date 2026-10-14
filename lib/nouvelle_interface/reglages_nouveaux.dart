@@ -1,5 +1,5 @@
 // lib/nouvelle_interface/reglages_nouveaux.dart
-// Onglet « Réglages » de la nouvelle interface :
+// Réglages de la nouvelle interface (page ouverte par le bouton engrenage de l'accueil, plus un onglet) :
 //  - Apparence : « Nouvelle interface » (retour à l'ancienne, mémorisé) et présentation A / B / C (mémorisée sur
 //    l'appareil, valable pour tous les comptes ; seul l'administrateur la change : compte « admin », ou code
 //    administrateur demandé) ;
@@ -21,8 +21,18 @@ import 'composants.dart';
 import 'menus.dart';
 import 'presentation.dart';
 
+/// Page des Réglages (bouton engrenage en haut à droite de l'accueil).
+class ReglagesScreen extends StatelessWidget {
+  const ReglagesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: OngletReglages(retour: true));
+}
+
 class OngletReglages extends StatelessWidget {
-  const OngletReglages({super.key});
+  /// Flèche de retour dans l'en-tête (page ouverte depuis l'accueil).
+  final bool retour;
+  const OngletReglages({super.key, this.retour = false});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +44,7 @@ class OngletReglages extends StatelessWidget {
     final jours = licence.licence?.daysRemaining;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const EnTeteNavy(titre: 'Réglages', sousTitre: 'Apparence, serveur et compte', retour: false),
+      EnTeteNavy(titre: 'Réglages', sousTitre: 'Apparence, serveur et compte', retour: retour),
       Expanded(
         child: ListView(padding: const EdgeInsets.all(16), children: [
           CarteSection(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/produit_model.dart'; // Utilise le modèle Produit
+import '../donnees/articles_donnees.dart';
 import '../utils/constants.dart';
 import '../ui_helpers/base_screen_logic.dart'; // Importer la logique centralisée
 import '../widgets/erreurs_chargement.dart';
@@ -45,7 +46,7 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
     _debounce = Timer(const Duration(milliseconds: 500), () {
       final searchTerm = _searchController.text.trim();
       // Pour cet écran, la recherche se déclenche à partir de 3 caractères
-      if (searchTerm.length >= 3) {
+      if (RechercheArticles.assezLongPourFiche(searchTerm)) {
         if (searchTerm != _lastSearchTerm) {
           _rechercherProduits();
         }
@@ -74,9 +75,11 @@ class _FicheArticleScreenState extends State<FicheArticleScreen> with BaseScreen
         queryParams: {'nompdt': searchTerm}
     );
 
-    if (mounted && data is List) {
+    // Même lecture que le nouvel écran (lib/donnees/articles_donnees.dart).
+    final produits = RechercheArticles.lireFiche(data);
+    if (mounted && produits != null) {
       setState(() {
-        _results = data.map((item) => Produit.fromJson(item)).toList();
+        _results = produits;
         if (_results.isEmpty) {
           errorMessage = "Aucun produit trouvé pour '$searchTerm'.";
         }

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../donnees/suivi_credit_donnees.dart';
 import '../models/suivi_credit_model.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
@@ -44,26 +45,20 @@ class _SuiviCreditScreenState extends State<SuiviCreditScreen> with BaseScreenLo
       _filteredDataList = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
-
-    final data = await apiGet(AppConstants.suiviCreditEndpoint, queryParams: queryParams);
-    if (mounted && data is Map<String, dynamic> && data['data'] is List) {
+    // Même route et même lecture que le nouvel écran (lib/donnees/suivi_credit_donnees.dart).
+    final data = await apiGet(AppConstants.suiviCreditEndpoint, queryParams: SuiviCredits.parametres(_startDate, _endDate));
+    final lignes = SuiviCredits.lire(data);
+    if (mounted && lignes != null) {
       setState(() {
-        _dataList = (data['data'] as List).map((item) => SuiviCredit.fromJson(item)).toList();
+        _dataList = lignes;
         _filterLocally();
       });
     }
   }
 
   void _filterLocally() {
-    final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredDataList = _dataList.where((item) {
-        return item.libelleTiersPayant.toLowerCase().contains(query);
-      }).toList();
+      _filteredDataList = SuiviCredits.filtrer(_dataList, _searchController.text);
     });
   }
 

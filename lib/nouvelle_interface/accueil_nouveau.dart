@@ -1,5 +1,7 @@
 // lib/nouvelle_interface/accueil_nouveau.dart
-// Accueil de la NOUVELLE interface (maquettes §2) avec la barre du bas Accueil · Analyses · Équipe · Réglages.
+// Accueil de la NOUVELLE interface (maquettes §2) avec la barre du bas Accueil · Analyses · Équipe (OngletAccueil,
+// prête à recevoir un onglet « Pilotage »). Les Réglages ne sont plus un onglet : le bouton engrenage en haut à
+// droite de l'accueil (A, B, C) les ouvre ; sur tablette (B), le menu latéral les ouvre aussi.
 //  - A · Tableau de bord (par défaut sur téléphone) : en-tête bleu arrondi, chiffres du jour (CA, marge, crédits,
 //    équipe), alertes cliquables dont le nombre se compte à la demande (bouton ⟳, alertes_accueil.dart), puis tous les menus rangés par familles sur une seule page ;
 //  - B · Compact (automatiquement sur tablette) : barre blanche, recherche de menu, liste par familles ; sur
@@ -56,6 +58,39 @@ class PastilleServeur extends StatelessWidget {
   }
 }
 
+/// Onglets de la barre du bas (téléphone) et du menu latéral (tablette), dans l'ordre d'affichage.
+/// Un futur onglet « Pilotage » s'ajoute ici (icônes, libellé, rubrique du menu latéral) et dans
+/// [_AccueilNouveauState._contenu].
+enum OngletAccueil {
+  accueil(Icons.home_outlined, Icons.home, 'Accueil', 'Pilotage'),
+  analyses(Icons.insights_outlined, Icons.insights, 'Analyses', 'Pilotage'),
+  equipe(Icons.groups_outlined, Icons.groups, 'Équipe', 'Équipe');
+
+  final IconData icone;
+  final IconData iconeChoisie;
+  final String libelle;
+
+  /// Rubrique du menu latéral (tablette).
+  final String rubrique;
+  const OngletAccueil(this.icone, this.iconeChoisie, this.libelle, this.rubrique);
+}
+
+/// Ouvre les Réglages (page à part, avec retour).
+void ouvrirReglages(BuildContext context) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReglagesScreen()));
+
+/// Bouton Réglages (engrenage) en haut à droite de l'accueil : 48 dp, libellé accessible « Réglages ».
+class BoutonReglages extends StatelessWidget {
+  final Color couleur;
+  const BoutonReglages({super.key = const Key('bouton_reglages'), this.couleur = Charte.blanc});
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        tooltip: 'Réglages',
+        icon: Icon(Icons.settings_outlined, color: couleur),
+        onPressed: () => ouvrirReglages(context),
+      );
+}
+
 /// Bouton de déconnexion (en-têtes).
 class BoutonDeconnexion extends StatelessWidget {
   final Color couleur;
@@ -83,12 +118,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
   bool _chiffresDemandes = false;
   final _recherche = TextEditingController();
 
-  static const _onglets = [
-    (Icons.home_outlined, Icons.home, 'Accueil'),
-    (Icons.insights_outlined, Icons.insights, 'Analyses'),
-    (Icons.groups_outlined, Icons.groups, 'Équipe'),
-    (Icons.settings_outlined, Icons.settings, 'Réglages'),
-  ];
+  static const _onglets = OngletAccueil.values;
 
   @override
   void dispose() {
@@ -122,11 +152,10 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
             if (mounted) _chargerChiffres();
           });
         }
-        final contenu = switch (_onglet) {
-          1 => const OngletAnalyses(),
-          2 => const OngletEquipe(),
-          3 => const OngletReglages(),
-          _ => switch (p) {
+        final contenu = switch (_onglets[_onglet]) {
+          OngletAccueil.analyses => const OngletAnalyses(),
+          OngletAccueil.equipe => const OngletEquipe(),
+          OngletAccueil.accueil => switch (p) {
               Presentation.compact => _AccueilCompact(recherche: _recherche, tablette: tablette),
               Presentation.guide => const _AccueilGuide(),
               _ => _AccueilTableauDeBord(chiffres: _chiffres, chargement: _chargementChiffres, actualiser: _chargerChiffres),
@@ -153,7 +182,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
                     height: 66,
                     onDestinationSelected: _choisirOnglet,
                     destinations: [
-                      for (final o in _onglets) NavigationDestination(icon: Icon(o.$1), selectedIcon: Icon(o.$2), label: o.$3),
+                      for (final o in _onglets) NavigationDestination(icon: Icon(o.icone), selectedIcon: Icon(o.iconeChoisie), label: o.libelle),
                     ],
                   ),
                 ),
@@ -176,8 +205,8 @@ class _MenuLateral extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 16, 12, 4),
           child: Text(t.toUpperCase(), style: const TextStyle(color: Charte.enteteGris, fontSize: 11, letterSpacing: 0.8, fontWeight: FontWeight.bold)),
         );
-    Widget element(int i, IconData icone, String texte) {
-      final actif = i == onglet;
+    Widget element(int i, IconData icone, String texte, {VoidCallback? action}) {
+      final actif = action == null && i == onglet;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Material(
@@ -185,7 +214,7 @@ class _MenuLateral extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: () => choisir(i),
+            onTap: action ?? () => choisir(i),
             child: Container(
               constraints: const BoxConstraints(minHeight: 48),
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -218,13 +247,12 @@ class _MenuLateral extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 2, 12, 0),
               child: Text(auth.officine?.nomComplet ?? auth.user!.fullName, style: const TextStyle(color: Charte.enteteGris, fontSize: 13)),
             ),
-          groupe('Pilotage'),
-          element(0, Icons.home_outlined, 'Accueil'),
-          element(1, Icons.insights_outlined, 'Analyses'),
-          groupe('Équipe'),
-          element(2, Icons.groups_outlined, 'Équipe'),
+          for (var i = 0; i < OngletAccueil.values.length; i++) ...[
+            if (i == 0 || OngletAccueil.values[i - 1].rubrique != OngletAccueil.values[i].rubrique) groupe(OngletAccueil.values[i].rubrique),
+            element(i, OngletAccueil.values[i].icone, OngletAccueil.values[i].libelle),
+          ],
           groupe('Autres'),
-          element(3, Icons.settings_outlined, 'Réglages'),
+          element(-1, Icons.settings_outlined, 'Réglages', action: () => ouvrirReglages(context)),
           const SizedBox(height: 16),
           const Align(alignment: Alignment.centerLeft, child: BoutonDeconnexion()),
         ]),
@@ -298,6 +326,7 @@ class _AccueilTableauDeBord extends StatelessWidget {
               icon: const Icon(Icons.refresh, color: Charte.blanc),
             ),
             const BoutonDeconnexion(),
+            const BoutonReglages(),
           ],
           enfants: [
             Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -409,6 +438,7 @@ class _AccueilCompactState extends State<_AccueilCompact> {
             onPressed: () => basculerServeur(context),
           ),
           const BoutonDeconnexion(couleur: Charte.navy),
+          const BoutonReglages(couleur: Charte.navy),
         ],
       ),
       Container(
@@ -526,7 +556,7 @@ class _AccueilGuide extends StatelessWidget {
         titre: prenom.isEmpty ? 'Bonjour' : 'Bonjour $prenom',
         sousTitre: 'Que voulez-vous savoir ?',
         retour: false,
-        actions: const [BoutonDeconnexion()],
+        actions: const [BoutonDeconnexion(), BoutonReglages()],
         enfants: const [Align(alignment: Alignment.centerLeft, child: PastilleServeur())],
       ),
       Padding(
