@@ -1,6 +1,7 @@
 // lib/nouvelle_interface/accueil_nouveau.dart
-// Accueil de la NOUVELLE interface (maquettes §2) avec la barre du bas Accueil · Analyses · Équipe (OngletAccueil,
-// prête à recevoir un onglet « Pilotage »). Les Réglages ne sont plus un onglet : le bouton engrenage en haut à
+// Accueil de la NOUVELLE interface (maquettes §2) avec la barre du bas Accueil · Analyses · Équipe, plus
+// « Pilotage » pour l'administrateur et le pharmacien (3.2.0, vague2/pilotage_vague2.dart ; la barre reste à trois
+// onglets pour les autres profils). Les Réglages ne sont plus un onglet : le bouton engrenage en haut à
 // droite de l'accueil (A, B, C) les ouvre ; sur tablette (B), le menu latéral les ouvre aussi.
 //  - A · Tableau de bord (par défaut sur téléphone) : en-tête bleu arrondi, chiffres du jour (CA, marge, crédits,
 //    équipe), alertes cliquables dont le nombre se compte à la demande (bouton ⟳, alertes_accueil.dart), puis tous les menus rangés par familles sur une seule page ;
@@ -29,6 +30,7 @@ import 'reglages_nouveaux.dart';
 import 'vague1/alertes_vague1.dart';
 import 'vague1/donnees_vague1.dart' show ReglageAlerte, ReglagesAlertes, TypeAlerte, ValeursAlertes;
 import 'vague1/profil_acces.dart';
+import 'vague2/pilotage_vague2.dart';
 
 /// Passe en mode local / distant (même contrôle que l'ancien accueil : adresse distante requise).
 Future<void> basculerServeur(BuildContext context, {VoidCallback? apres}) async {
@@ -62,12 +64,12 @@ class PastilleServeur extends StatelessWidget {
 }
 
 /// Onglets de la barre du bas (téléphone) et du menu latéral (tablette), dans l'ordre d'affichage.
-/// Un futur onglet « Pilotage » s'ajoute ici (icônes, libellé, rubrique du menu latéral) et dans
-/// [_AccueilNouveauState._contenu].
+/// [pilotage] (réservé à l'administrateur et au pharmacien) n'est montré qu'à eux : [ongletsAccueil].
 enum OngletAccueil {
   accueil(Icons.home_outlined, Icons.home, 'Accueil', 'Pilotage'),
   analyses(Icons.insights_outlined, Icons.insights, 'Analyses', 'Pilotage'),
-  equipe(Icons.groups_outlined, Icons.groups, 'Équipe', 'Équipe');
+  equipe(Icons.groups_outlined, Icons.groups, 'Équipe', 'Équipe'),
+  pilotage(Icons.speed_outlined, Icons.speed, 'Pilotage', 'Officine');
 
   final IconData icone;
   final IconData iconeChoisie;
@@ -77,6 +79,10 @@ enum OngletAccueil {
   final String rubrique;
   const OngletAccueil(this.icone, this.iconeChoisie, this.libelle, this.rubrique);
 }
+
+/// Onglets affichés : Accueil · Analyses · Équipe, plus Pilotage pour l'administrateur et le pharmacien.
+List<OngletAccueil> ongletsAccueil({required bool responsable}) =>
+    [for (final o in OngletAccueil.values) if (o != OngletAccueil.pilotage || responsable) o];
 
 /// Ouvre les Réglages (page à part, avec retour).
 void ouvrirReglages(BuildContext context) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReglagesScreen()));
@@ -121,8 +127,6 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
   bool _chiffresDemandes = false;
   final _recherche = TextEditingController();
 
-  static const _onglets = OngletAccueil.values;
-
   @override
   void dispose() {
     _recherche.dispose();
@@ -143,7 +147,14 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
   void _choisirOnglet(int i) => setState(() => _onglet = i);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder(
+        valueListenable: ProfilAcces.utilisateur,
+        builder: (context, _, __) => _construire(context),
+      );
+
+  Widget _construire(BuildContext context) {
+    final onglets = ongletsAccueil(responsable: ProfilAcces.responsable);
+    if (_onglet >= onglets.length) _onglet = 0;
     return ValueListenableBuilder<Presentation>(
       valueListenable: PresentationPrefs.choix,
       builder: (context, choix, _) {
@@ -155,9 +166,10 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
             if (mounted) _chargerChiffres();
           });
         }
-        final contenu = switch (_onglets[_onglet]) {
+        final contenu = switch (onglets[_onglet]) {
           OngletAccueil.analyses => const OngletAnalyses(),
           OngletAccueil.equipe => const OngletEquipe(),
+          OngletAccueil.pilotage => const OngletPilotageAccueil(),
           OngletAccueil.accueil => switch (p) {
               Presentation.compact => _AccueilCompact(recherche: _recherche, tablette: tablette),
               Presentation.guide => const _AccueilGuide(),
@@ -173,7 +185,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
           child: tablette && p == Presentation.compact
               ? Scaffold(
                   body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    _MenuLateral(onglet: _onglet, choisir: _choisirOnglet),
+                    _MenuLateral(onglets: onglets, onglet: _onglet, choisir: _choisirOnglet),
                     Expanded(child: KeyedSubtree(key: ValueKey('onglet$_onglet'), child: contenu)),
                   ]),
                 )
@@ -185,7 +197,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
                     height: 66,
                     onDestinationSelected: _choisirOnglet,
                     destinations: [
-                      for (final o in _onglets) NavigationDestination(icon: Icon(o.icone), selectedIcon: Icon(o.iconeChoisie), label: o.libelle),
+                      for (final o in onglets) NavigationDestination(icon: Icon(o.icone), selectedIcon: Icon(o.iconeChoisie), label: o.libelle),
                     ],
                   ),
                 ),
@@ -197,9 +209,10 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
 
 /// Menu latéral bleu (présentation B sur tablette).
 class _MenuLateral extends StatelessWidget {
+  final List<OngletAccueil> onglets;
   final int onglet;
   final ValueChanged<int> choisir;
-  const _MenuLateral({required this.onglet, required this.choisir});
+  const _MenuLateral({required this.onglets, required this.onglet, required this.choisir});
 
   @override
   Widget build(BuildContext context) {
@@ -250,9 +263,9 @@ class _MenuLateral extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 2, 12, 0),
               child: Text(auth.officine?.nomComplet ?? auth.user!.fullName, style: const TextStyle(color: Charte.enteteGris, fontSize: 13)),
             ),
-          for (var i = 0; i < OngletAccueil.values.length; i++) ...[
-            if (i == 0 || OngletAccueil.values[i - 1].rubrique != OngletAccueil.values[i].rubrique) groupe(OngletAccueil.values[i].rubrique),
-            element(i, OngletAccueil.values[i].icone, OngletAccueil.values[i].libelle),
+          for (var i = 0; i < onglets.length; i++) ...[
+            if (i == 0 || onglets[i - 1].rubrique != onglets[i].rubrique) groupe(onglets[i].rubrique),
+            element(i, onglets[i].icone, onglets[i].libelle),
           ],
           groupe('Autres'),
           element(-1, Icons.settings_outlined, 'Réglages', action: () => ouvrirReglages(context)),

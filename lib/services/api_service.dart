@@ -205,7 +205,10 @@ class ApiService {
     return decoded;
   }
 
-  Future<dynamic> get(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+  /// [delai] : délai d'attente de cette requête (par défaut [delaiGet]) ; les calculs longs demandés explicitement
+  /// (vague 2 : 3 ans, 24 / 36 mois, contrôle du pilotage) attendent plus longtemps, toujours de façon bornée.
+  Future<dynamic> get(BuildContext context, String endpoint,
+      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
 
@@ -213,7 +216,7 @@ class ApiService {
       uri = uri.replace(queryParameters: queryParams);
     }
     JournalApp.debug(JournalApp.requete('GET', uri));
-    final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delaiGet);
+    final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delai ?? delaiGet);
     return _handleResponse(response, onSessionInvalid);
   }
 

@@ -76,7 +76,8 @@ void main() {
       final titres = [for (final m in menusModules) m.titre];
       expect(titres, isNot(contains('Fournisseurs')));
       expect(titres, containsAll(['Achats Fourn.', 'Retours Fournisseurs', 'Visualisation BL', 'Etat Contrôle Achat', 'Analyse Saisies BL']));
-      expect(menusModules, hasLength(30), reason: '27 menus d\'origine (sans Fournisseurs) + 3 nouveaux menus de la vague 1');
+      expect(menusModules, hasLength(33),
+          reason: '27 menus d\'origine (sans Fournisseurs) + 3 nouveaux menus de la vague 1 + 3 de la vague 2 (le Pilotage est un onglet)');
     });
 
     testWidgets('accueil A (familles) : « Fournisseurs » absent, « Retours Fournisseurs » présent', (tester) async {
@@ -160,12 +161,14 @@ void main() {
   });
 
   group('Réglages : bouton engrenage en haut à droite, barre du bas sans Réglages', () {
-    test('onglets : Accueil · Analyses · Équipe (structure prête pour « Pilotage »)', () {
-      expect([for (final o in OngletAccueil.values) o.libelle], ['Accueil', 'Analyses', 'Équipe']);
+    test('onglets : Accueil · Analyses · Équipe, plus Pilotage pour l\'administrateur et le pharmacien (3.2.0)', () {
+      expect([for (final o in ongletsAccueil(responsable: false)) o.libelle], ['Accueil', 'Analyses', 'Équipe']);
+      expect([for (final o in ongletsAccueil(responsable: true)) o.libelle], ['Accueil', 'Analyses', 'Équipe', 'Pilotage']);
     });
 
     for (final (lettre, p) in presentationsTestees) {
-      testWidgets('accueil $lettre : engrenage « Réglages » en haut à droite (48 dp), barre Accueil · Analyses · Équipe', (tester) async {
+      testWidgets('accueil $lettre : engrenage « Réglages » en haut à droite (48 dp), barre Accueil · Analyses · Équipe · Pilotage (compte pharmacien)',
+          (tester) async {
         telephone(tester);
         await connecter(tester, p);
         final bouton = find.byKey(const Key('bouton_reglages'));
@@ -183,7 +186,8 @@ void main() {
         semantique.dispose();
 
         final barre = tester.widget<NavigationBar>(find.byKey(const Key('barre_accueil')));
-        expect([for (final d in barre.destinations) (d as NavigationDestination).label], ['Accueil', 'Analyses', 'Équipe']);
+        // Compte fictif « dashboard » (administrateur / pharmacien) : onglet Pilotage en plus (3.2.0).
+        expect([for (final d in barre.destinations) (d as NavigationDestination).label], ['Accueil', 'Analyses', 'Équipe', 'Pilotage']);
         expect(find.descendant(of: find.byKey(const Key('barre_accueil')), matching: find.text('Réglages')), findsNothing);
 
         await tester.tap(bouton);

@@ -40,6 +40,9 @@ import 'vague1/alertes_vague1.dart';
 import 'vague1/journaux_vague1.dart';
 import 'vague1/profil_acces.dart';
 import 'vague1/valorisation_vague1.dart';
+import 'vague2/ca_zone_vague2.dart';
+import 'vague2/garde_vague2.dart';
+import 'vague2/previsions_vague2.dart';
 
 enum Famille { ventes, credits, analyses, stock, fournisseurs, equipe }
 
@@ -170,6 +173,14 @@ final menusModules = <MenuModule>[
       Question.equipe, () => const RetraitsAbandonsScreen(), responsables: true),
   MenuModule('Ventes modifiées', 'Produits, client ou date changés après coup', Icons.edit_note_outlined, Famille.ventes,
       Question.equipe, () => const VentesModifieesScreen(), responsables: true),
+  // Vague 2 (lecture seule, 3.2.0) : administrateur et pharmacien seulement. Le Pilotage est un onglet de la barre
+  // du bas (accueil_nouveau.dart), pas un menu.
+  MenuModule('Prévisions', 'Quoi commander, ruptures, saisonnalité', Icons.auto_graph, Famille.stock, Question.commander,
+      () => const PrevisionsScreen(), responsables: true),
+  MenuModule('Analyse de garde', 'Chiffres, heures, produits et vendeurs d\'une garde', Icons.nightlight_outlined, Famille.analyses,
+      Question.vendu, () => const AnalyseGardeScreen(), responsables: true),
+  MenuModule('CA emplacement / famille', 'Chiffre d\'affaires comparé par rayon et famille', Icons.stacked_bar_chart, Famille.analyses,
+      Question.vendu, () => const CaZoneScreen(), responsables: true),
 ];
 
 /// Menus auxquels le compte connecté a droit : les menus réservés (vague 1) seulement pour l'administrateur et le

@@ -14,8 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.1.0+28** (`pubspec.yaml`) : lot 1 et vague 1 des nouveaux
-menus (voir `docs/NOTE_VERSION_3.1.0.md`).
+Version en préparation (pas encore publiée) : **3.2.0+29** (`pubspec.yaml`) : vague 2 des nouveaux menus
+(Prévisions, Pilotage, Analyse de garde, CA emplacement / famille ; voir `docs/NOTE_VERSION_3.2.0.md`). Précédente
+livraison : 3.1.0+28 (lot 1 et vague 1, `docs/NOTE_VERSION_3.1.0.md`).
 
 ## Les 3 règles (permanentes)
 
