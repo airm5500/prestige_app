@@ -292,7 +292,10 @@ void main() {
     expect(venteNormeeO, '151000');
     expect(venteNormeeN, venteNormeeO);
     expect(mensuelsReqO.single, {'dtStart': jour(DateTime(maintenant.year, 1, 1)), 'dtEnd': jour(maintenant)});
-    expect(mensuelsReqN, mensuelsReqO);
+    // 3.8.0 (B2, choix du pharmacien) : seule attente adaptée, la période des Ratios mensuels du nouvel écran (12
+    // derniers mois glissants au lieu de l'année en cours) ; les mois présents dans les deux périodes ont les mêmes
+    // ratios (même cumul, même norme 1,51).
+    expect(mensuelsReqN.single, {'dtStart': jour(DateTime(maintenant.year, maintenant.month - 11, 1)), 'dtEnd': jour(maintenant)});
     expect(mensuelsO, ['1.53', '1.45', '1.80'], reason: 'août, septembre, octobre');
     expect(mensuelsN, mensuelsO);
   });

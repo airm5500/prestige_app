@@ -5,7 +5,11 @@
 //  - Analyses : lignes triées par date (dates absentes à la fin) ;
 //  - Ratios : lignes dans l'ordre du serveur, ratio du jour = ventes / achats (0 sans achat), norme 1,51
 //    (AppConstants.ratioNormeVenteAchat), achat normé = vente / norme, vente normée = achat × norme ;
-//  - Ratios mensuels : année en cours (1er janvier → aujourd'hui), cumul par mois, ratio = ventes / achats.
+//  - Ratios mensuels : année en cours (1er janvier → aujourd'hui), cumul par mois, ratio = ventes / achats (écran
+//    d'origine) ; nouvelle interface (3.8.0, choix du pharmacien) : les 12 DERNIERS MOIS glissants (1er jour du mois
+//    d'il y a 11 mois → aujourd'hui), cumul par mois ET année, même ratio, même norme 1,51. Une seule requête : la
+//    route compare des dates complètes (ErpServiceImpl.getCaAchatVente : DATE(…) BETWEEN dtStart AND dtEnd), une
+//    période à cheval sur deux années est donc acceptée telle quelle (vérifié dans le serveur Prestige).
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
@@ -17,13 +21,19 @@ import '../utils/date_formatter.dart';
 /// Cumul d'un mois (Ratios mensuels).
 class MonthlyRatioData {
   final int month;
+
+  /// Année du mois (12 derniers mois) ; 0 pour l'année en cours de l'écran d'origine.
+  final int year;
   double totalAchats;
   double totalVentes;
 
-  MonthlyRatioData({required this.month, this.totalAchats = 0.0, this.totalVentes = 0.0});
+  MonthlyRatioData({required this.month, this.year = 0, this.totalAchats = 0.0, this.totalVentes = 0.0});
 
   double get ratio => totalAchats == 0 ? 0.0 : totalVentes / totalAchats;
   String get monthName => DateFormat.MMMM('fr_FR').format(DateTime(0, month));
+
+  /// « novembre 2025 » (le mois seul si l'année n'est pas connue).
+  String get moisAnnee => year == 0 ? monthName : '$monthName $year';
 }
 
 /// Position d'un ratio par rapport à la norme (même règle de couleur que l'origine : 0 = gris, ≥ norme = vert,
@@ -61,6 +71,27 @@ class TableauBord {
 
   /// Période des Ratios mensuels : du 1er janvier de l'année de [maintenant] à [maintenant].
   static (DateTime, DateTime) anneeEnCours(DateTime maintenant) => (DateTime(maintenant.year, 1, 1), maintenant);
+
+  /// Période des Ratios mensuels de la nouvelle interface : les 12 derniers mois glissants, du 1er jour du mois
+  /// d'il y a 11 mois à [maintenant] (le mois en cours compte pour le 12e, jusqu'à aujourd'hui). DateTime gère le
+  /// passage d'année (mois 0 ou négatif → année précédente).
+  static (DateTime, DateTime) douzeDerniersMois(DateTime maintenant) =>
+      (DateTime(maintenant.year, maintenant.month - 11, 1), DateTime(maintenant.year, maintenant.month, maintenant.day));
+
+  /// Cumul par mois ET année (lignes datées seulement), dans l'ordre chronologique : même calcul que [mensuels],
+  /// sans confondre deux mois de même nom d'années différentes.
+  static List<MonthlyRatioData> mensuelsParAnnee(List<TableauBordAchatsVentes> lignes) {
+    final Map<int, MonthlyRatioData> parMois = {};
+    for (final item in lignes) {
+      final d = item.dateMvt;
+      if (d == null) continue;
+      final m = parMois.putIfAbsent(d.year * 100 + d.month, () => MonthlyRatioData(month: d.month, year: d.year));
+      m.totalAchats += item.montantAchat;
+      m.totalVentes += item.montantVente;
+    }
+    final cles = parMois.keys.toList()..sort();
+    return [for (final k in cles) parMois[k]!];
+  }
 
   /// Cumul par mois (lignes datées seulement), mois croissants.
   static List<MonthlyRatioData> mensuels(List<TableauBordAchatsVentes> lignes) {

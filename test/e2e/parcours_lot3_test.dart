@@ -174,7 +174,8 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('Tableau : Ratios : jours ≥ norme, calcul normé, Ratios mensuels (année en cours), retour', (tester) async {
+  // 3.8.0 (B2) : Ratios mensuels sur les 12 derniers mois glissants (au lieu de l'année en cours).
+  testWidgets('Tableau : Ratios : jours ≥ norme, calcul normé, Ratios mensuels (12 derniers mois), retour', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
     final m = module('Tableau: Ratios');
@@ -190,7 +191,8 @@ void main() {
     await toucher(tester, find.byKey(const Key('ratios_mensuels_barre')));
     await attendreWidget(tester, find.byKey(const Key('chiffre_mois_norme')));
     expect(find.byType(RatiosMensuelsNouveau), findsOneWidget);
-    expect(serveur.recues(routeTableau).last.parametres, {'dtStart': jour(DateTime(aujourdhui.year, 1, 1)), 'dtEnd': jour(aujourdhui)});
+    expect(serveur.recues(routeTableau).last.parametres,
+        {'dtStart': jour(DateTime(aujourdhui.year, aujourdhui.month - 11, 1)), 'dtEnd': jour(aujourdhui)});
     expect(chiffre(tester, 'mois_norme'), '2 / 3');
     expect(find.byType(BarChart), findsOneWidget);
     await retourSysteme(tester);

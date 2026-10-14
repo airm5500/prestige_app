@@ -5,8 +5,8 @@
 // Mise en page refaite : période commune chargée dès l'ouverture (« Aujourd'hui », dates par défaut d'origine),
 // chiffres clés (achats, ventes, ratio de la période, jours au niveau de la norme), ratio jour par jour avec une
 // étiquette écrite « ≥ norme » / « < norme » (pas seulement une couleur), calcul selon la norme, et les Ratios
-// mensuels de l'année (même requête que l'origine : 1er janvier → aujourd'hui) avec un graphique en barres et la
-// ligne de la norme.
+// mensuels avec un graphique en barres et la ligne de la norme : depuis la 3.8.0 (choix du pharmacien) les 12
+// DERNIERS MOIS glissants (avant : 1er janvier → aujourd'hui, comme l'origine), mêmes calculs, norme 1,51.
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -55,7 +55,7 @@ class _TableauRatiosNouveauState extends State<TableauRatiosNouveau> with Charge
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Tableau: Ratios Achats/Ventes'), actions: [
           IconButton(
-              key: const Key('ratios_mensuels_barre'), tooltip: 'Ratios mensuels de l\'année', icon: const Icon(Icons.calendar_month_outlined), onPressed: _mensuels),
+              key: const Key('ratios_mensuels_barre'), tooltip: 'Ratios des 12 derniers mois', icon: const Icon(Icons.calendar_month_outlined), onPressed: _mensuels),
         ]),
         body: RefreshIndicator(
           onRefresh: _charger,
@@ -67,7 +67,7 @@ class _TableauRatiosNouveauState extends State<TableauRatiosNouveau> with Charge
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: _mensuels,
               icon: const Icon(Icons.calendar_month_outlined),
-              label: Text('Ratios mensuels ${widget.maintenant().year}'),
+              label: const Text('Ratios des 12 derniers mois'),
             ),
             const SizedBox(height: 8),
             ..._corps(),
@@ -199,7 +199,7 @@ class _CalculNormeState extends State<CalculNorme> {
       );
 }
 
-/// Ratios mensuels de l'année en cours (même requête que l'origine : 1er janvier → aujourd'hui), cumul par mois.
+/// Ratios mensuels des 12 derniers mois glissants (3.8.0 ; une seule requête), cumul par mois et année, même ratio.
 class RatiosMensuelsNouveau extends StatefulWidget {
   final DateTime Function() maintenant;
   const RatiosMensuelsNouveau({super.key, this.maintenant = DateTime.now});
@@ -218,21 +218,22 @@ class _RatiosMensuelsNouveauState extends State<RatiosMensuelsNouveau> with Char
   }
 
   Future<void> _charger() => charger(() async {
-        final (debut, fin) = TableauBord.anneeEnCours(widget.maintenant());
+        // 3.8.0 : 12 derniers mois glissants (une seule requête, la route accepte deux années).
+        final (debut, fin) = TableauBord.douzeDerniersMois(widget.maintenant());
         final l = await TableauBord.charger(context, debut, fin, onSessionInvalid: sessionInvalide(context));
-        return TableauBord.mensuels(l ?? const []);
+        return TableauBord.mensuelsParAnnee(l ?? const []);
       });
 
   static String _mois(MonthlyRatioData m) {
-    final n = m.monthName;
+    final n = m.moisAnnee;
     return n.isEmpty ? n : '${n[0].toUpperCase()}${n.substring(1)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final annee = widget.maintenant().year;
+    final (debut, _) = TableauBord.douzeDerniersMois(widget.maintenant());
     return Scaffold(
-      appBar: AppBar(title: Text('Ratios Mensuels $annee')),
+      appBar: AppBar(title: const Text('Ratios des 12 derniers mois')),
       body: RefreshIndicator(
         onRefresh: _charger,
         child: ListView(key: const Key('defilement_detail'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
@@ -240,7 +241,7 @@ class _RatiosMensuelsNouveauState extends State<RatiosMensuelsNouveau> with Char
             const Icon(Icons.event_outlined, size: 16, color: Charte.gris),
             const SizedBox(width: 6),
             Expanded(
-              child: Text('Du 01/01/$annee à aujourd\'hui', style: const TextStyle(color: Charte.gris, fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text('Du ${DateFormat('dd/MM/yyyy').format(debut)} à aujourd\'hui (12 mois glissants)', key: const Key('ratios_mensuels_periode'), style: const TextStyle(color: Charte.gris, fontSize: 13, fontWeight: FontWeight.w600)),
             ),
           ]),
           const SizedBox(height: 8),
@@ -255,7 +256,7 @@ class _RatiosMensuelsNouveauState extends State<RatiosMensuelsNouveau> with Char
     if (erreur != null) return [EtatErreur(erreur: erreur!, reessayer: _charger)];
     final l = donnees ?? const <MonthlyRatioData>[];
     if (l.isEmpty) {
-      return const [EtatVide(titre: 'Aucune donnée pour l\'année en cours', icone: Icons.calendar_month_outlined)];
+      return const [EtatVide(titre: 'Aucune donnée sur les 12 derniers mois', icone: Icons.calendar_month_outlined)];
     }
     final achats = l.fold(0.0, (s, m) => s + m.totalAchats), ventes = l.fold(0.0, (s, m) => s + m.totalVentes);
     final ratio = TableauBord.ratio(achats, ventes);
@@ -263,7 +264,7 @@ class _RatiosMensuelsNouveauState extends State<RatiosMensuelsNouveau> with Char
     return [
       GrilleKpi([
         ChiffreCle(
-          libelle: 'Ratio de l\'année',
+          libelle: 'Ratio sur 12 mois',
           valeur: formaterRatio(ratio),
           id: 'ratio_annee',
           enAvant: true,
@@ -298,7 +299,7 @@ class _RatiosMensuelsNouveauState extends State<RatiosMensuelsNouveau> with Char
           formaterRatio(l[i].ratio),
           libelleNorme(TableauBord.position(l[i].ratio)).$1,
         ],
-        total: ['Année', formaterMontant(achats), formaterMontant(ventes), formaterRatio(ratio), libelleNorme(TableauBord.position(ratio)).$1],
+        total: ['12 mois', formaterMontant(achats), formaterMontant(ventes), formaterRatio(ratio), libelleNorme(TableauBord.position(ratio)).$1],
         carte: (i) => CarteLigne(
           titre: _mois(l[i]),
           lignes: ['Total achats ${formaterMontant(l[i].totalAchats)}', 'Total ventes ${formaterMontant(l[i].totalVentes)}'],
