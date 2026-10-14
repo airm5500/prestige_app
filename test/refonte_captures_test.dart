@@ -11,8 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
+import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
-import 'package:prestige_app/screens/analyse_article_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/services/api_service.dart';
 
@@ -102,7 +102,7 @@ void main() {
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
     await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.text('Analyse Article'));
-    await pomperJusqua(tester, () => find.byType(AnalyseArticleScreen).evaluate().isNotEmpty);
+    await pomperJusqua(tester, () => find.byType(AnalyseArticleNouveau).evaluate().isNotEmpty);
     await tester.pump(const Duration(seconds: 1));
     await tester.enterText(find.byType(TextField), 'parafictif');
     await pomperJusqua(tester, () => find.text(DonneesFictives.libelleArticle1).evaluate().isNotEmpty);
@@ -110,8 +110,8 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pump(const Duration(seconds: 1));
 
-    // 6. Réglages (apparence : nouvelle interface, présentation).
-    await ouvrirOnglet(tester, 'Réglages');
+    // 6. Réglages (bouton engrenage : apparence, nouvelle interface, présentation).
+    await toucherReglages(tester);
     await photo(tester, '6_reglages_apparence');
     await fin(tester);
 

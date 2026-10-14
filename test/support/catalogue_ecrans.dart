@@ -3,6 +3,12 @@
 // « chaque module de l'accueil s'ouvre et se referme » échoue tant que le nouveau module n'est pas ici, et le test
 // d'ergonomie le rend alors automatiquement à toutes les tailles d'écran.
 import 'package:flutter/widgets.dart';
+import 'package:prestige_app/nouvelle_interface/menus.dart';
+import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/rapport_activite_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_credit_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
 import 'package:prestige_app/presences/presences_screen.dart';
 import 'package:prestige_app/screens/achats_fournisseurs_screen.dart';
 import 'package:prestige_app/screens/analyse_article_screen.dart';
@@ -72,6 +78,35 @@ const modulesAccueil = <ModuleAccueil>[
   ModuleAccueil('Visualisation BL', 'Visualisation BL', VisualisationBlScreen.new),
   ModuleAccueil('Présences', 'Présence du jour', PresencesScreen.new),
 ];
+
+/// Modules refaits dans la nouvelle interface (lot 1) : écran d'origine (ancienne interface) et nouvel écran
+/// (nouvelle interface), même titre de barre. Les tests de non-régression comparent leurs requêtes et leurs chiffres.
+class ModuleLot1 {
+  final String tuile;
+  final String titreEcran;
+  final Widget Function() ancien;
+  final Widget Function() nouveau;
+  final Type typeNouveau;
+  const ModuleLot1(this.tuile, this.titreEcran, this.ancien, this.nouveau, this.typeNouveau);
+}
+
+final modulesLot1 = <ModuleLot1>[
+  ModuleLot1('Rapport d\'Activité', 'Rapport d\'Activité', () => const RapportActiviteScreen(), () => const RapportActiviteNouveau(),
+      RapportActiviteNouveau),
+  ModuleLot1('Détail CA', 'Détail CA', () => const CaComptantScreen(), () => const DetailCaNouveau(), DetailCaNouveau),
+  ModuleLot1('Analyse Article', 'Analyse Article', () => const AnalyseArticleScreen(), () => const AnalyseArticleNouveau(), AnalyseArticleNouveau),
+  ModuleLot1('Fiche Article', 'Fiche Article', () => const FicheArticleScreen(), () => const FicheArticleNouveau(), FicheArticleNouveau),
+  ModuleLot1('Suivi Péremption', 'Suivi Péremption', () => const SuiviPeremptionScreen(), () => const SuiviPeremptionNouveau(),
+      SuiviPeremptionNouveau),
+  ModuleLot1('Suivi Crédit', 'Suivi des Crédits', () => const SuiviCreditScreen(), () => const SuiviCreditNouveau(), SuiviCreditNouveau),
+];
+
+/// Modules de la NOUVELLE interface (ceux de l'accueil d'origine moins « Fournisseurs ») : écran ouvert par son menu
+/// (nouvel écran pour le lot 1, écran d'origine sinon).
+List<ModuleAccueil> get modulesNouvelleInterface => [
+      for (final m in modulesAccueil)
+        for (final menu in menusModules.where((x) => x.titre == m.tuile)) ModuleAccueil(m.tuile, m.titreEcran, ({Key? key}) => menu.ecran()),
+    ];
 
 /// États supplémentaires rendus par le test d'ergonomie (en plus de l'écran d'ouverture de chaque module) :
 /// listes remplies par une recherche, autres onglets. [recherche] : texte saisi dans le premier champ.

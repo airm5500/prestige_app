@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/menus.dart';
+import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/rapport_activite_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_credit_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
@@ -76,12 +81,63 @@ final casAffichageNouvelle = <CasAffichage>[
           ensuite: compterAlertes(['alerte_peremption_echec', 'alerte_controle_encours']))),
   CasAffichage('Onglet Analyses', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: onglet('Analyses'))),
   CasAffichage('Onglet Équipe', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: onglet('Équipe'))),
-  CasAffichage('Onglet Réglages', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: onglet('Réglages'))),
+  CasAffichage('Réglages (bouton engrenage)', enNouvelle(ecranConnecte(() => const AccueilNouveau()), ensuite: (tester) async {
+    await toucherReglages(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+  })),
   for (final q in Question.values) CasAffichage('Question C : ${q.titre}', enNouvelle(ecranConnecte(() => QuestionScreen(question: q)))),
   CasAffichage('Tous les menus (C)', enNouvelle(ecranConnecte(() => const TousLesMenusScreen()))),
-  for (final m in modulesAccueil) CasAffichage(m.tuile, enNouvelle(ecranConnecte(m.ecran))),
-  for (final e in etatsSupplementaires) CasAffichage(e.nom, enNouvelle(ecranConnecte(e.ecran, recherche: e.recherche))),
+  // Modules ouverts par leur menu (nouvel écran pour le lot 1), « Fournisseurs » n'en fait plus partie.
+  for (final m in modulesNouvelleInterface) CasAffichage(m.tuile, enNouvelle(ecranConnecte(m.ecran))),
+  for (final e in _etatsOrigine) CasAffichage(e.nom, enNouvelle(ecranConnecte(e.ecran, recherche: e.recherche))),
+  ...casLot1,
 ];
 
-/// Noms des cas qui sont des écrans de MODULES d'origine (seuls à pouvoir garder leurs écarts connus).
-final modulesOuEtats = <String>{for (final m in modulesAccueil) m.tuile, for (final e in etatsSupplementaires) e.nom};
+/// États supplémentaires des modules d'origine encore ouverts dans la nouvelle interface (ceux d'Analyse et de Fiche
+/// Article concernent les écrans d'origine, remplacés par les états du lot 1 ci-dessous).
+final _etatsOrigine = [for (final e in etatsSupplementaires) if (!modulesLot1.any((m) => e.nom.startsWith(m.tuile))) e];
+
+Future<void> Function(WidgetTester) toucher(Finder cible) => (tester) async {
+      await tester.tap(cible.first);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+    };
+
+/// États des modules refaits (lot 1) : remplis, filtres, détail, exports, erreurs. Écrans propres à la nouvelle
+/// interface : aucun écart toléré.
+final casLot1 = <CasAffichage>[
+  CasAffichage('Lot 1 · Rapport d\'Activité rempli', enNouvelle(ecranConnecte(() => const RapportActiviteNouveau()), donnees: donneesLot1)),
+  CasAffichage('Lot 1 · Détail CA rempli', enNouvelle(ecranConnecte(() => const DetailCaNouveau()), donnees: donneesLot1)),
+  CasAffichage('Lot 1 · Suivi Crédit rempli', enNouvelle(ecranConnecte(() => const SuiviCreditNouveau()), donnees: donneesLot1)),
+  CasAffichage('Lot 1 · Suivi Crédit filtres',
+      enNouvelle(ecranConnecte(() => const SuiviCreditNouveau()), donnees: donneesLot1, ensuite: toucher(find.byKey(const Key('bouton_filtres'))))),
+  CasAffichage('Lot 1 · Suivi Péremption rempli', enNouvelle(ecranConnecte(() => const SuiviPeremptionNouveau()), donnees: donneesLot1)),
+  CasAffichage('Lot 1 · Suivi Péremption filtres',
+      enNouvelle(ecranConnecte(() => const SuiviPeremptionNouveau()), donnees: donneesLot1, ensuite: toucher(find.byKey(const Key('bouton_filtres'))))),
+  CasAffichage('Lot 1 · Suivi Péremption menu Exporter',
+      enNouvelle(ecranConnecte(() => const SuiviPeremptionNouveau()), donnees: donneesLot1, ensuite: toucher(find.byKey(const Key('menu_exports'))))),
+  CasAffichage('Lot 1 · Suivi Péremption détail du lot',
+      enNouvelle(ecranConnecte(() => const SuiviPeremptionNouveau()), donnees: donneesLot1, ensuite: toucher(find.text(DonneesFictives.libelleArticle1)))),
+  CasAffichage('Lot 1 · Analyse Article résultats', enNouvelle(ecranConnecte(() => const AnalyseArticleNouveau(), recherche: 'PARAFICTIF'))),
+  CasAffichage('Lot 1 · Analyse Article détail',
+      enNouvelle(ecranConnecte(() => const AnalyseArticleNouveau(), recherche: 'PARAFICTIF'), ensuite: toucher(find.text(DonneesFictives.libelleArticle1)))),
+  CasAffichage('Lot 1 · Analyse Article aucun résultat', enNouvelle(ecranConnecte(() => const AnalyseArticleNouveau(), recherche: 'INTROUVABLE'))),
+  CasAffichage('Lot 1 · Fiche Article résultats', enNouvelle(ecranConnecte(() => const FicheArticleNouveau(), recherche: 'PARAFICTIF'))),
+  CasAffichage('Lot 1 · Fiche Article détail',
+      enNouvelle(ecranConnecte(() => const FicheArticleNouveau(), recherche: 'PARAFICTIF'), ensuite: toucher(find.text(DonneesFictives.libelleArticle1)))),
+  CasAffichage('Lot 1 · serveur injoignable', enNouvelle(ecranConnecte(() => const DetailCaNouveau()), donnees: (s) => s.coupe = true)),
+  CasAffichage('Lot 1 · erreur du serveur',
+      enNouvelle(ecranConnecte(() => const RapportActiviteNouveau()),
+          donnees: (s) => s.quand(AppConstants.dashboardRecapEndpoint, ReponseFausse.erreurServeur()))),
+  CasAffichage('Lot 1 · session expirée',
+      enNouvelle(ecranConnecte(() => const SuiviCreditNouveau()), donnees: (s) => s.quand(AppConstants.suiviCreditEndpoint, ReponseFausse.sessionExpiree()))),
+];
+
+/// Noms des cas qui sont des écrans de MODULES d'origine (seuls à pouvoir garder leurs écarts connus). Les modules
+/// refaits du lot 1 n'en font pas partie : aucun écart toléré sur leurs nouveaux écrans.
+final modulesOuEtats = <String>{
+  for (final m in modulesNouvelleInterface)
+    if (!modulesLot1.any((l) => l.tuile == m.tuile)) m.tuile,
+  for (final e in _etatsOrigine) e.nom,
+};

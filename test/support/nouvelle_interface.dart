@@ -32,6 +32,18 @@ void donneesAlertes(FauxServeurPrestige serveur) {
   serveur.quand(AppConstants.etatControleAchatEndpoint, ReponseFausse.json(DonneesFictives.etatControleAchat()), methode: 'GET');
 }
 
+/// Réponses des modules refaits du lot 1 (Rapport d'Activité, Détail CA, Suivi Crédit, Suivi Péremption) ; Analyse
+/// et Fiche Article ont déjà leurs routes par défaut (/info, /checkproduit).
+void donneesLot1(FauxServeurPrestige serveur) {
+  serveur
+    ..quand(AppConstants.dashboardRecapEndpoint, ReponseFausse.json(DonneesFictives.rapportActivite()), methode: 'GET')
+    ..quand(AppConstants.creditsRecapEndpoint, ReponseFausse.json(DonneesFictives.creditsTiersPayants()), methode: 'GET')
+    ..quand(AppConstants.creditTotalsRecapEndpoint, ReponseFausse.json(DonneesFictives.creditsTotaux()), methode: 'GET')
+    ..quand(AppConstants.reglementsRecapEndpoint, ReponseFausse.json(DonneesFictives.reglementsRecus()), methode: 'GET')
+    ..quand(AppConstants.caComptantEndpoint, ReponseFausse.json(DonneesFictives.caParJour()), methode: 'GET')
+    ..quand(AppConstants.suiviPeremptionEndpoint, ReponseFausse.json(DonneesFictives.perimes()), methode: 'GET');
+}
+
 /// Téléphone configuré, nouvelle interface dans la présentation [p].
 void preparerNouvelle(FauxServeurPrestige serveur, {Presentation p = Presentation.automatique}) =>
     preparerTelephone(serveur, nouvelle: true, presentation: p);
@@ -73,6 +85,14 @@ Future<void> connecterEnMemoire(WidgetTester tester) async {
   await pomperJusqua(tester, () => find.byType(AccueilNouveau).evaluate().isNotEmpty, raison: 'nouvel accueil');
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// Réglages : bouton engrenage en haut à droite de l'accueil (page à part).
+Future<void> toucherReglages(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('bouton_reglages')));
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
   }
 }
 

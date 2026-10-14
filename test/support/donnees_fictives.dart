@@ -188,4 +188,59 @@ class DonneesFictives {
         'metaData': {'totalNbreBon': bonsControles, 'totalMarge': 213000, 'totalTtc': 767000, 'totalTaxe': 117000,
           'totalVenteTtc': 980000, 'totaltHtaxe': 650000},
       };
+
+  // --- Lot 1 (modules refaits) : Rapport d'Activité, Détail CA, Suivi Crédit ---
+
+  /// GET /recap/dashboard : récapitulatif complet (règlements, achats, mouvements de caisse).
+  static Map<String, Object?> rapportActivite() => {
+        'success': true,
+        'data': {
+          'montantTTC': 2480650, 'montantHT': 2102246, 'marge': 615300, 'montantCredit': 412500, 'montantRegle': 1868150,
+          'montantTotalTVA': 378404, 'ratio': 1.47,
+          'achats': [
+            {'libelleGroupeGrossiste': 'GROUPE FICTIF A', 'montantHT': 610000, 'montantTTC': 719800, 'montantTVA': 109800},
+            {'libelleGroupeGrossiste': 'GROUPE FICTIF B', 'montantHT': 205000, 'montantTTC': 241900, 'montantTVA': 36900},
+          ],
+          'reglements': [
+            {'libelle': 'Espèces', 'montant': 1325400},
+            {'libelle': 'Mobile Money', 'montant': 402750},
+            {'libelle': 'Carte bancaire', 'montant': 140000},
+          ],
+          'mvtsCaisse': [
+            {'libelle': 'Fond de caisse', 'montant': 50000},
+            {'libelle': 'Sortie fictive', 'montant': 12500},
+          ],
+        },
+      };
+
+  /// GET /recap/credits (Rapport d'Activité et Suivi Crédit) : crédits par tiers payant.
+  static Map<String, Object?> creditsTiersPayants() => {
+        'data': [
+          {'libelleTypeTiersPayant': 'ASSURANCE', 'libelleTiersPayant': 'ASSURANCE FICTIVE UNE', 'nbreClient': 12, 'nbreBons': 18, 'montant': 243000},
+          {'libelleTypeTiersPayant': 'ASSURANCE', 'libelleTiersPayant': 'MUTUELLE IMAGINAIRE', 'nbreClient': 5, 'nbreBons': 6, 'montant': 98500},
+          {'libelleTypeTiersPayant': 'CLIENT EN COMPTE', 'libelleTiersPayant': 'SOCIETE FICTIVE SARL', 'nbreClient': 3, 'nbreBons': 4, 'montant': 71000},
+        ],
+      };
+
+  /// GET /recap/credits/totaux.
+  static Map<String, Object?> creditsTotaux() => {'nbreClient': 20, 'nbreBons': 28, 'montant': 412500};
+
+  /// GET /recap/reglements : règlements reçus.
+  static Map<String, Object?> reglementsRecus() => {
+        'data': [
+          {'type': 'TP', 'description': 'Règlement ASSURANCE FICTIVE UNE', 'reference': 'REG-TEST-1', 'montant': 150000},
+          {'type': 'CLIENT', 'description': 'Règlement SOCIETE FICTIVE SARL', 'reference': 'REG-TEST-2', 'montant': 35000},
+        ],
+      };
+
+  /// GET /ca-all : une ligne par jour (dates AAAAMMJJ, volontairement dans le désordre).
+  static List<Map<String, Object?>> caParJour() => [
+        {'mvtDate': '20261013', 'totEsp': 512300, 'montantCredit': 140500, 'totMobile': 98200, 'totCB': 45000, 'totChq': 0, 'totVirement': 12000,
+          'remiseSurCA': 8400, 'totTVA': 128700},
+        {'mvtDate': '20261012', 'totEsp': 433100, 'montantCredit': 121000, 'totMobile': 75400, 'totCB': 30000, 'totChq': 25000, 'totVirement': 0,
+          'remiseSurCA': 6100, 'totTVA': 104950},
+        {'mvtDate': '20261014', 'totEsp': 380000, 'montantCredit': 151000, 'totMobile': 64150, 'totCB': 65000, 'totChq': 0, 'totVirement': 0,
+          'remiseSurCA': 4300, 'totTVA': 98300},
+      ];
 }
+

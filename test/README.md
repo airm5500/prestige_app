@@ -24,6 +24,11 @@ flutter test --plain-name "Connexion"
 | `ergonomie/affichage_nouvelle_interface_test.dart` | Ergonomie (nouvelle interface) | Tous les écrans de la nouvelle interface (démarrage, connexion A/B, accueil A/B/C, onglets, écrans C, chaque module) aux mêmes 5 tailles × 2 échelles. Aucun écart toléré sur ses écrans propres ; pour les modules d'origine, seulement leurs écarts déjà connus. |
 | `ergonomie/coherence_nouvelle_interface_test.dart` | Cohérence (nouvelle interface) | Charte bleu nuit / ambre, contraste des boutons principaux ≥ 4,5:1, barres bleu nuit, Lato, et aucune zone à l'ancien style (couleurs d'origine ou lavande Material) sur chaque écran, dialogue et sélecteur de date. |
 | `unitaires/alertes_accueil_test.dart`, `integration/alertes_accueil_test.dart` | Alertes de l'accueil A | Comptage à la demande : nombre identique aux écrans, « il y a X min », mêmes routes et paramètres que les modules, 401 / 500 / injoignable / délai borné, anti double appui, aucun appel sans appui sur ⟳. Parcours complet (⟳ → nombre → module) dans `e2e/parcours_nouvelle_interface_test.dart`, états rendus par l'ergonomie (« Accueil A · alertes … »). |
+| `lot1_non_regression_test.dart` | Non-régression de données (lot 1) | Rapport d'Activité, Détail CA, Analyse Article, Fiche Article, Suivi Péremption, Suivi Crédit : l'écran d'origine et le nouvel écran contre le même faux serveur — mêmes requêtes (période du jour, mois précédent, recherche, filtres) et mêmes chiffres, libellé par libellé. |
+| `e2e/parcours_lot1_test.dart` | Bout en bout (lot 1) | Chaque module refait : ouverture, période, filtre (feuille du bas), retour ; erreur du serveur + Réessayer, serveur injoignable, session expirée ; recherche (anti-rebond, réponse remplacée ignorée). |
+| `navigation_nouvelle_interface_test.dart` | Navigation | « Fournisseurs » absent de la nouvelle interface (A, B, C, recherche, personnalisation), présent dans l'ancienne ; bouton Réglages en haut à droite ; barre du bas Accueil · Analyses · Équipe. |
+| `unitaires/periode_test.dart` | Unitaires (dates) | Sélecteur de période commun : périodes rapides, contrôles (début ≤ fin, pas de futur, bornes). |
+| `lot1_captures_test.dart` | Captures lot 1 (à la demande) | `CAPTURES_LOT1=1 flutter test test/lot1_captures_test.dart --update-goldens` → `docs/maquettes/captures_lot1/`. |
 | `refonte_captures_test.dart` | Captures (à la demande) | `CAPTURES_REFONTE=1 flutter test test/refonte_captures_test.dart --update-goldens` : PNG de la nouvelle interface dans `docs/maquettes/captures_refonte/` (sauté sinon). |
 
 ## Outils (`support/`)
@@ -67,4 +72,10 @@ un écran nouveau ou modifié. Pas de tests « golden » en CI (images de réfé
 les captures PNG sont produites à la demande seulement.
 
 Un module ajouté à l'accueil doit aussi être rangé dans `lib/nouvelle_interface/menus.dart` (famille et question) :
-le parcours e2e de la nouvelle interface l'ouvre alors dans chaque présentation.
+le parcours e2e de la nouvelle interface l'ouvre alors dans chaque présentation (`modulesNouvelleInterface` : les
+modules de l'accueil d'origine présents dans ces menus, donc sans « Fournisseurs »).
+
+Module refait dans la nouvelle interface (lots de la refonte) : le déclarer dans `modulesLot1`
+(`support/catalogue_ecrans.dart`, écran d'origine + nouvel écran), placer la lecture des données dans `lib/donnees/`
+(partagée par les deux écrans), ajouter sa comparaison dans `lot1_non_regression_test.dart` et ses états dans
+`casLot1` (`support/cas_affichage_nouvelle.dart`) : ils sont alors rendus sans aucun écart toléré.

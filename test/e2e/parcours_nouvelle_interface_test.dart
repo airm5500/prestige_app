@@ -4,7 +4,7 @@
 //  - la nouvelle interface est celle par défaut (aucun choix mémorisé) ;
 //  - chaque module de l'accueil s'ouvre et se referme dans les présentations A, B et C (téléphone) et B (tablette,
 //    menu latéral), sans erreur ni « Chargement impossible », avec la session ouverte à la connexion ;
-//  - onglets Analyses, Équipe, Réglages ;
+//  - onglets Analyses, Équipe ; Réglages ouverts par le bouton engrenage en haut à droite de l'accueil ;
 //  - alertes de l'accueil A comptées à la demande : appui sur ⟳ → nombre et heure → ouverture du module, qui
 //    montre le même nombre avec les mêmes paramètres ; au retour, le nombre mémorisé « il y a X min » ;
 //  - retour à l'ancienne interface depuis les Réglages (effet immédiat, mémorisé), puis retour à la nouvelle ;
@@ -18,16 +18,18 @@ import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/composants.dart';
 import 'package:prestige_app/nouvelle_interface/menus.dart';
+import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/commun.dart';
+import 'package:prestige_app/nouvelle_interface/modules/suivi_peremption_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
+import 'package:prestige_app/nouvelle_interface/reglages_nouveaux.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
-import 'package:prestige_app/screens/analyse_article_screen.dart';
 import 'package:prestige_app/screens/etat_controle_achat_screen.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/screens/serveur_injoignable_screen.dart';
 import 'package:prestige_app/screens/settings_screen.dart';
-import 'package:prestige_app/screens/suivi_peremption_screen.dart';
 import 'package:prestige_app/utils/constants.dart';
 import 'package:prestige_app/widgets/erreurs_chargement.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,7 +85,7 @@ Future<void> amenerEnVue(WidgetTester tester, Finder cible, Finder defilement) a
 /// Ouvre chaque module depuis l'accueil de la présentation [p] et revient ; renvoie les problèmes relevés.
 Future<List<String>> parcourirModules(WidgetTester tester, Presentation p) async {
   final problemes = <String>[];
-  for (final module in modulesAccueil) {
+  for (final module in modulesNouvelleInterface) {
     final menu = menusModules.firstWhere((m) => m.titre == module.tuile);
     final erreurs = await releverErreurs(() async {
       if (p == Presentation.guide) {
@@ -113,7 +115,8 @@ Future<List<String>> parcourirModules(WidgetTester tester, Presentation p) async
     if (find.widgetWithText(AppBar, module.titreEcran).evaluate().isEmpty) {
       problemes.add('${module.tuile} : barre « ${module.titreEcran} » absente');
     }
-    if (find.byType(LoadErrorView).evaluate().isNotEmpty || find.byType(LoadErrorBanner).evaluate().isNotEmpty) {
+    if (find.byType(LoadErrorView).evaluate().isNotEmpty || find.byType(LoadErrorBanner).evaluate().isNotEmpty ||
+        find.byType(EtatErreur).evaluate().isNotEmpty) {
       problemes.add('${module.tuile} : « Chargement impossible » alors que le serveur répond normalement');
     }
     if (find.byType(LoginScreen).evaluate().isNotEmpty) problemes.add('${module.tuile} : retour inattendu à la connexion');
@@ -226,7 +229,7 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('onglets Analyses, Équipe (présences : jour, période, pointage) et Réglages', (tester) async {
+  testWidgets('onglets Analyses, Équipe (présences : jour, période, pointage) et Réglages (bouton engrenage)', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
 
@@ -237,7 +240,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'parafictif');
     await attendreTexte(tester, DonneesFictives.libelleArticle1);
     await retourSysteme(tester);
-    await attendreQue(tester, () => find.byType(AnalyseArticleScreen).evaluate().isEmpty, raison: 'retour aux analyses');
+    await attendreQue(tester, () => find.byType(AnalyseArticleNouveau).evaluate().isEmpty, raison: 'retour aux analyses');
 
     await ouvrirOnglet(tester, 'Équipe');
     for (final (entree, titre, route) in [
@@ -254,11 +257,15 @@ void main() {
       await attendreQue(tester, () => find.byType(AccueilNouveau).hitTestable().evaluate().isNotEmpty, raison: 'retour à l\'équipe');
     }
 
-    await ouvrirOnglet(tester, 'Réglages');
-    expect(find.byKey(const Key('interrupteur_nouvelle_interface')), findsOneWidget);
-    expect(find.text('B · Compact'), findsOneWidget);
     // Retour système sur un onglet : revient à l'onglet Accueil (et ne quitte pas l'application).
     await retourSysteme(tester);
+    expect(find.text('Chiffre d\'affaires'), findsOneWidget);
+    await toucherReglages(tester);
+    expect(find.byKey(const Key('interrupteur_nouvelle_interface')), findsOneWidget);
+    expect(find.text('B · Compact'), findsOneWidget);
+    // Retour : la page des Réglages se ferme sur l'accueil.
+    await retourSysteme(tester);
+    await attendreQue(tester, () => find.byType(ReglagesScreen).evaluate().isEmpty, raison: 'Réglages fermés');
     expect(find.text('Chiffre d\'affaires'), findsOneWidget);
     await terminer(tester);
   });
@@ -266,7 +273,7 @@ void main() {
   testWidgets('retour à l\'ancienne interface depuis les Réglages : immédiat, mémorisé, puis retour à la nouvelle', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
-    await ouvrirOnglet(tester, 'Réglages');
+    await toucherReglages(tester);
     await tester.tap(find.byKey(const Key('interrupteur_nouvelle_interface')));
     await stabiliser(tester);
 
@@ -310,14 +317,14 @@ void main() {
       (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
-    await ouvrirOnglet(tester, 'Réglages');
+    await toucherReglages(tester);
     await tester.tap(find.byKey(const Key('presentation_guide')));
     await stabiliser(tester, tours: 4);
     expect(find.text('Code Administrateur requis :'), findsOneWidget);
     await tester.tap(find.text('Annuler'));
     await stabiliser(tester, tours: 4);
     expect(PresentationPrefs.choix.value, Presentation.automatique, reason: 'refusé sans le code administrateur');
-    await ouvrirOnglet(tester, 'Accueil');
+    await retourSysteme(tester);
     await tester.tap(find.byTooltip('Déconnexion').first);
     await attendreWidget(tester, find.byType(LoginScreen));
 
@@ -328,7 +335,7 @@ void main() {
     await seConnecterNouvelle(tester);
     await attendreWidget(tester, find.byType(AccueilNouveau));
     await stabiliser(tester);
-    await ouvrirOnglet(tester, 'Réglages');
+    await toucherReglages(tester);
     expect(find.text('Présentation (pour tous les comptes de ce téléphone)'), findsOneWidget, reason: 'compte administrateur reconnu');
     await tester.tap(find.byKey(const Key('presentation_guide')));
     await stabiliser(tester, tours: 4);
@@ -336,7 +343,7 @@ void main() {
     expect(PresentationPrefs.choix.value, Presentation.guide);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString(PresentationPrefs.cle), 'guide');
-    await ouvrirOnglet(tester, 'Accueil');
+    await retourSysteme(tester);
     expect(find.text('Que voulez-vous savoir ?'), findsOneWidget);
     await terminer(tester);
   });
@@ -372,11 +379,12 @@ void main() {
 
     // Suivi Péremption ouvert depuis l'alerte : même requête, autant de lots listés que le nombre affiché.
     await tester.tap(find.text('Produits proches de la péremption'));
-    await attendreWidget(tester, find.byType(SuiviPeremptionScreen));
+    await attendreWidget(tester, find.byType(SuiviPeremptionNouveau));
     await attendreQue(tester, () => serveur.recues(AppConstants.suiviPeremptionEndpoint).length == 2, raison: 'liste du module');
     await stabiliser(tester);
     expect(serveur.recues(AppConstants.suiviPeremptionEndpoint).last.parametres, comptagePeremption.parametres);
-    expect(find.descendant(of: find.byType(SuiviPeremptionScreen), matching: find.byType(ListTile)), findsNWidgets(DonneesFictives.lotsPerimes));
+    expect(find.descendant(of: find.byType(SuiviPeremptionNouveau), matching: find.byType(CarteLigne)), findsNWidgets(DonneesFictives.lotsPerimes));
+    expect(tester.widget<Text>(find.byKey(const Key('chiffre_lots'))).data, '${DonneesFictives.lotsPerimes}');
     await retourSysteme(tester);
     await attendreQue(tester, () => find.byType(AccueilNouveau).hitTestable().evaluate().isNotEmpty, raison: 'retour à l\'accueil');
 
@@ -441,7 +449,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'parafictif');
     await attendreWidget(tester, find.byType(LoginScreen));
     await attendreTexte(tester, AuthProvider.messageSessionExpiree);
-    await attendreQue(tester, () => find.byType(AnalyseArticleScreen).evaluate().isEmpty, raison: 'Analyse Article fermée');
+    await attendreQue(tester, () => find.byType(AnalyseArticleNouveau).evaluate().isEmpty, raison: 'Analyse Article fermée');
     await tester.tap(find.text('OK'));
     await stabiliser(tester);
     await seConnecterNouvelle(tester);
@@ -457,8 +465,10 @@ void main() {
     await attendreWidget(tester, find.widgetWithText(AppBar, 'Analyse Article'));
     await tester.runAsync(serveur.arreter);
     await tester.enterText(find.byType(TextField), 'parafictif');
-    await attendreWidget(tester, find.byType(LoadErrorView));
-    expect(find.textContaining('Serveur injoignable'), findsOneWidget);
+    await attendreWidget(tester, find.byType(EtatErreur));
+    expect(find.byKey(const Key('erreur_reseau')), findsOneWidget);
+    expect(find.textContaining('Serveur injoignable'), findsWidgets);
+    expect(find.byKey(const Key('bouton_reessayer')), findsOneWidget);
     expect(find.byType(LicenceRegistrationScreen), findsNothing);
     expect(find.byType(LoginScreen), findsNothing);
     await terminer(tester);
