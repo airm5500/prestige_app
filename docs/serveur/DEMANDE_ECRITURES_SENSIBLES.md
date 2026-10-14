@@ -174,6 +174,36 @@ lecture à l'ouverture des onglets secondaires, pages à la demande).
 Lecture seule pour l'application : aucun changement de format de réponse n'est nécessaire, la demande est
 rétrocompatible.
 
+## 9. `GET /vente/annulation/{id}` annule réellement une vente (GET qui modifie, non idempotent)
+
+**Constat** (`rest/SalesRessource.java`, `deleteVente`, ~l. 319). L'annulation d'une vente — opération
+**irréversible** (stock, caisse, crédit) — est une route **GET**. Le droit `P_BT_ANNULER_VENTE` est bien vérifié
+(réponse `{success:false, msg:"Vous n'avez pas l'autorisation d'annuler une vente"}`), mais :
+
+- un GET peut être **rejoué ou préchargé** sans intention (cache, proxy, historique du navigateur, nouvelle tentative
+  automatique d'une bibliothèque HTTP, lien partagé) ;
+- rien n'indique qu'un second appel sur une vente **déjà annulée** est refusé proprement : un double appui ou une
+  perte de réseau suivie d'un nouvel envoi doit rendre la même réponse sans rien refaire ;
+- le refus de droit arrive en HTTP 200 (`success:false`) : acceptable, mais 403 / `interdit:true` serait plus clair.
+
+**Côté application (3.6.0+34)**, en attendant : même requête GET qu'avant (rien changé côté serveur), mais détail de
+la vente affiché avant toute action, confirmation renforcée (saisie de la référence ou de « ANNULER »), code
+administrateur pour les comptes qui ne sont ni administrateur ni pharmacien, verrou anti double envoi, relecture de
+la vente avant l'envoi (déjà annulée → aucun envoi) et après (résultat vérifié), jamais de renvoi automatique.
+
+**Demande.**
+
+```
+POST /api/v1/vente/{id}/annuler          (en-tête X-Client-Ref: <uuid généré par opération>)
+→ {"success": true, "annulee": true, "dtAnnulation": "14/10/2026 10:12"}
+```
+
+1. Route **POST** (garder le GET pour le poste web le temps de la migration, puis le retirer ou le refuser hors
+   poste) ; contrôle du droit `P_BT_ANNULER_VENTE`, refus en **403 ou `interdit:true`** (jamais 401) ;
+2. **Idempotence** : vente déjà annulée → `{success:false, code:"ETAT", msg:"Vente déjà annulée"}` sans rien
+   refaire ; même `X-Client-Ref` rejoué → **la même réponse** que la première fois ;
+3. journaliser l'annulation (utilisateur, poste ou « mobile », date) dans le Fichier Journal, comme sur le poste.
+
 ---
 
 **Côté application, une fois ces points livrés** : la vague « écritures » (ajustement, retour fournisseur, commande

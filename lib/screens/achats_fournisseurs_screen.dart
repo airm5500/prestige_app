@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/achat_fournisseur_model.dart';
 import '../models/fournisseur_model.dart';
-import '../utils/constants.dart';
+import '../donnees/achats_fournisseurs_donnees.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -49,14 +49,11 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
     reessai = _fetchFournisseursForFilter; // « Réessayer » relance ce chargement
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final data = await apiService.get(
-        context,
-        AppConstants.fournisseursEndpoint,
-        onSessionInvalid: () => authProvider.forceLogout(),
-      );
-      if (mounted && data is List) {
+      // Lecture partagée avec la nouvelle interface (lib/donnees/achats_fournisseurs_donnees.dart).
+      final fournisseurs = await AchatsFournisseurs.fournisseurs(context, onSessionInvalid: () => authProvider.forceLogout());
+      if (mounted && fournisseurs != null) {
         setState(() {
-          _fournisseursList = data.map((item) => Fournisseur.fromJson(item)).toList();
+          _fournisseursList = fournisseurs;
         });
       }
     } catch (e) {
@@ -75,15 +72,9 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
       _filteredAchats = [];
     });
 
-    Map<String, String> queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-    };
+    final allAchats = await apiDonnees((deco) => AchatsFournisseurs.achats(context, _startDate, _endDate, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.achatsFournisseursEndpoint, queryParams: queryParams);
-
-    if (mounted && data is List) {
-      final allAchats = data.map((item) => AchatFournisseur.fromJson(item)).toList();
+    if (mounted && allAchats != null) {
       setState(() {
         _achats = allAchats;
         _filterAchatsLocally();
@@ -95,16 +86,8 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
     final query = _searchController.text.toLowerCase();
     if(mounted){
       setState(() {
-        _filteredAchats = _achats.where((achat) {
-          final matchesSearch = query.isEmpty ||
-              achat.fournisseurLibelle.toLowerCase().contains(query) ||
-              achat.numeroBL.toLowerCase().contains(query) ||
-              achat.numeroCommade.toLowerCase().contains(query);
-
-          final matchesFournisseur = _selectedFournisseur == null || achat.fournisseurId == _selectedFournisseur!.fournisseurId;
-
-          return matchesSearch && matchesFournisseur;
-        }).toList();
+        // Filtre local partagé (même règle) : recherche et fournisseur.
+        _filteredAchats = AchatsFournisseurs.filtrer(_achats, query, _selectedFournisseur?.fournisseurId);
       });
     }
   }
@@ -253,17 +236,8 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
     if (_selectedFournisseur != null) {
       title = 'Récapitulatif pour ${_selectedFournisseur!.fournisseurLibelle}';
 
-      double totalHT = 0;
-      double totalTVA = 0;
-      double totalTTC = 0;
-
-      final supplierPurchases = _achats.where((a) => a.fournisseurId == _selectedFournisseur!.fournisseurId);
-
-      for (var achat in supplierPurchases) {
-        totalHT += achat.montantHT;
-        totalTVA += achat.montantTVA;
-        totalTTC += achat.montantTTC;
-      }
+      final t = AchatsFournisseurs.totaux(_achats.where((a) => a.fournisseurId == _selectedFournisseur!.fournisseurId));
+      final totalHT = t.ht, totalTVA = t.tva, totalTTC = t.ttc;
 
       content = Column(
         mainAxisSize: MainAxisSize.min,
@@ -277,14 +251,10 @@ class _AchatsFournisseursScreenState extends State<AchatsFournisseursScreen> wit
 
     } else {
       title = 'Récapitulatif par Fournisseur';
-      final Map<String, Map<String, double>> recapMap = {};
-
-      for (var achat in _achats) {
-        recapMap.putIfAbsent(achat.fournisseurLibelle, () => {'ht': 0, 'tva': 0, 'ttc': 0});
-        recapMap[achat.fournisseurLibelle]!['ht'] = recapMap[achat.fournisseurLibelle]!['ht']! + achat.montantHT;
-        recapMap[achat.fournisseurLibelle]!['tva'] = recapMap[achat.fournisseurLibelle]!['tva']! + achat.montantTVA;
-        recapMap[achat.fournisseurLibelle]!['ttc'] = recapMap[achat.fournisseurLibelle]!['ttc']! + achat.montantTTC;
-      }
+      // Récapitulatif partagé (lib/donnees/achats_fournisseurs_donnees.dart) : un total par fournisseur.
+      final recapMap = {
+        for (final e in AchatsFournisseurs.recapitulatif(_achats).entries) e.key: {'ht': e.value.ht, 'tva': e.value.tva, 'ttc': e.value.ttc},
+      };
 
       content = SizedBox(
         width: double.maxFinite,

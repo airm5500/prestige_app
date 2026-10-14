@@ -4,8 +4,10 @@
 // d'ergonomie le rend alors automatiquement à toutes les tailles d'écran.
 import 'package:flutter/widgets.dart';
 import 'package:prestige_app/nouvelle_interface/menus.dart';
+import 'package:prestige_app/nouvelle_interface/modules/achats_fournisseurs_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/ajustements_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/analyse_bl_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/annulation_ventes_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/ca_credit_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/ca_global_nouveau.dart';
@@ -13,8 +15,10 @@ import 'package:prestige_app/nouvelle_interface/modules/controle_achat_nouveau.d
 import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/etat_stock_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/evolution_stock_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/fichier_journal_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/marge_produits_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/rapport_activite_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/recap_caisse_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/retours_fournisseurs_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/stat_tva_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suivi_2080_nouveau.dart';
@@ -144,8 +148,18 @@ final modulesLot3 = <ModuleLot1>[
   ModuleLot1('CA Global', 'CA Global', () => const CaGlobalScreen(), () => const CaGlobalNouveau(), CaGlobalNouveau),
 ];
 
-/// Tous les modules refaits (lots 1, 2 et 3) : leurs nouveaux écrans ne tolèrent aucun écart d'ergonomie.
-List<ModuleLot1> get modulesRefaits => [...modulesLot1, ...modulesLot2, ...modulesLot3];
+/// Modules refaits du lot 4 (« le reste » : caisse, achats, journal, annulation) : même déclaration.
+final modulesLot4 = <ModuleLot1>[
+  ModuleLot1('Récap de caisse', 'Récap de caisse', () => const RecapCaisseScreen(), () => const RecapCaisseNouveau(), RecapCaisseNouveau),
+  ModuleLot1('Achats Fourn.', 'Achats Fournisseurs', () => const AchatsFournisseursScreen(), () => const AchatsFournisseursNouveau(),
+      AchatsFournisseursNouveau),
+  ModuleLot1('Fichier Journal', 'Fichier Journal', () => const FichierJournalScreen(), () => const FichierJournalNouveau(), FichierJournalNouveau),
+  ModuleLot1('Annulation Ventes', 'Annulation de Ventes', () => const AnnulationVenteScreen(), () => const AnnulationVentesNouveau(),
+      AnnulationVentesNouveau),
+];
+
+/// Tous les modules refaits (lots 1 à 4) : leurs nouveaux écrans ne tolèrent aucun écart d'ergonomie.
+List<ModuleLot1> get modulesRefaits => [...modulesLot1, ...modulesLot2, ...modulesLot3, ...modulesLot4];
 
 /// Modules de la NOUVELLE interface (ceux de l'accueil d'origine moins « Fournisseurs ») : écran ouvert par son menu
 /// (nouvel écran pour les modules refaits, écran d'origine sinon).

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:prestige_app/models/fichier_journal_model.dart';
 import 'package:prestige_app/models/log_filtre_model.dart';
 import 'package:prestige_app/models/log_user_model.dart';
+import '../donnees/fichier_journal_donnees.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
@@ -35,18 +36,15 @@ class _FichierJournalScreenState extends State<FichierJournalScreen> with BaseSc
 
   Future<void> _fetchFilters() async {
     reessai = _fetchFilters; // « Réessayer » relance ce chargement
+    // Lectures partagées avec la nouvelle interface (lib/donnees/fichier_journal_donnees.dart).
     final results = await Future.wait([
       apiGet(AppConstants.logFiltresEndpoint),
       apiGet(AppConstants.logUsersEndpoint),
     ]);
     if (mounted) {
       setState(() {
-        if (results[0] is Map && results[0]['data'] is List) {
-          _filtres = (results[0]['data'] as List).map((item) => LogFiltre.fromJson(item)).toList();
-        }
-        if (results[1] is Map && results[1]['data'] is List) {
-          _users = (results[1]['data'] as List).map((item) => LogUser.fromJson(item)).toList();
-        }
+        _filtres = JournalDonnees.lireOperations(results[0]) ?? _filtres;
+        _users = JournalDonnees.lireUtilisateurs(results[1]) ?? _users;
       });
     }
   }
@@ -57,19 +55,12 @@ class _FichierJournalScreenState extends State<FichierJournalScreen> with BaseSc
       _logs = [];
     });
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'criteria': _selectedFiltre?.order.toString() ?? '-1',
-      'userId': _selectedUser?.lgUserID ?? '',
-      'limit': '200',
-    };
+    final logs = await apiDonnees((deco) => JournalDonnees.actions(context,
+        debut: _startDate, fin: _endDate, operation: _selectedFiltre, utilisateur: _selectedUser, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.fichierJournalEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map && data['data'] is List) {
+    if (mounted && logs != null) {
       setState(() {
-        _logs = (data['data'] as List).map((item) => FichierJournal.fromJson(item)).toList();
+        _logs = logs;
         if (_logs.isEmpty) {
           errorMessage = "Aucun log trouvé pour les critères sélectionnés.";
         }

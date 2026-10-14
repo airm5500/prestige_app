@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart'; // Importer pour les polices
 import 'package:intl/intl.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../models/vente_stat_model.dart';
-import '../models/vente_detail_model.dart';
+import '../donnees/annulation_vente_donnees.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
@@ -33,19 +33,13 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
       return;
     }
 
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'query': query,
-      'start': '0',
-      'limit': '50',
-    };
+    // Lecture partagée avec la nouvelle interface (lib/donnees/annulation_vente_donnees.dart) : mêmes paramètres.
+    final ventes = await apiDonnees(
+        (deco) => AnnulationVente.rechercher(context, debut: _startDate, fin: _endDate, recherche: query, onSessionInvalid: deco));
 
-    final data = await apiGet(AppConstants.ventesStatsEndpoint, queryParams: queryParams);
-
-    if (mounted && data is Map<String, dynamic> && data['data'] is List) {
+    if (mounted && ventes != null) {
       setState(() {
-        _ventes = (data['data'] as List).map((item) => VenteStat.fromJson(item)).toList();
+        _ventes = ventes;
         if (_ventes.isEmpty) {
           errorMessage = "Aucune vente trouvée pour ce numéro sur la période.";
         }
@@ -54,10 +48,9 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
   }
 
   Future<void> _showDetails(VenteStat vente) async {
-    final detailData = await apiGet('${AppConstants.venteDetailEndpoint}/${vente.lgPREENREGISTREMENTID}');
+    final detail = await apiDonnees((deco) => AnnulationVente.detail(context, vente.lgPREENREGISTREMENTID, onSessionInvalid: deco));
 
-    if (mounted && detailData is Map<String, dynamic> && detailData['data'] is Map) {
-      final detail = VenteDetail.fromJson(detailData['data']);
+    if (mounted && detail != null) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -118,16 +111,10 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
     final data = await apiService.get(
       context,
       AppConstants.ventesStatsEndpoint,
-      queryParams: {
-        'dtStart': DateFormatter.toApiFormat(_startDate),
-        'dtEnd': DateFormatter.toApiFormat(_endDate),
-        'query': Saisie.recherche(_searchController.text),
-        'start': '0',
-        'limit': '50',
-      },
+      queryParams: AnnulationVente.parametres(debut: _startDate, fin: _endDate, recherche: _searchController.text),
     );
-    if (data is! Map || data['data'] is! List) return null;
-    final ventes = (data['data'] as List).map((item) => VenteStat.fromJson(item)).toList();
+    final ventes = AnnulationVente.lireVentes(data);
+    if (ventes == null) return null;
     if (mounted) setState(() => _ventes = ventes);
     for (final v in ventes) {
       if (v.lgPREENREGISTREMENTID == vente.lgPREENREGISTREMENTID) return v;
@@ -158,72 +145,10 @@ class _AnnulationVenteScreenState extends State<AnnulationVenteScreen> with Base
 
     setState(() => _annulationEnCours = vente.lgPREENREGISTREMENTID);
     try {
-      // 1. Relecture avant l'envoi : déjà annulée (double appui, autre poste) → aucun envoi.
-      final VenteStat? avant;
-      try {
-        avant = await _relireVente(vente);
-      } on ApiLoadException catch (e) {
-        _message("Annulation non envoyée : ${e.message}", erreur: true);
-        return;
-      }
-      if (!mounted) return;
-      if (avant != null && avant.cancel) {
-        _message("La vente N° ${vente.strREF} est déjà annulée.");
-        return;
-      }
-
-      // 2. Envoi unique (route inchangée : GET /vente/annulation/{id}).
-      dynamic result;
-      ApiLoadException? echec;
-      try {
-        result = await apiService.get(context, '${AppConstants.venteAnnulationEndpoint}/${vente.lgPREENREGISTREMENTID}');
-      } on ApiLoadException catch (e) {
-        echec = e;
-      }
-      if (!mounted) return;
-      if (echec != null && echec.nature == NatureErreur.session) {
-        _message(echec.message, erreur: true); // retour à la connexion géré globalement
-        return;
-      }
-      final sansReponse = echec != null && (echec.nature == NatureErreur.reseau || echec.nature == NatureErreur.delai);
-      if (echec != null && !sansReponse) {
-        _message("Annulation refusée : ${echec.message}", erreur: true);
-        return;
-      }
-      final accepte = result is Map && result['success'] == true;
-      if (!sansReponse && !accepte) {
-        _message(result is Map && result['msg'] != null ? "${result['msg']}" : "Erreur d'annulation de la vente", erreur: true);
-        return;
-      }
-
-      // 3. Relecture du résultat (jamais de renvoi automatique).
-      VenteStat? apres;
-      try {
-        apres = await _relireVente(vente);
-      } on ApiLoadException {
-        _message(
-          sansReponse
-              ? "Pas de réponse du serveur et état de la vente impossible à vérifier. Relancez la recherche AVANT de réessayer."
-              : "Vente annulée (réponse du serveur), mais la liste n'a pas pu être relue. Relancez la recherche.",
-          erreur: sansReponse,
-          succes: !sansReponse,
-        );
-        return;
-      }
-      if (!mounted) return;
-      final annulee = apres?.cancel ?? false;
-      if (accepte) {
-        _message(annulee ? "Vente annulée avec succès" : "Le serveur a accepté l'annulation : vérifiez la vente dans Prestige.",
-            succes: annulee, erreur: !annulee);
-      } else {
-        _message(
-          annulee
-              ? "Pas de réponse du serveur, mais la vente N° ${vente.strREF} est bien annulée (vérifié)."
-              : "Pas de réponse du serveur : la vente N° ${vente.strREF} n'est pas annulée. Vous pouvez réessayer.",
-          succes: annulee,
-          erreur: !annulee,
-        );
-      }
+      // Relecture avant, envoi unique, relecture après : déroulé partagé avec la nouvelle interface.
+      final r = await AnnulationVente.executer(context, vente, relire: () => _relireVente(vente));
+      if (r == null || !mounted) return;
+      _message(r.message, erreur: r.ton == TonResultat.erreur, succes: r.ton == TonResultat.succes);
     } finally {
       if (mounted) setState(() => _annulationEnCours = null);
     }

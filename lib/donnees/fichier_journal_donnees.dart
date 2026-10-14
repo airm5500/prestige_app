@@ -1,0 +1,57 @@
+// lib/donnees/fichier_journal_donnees.dart
+// Fichier Journal (actions des utilisateurs, LECTURE SEULE), logique COMMUNE aux deux interfaces :
+//  - opérations (filtre) : GET /common/log-filtres → « data » (strDESCRIPTION, order) ;
+//  - utilisateurs (filtre) : GET /common/users (sans paramètre, comme l'écran d'origine) → « data » (fullName, lgUSERID) ;
+//  - journal : GET /common/logs?dtStart=&dtEnd=&criteria=&userId=&limit=200 → « data » (criteria : « order » de
+//    l'opération, -1 = toutes ; userId vide = tous). Le serveur rend au plus 200 actions.
+import 'package:flutter/widgets.dart';
+
+import '../models/fichier_journal_model.dart';
+import '../models/log_filtre_model.dart';
+import '../models/log_user_model.dart';
+import '../services/api_service.dart';
+import '../utils/constants.dart';
+import '../utils/date_formatter.dart';
+
+class JournalDonnees {
+  JournalDonnees._();
+
+  /// Nombre maximal d'actions demandées (valeur d'origine).
+  static const limite = 200;
+
+  static Map<String, String> parametres({required DateTime debut, required DateTime fin, LogFiltre? operation, LogUser? utilisateur}) => {
+        'dtStart': DateFormatter.toApiFormat(debut),
+        'dtEnd': DateFormatter.toApiFormat(fin),
+        'criteria': operation?.order.toString() ?? '-1',
+        'userId': utilisateur?.lgUserID ?? '',
+        'limit': '$limite',
+      };
+
+  static List<T>? _data<T>(dynamic data, T Function(Map<String, dynamic>) lire) =>
+      data is Map && data['data'] is List ? (data['data'] as List).map((i) => lire(Map<String, dynamic>.from(i as Map))).toList() : null;
+
+  static List<LogFiltre>? lireOperations(dynamic data) => _data(data, LogFiltre.fromJson);
+  static List<LogUser>? lireUtilisateurs(dynamic data) => _data(data, LogUser.fromJson);
+  static List<FichierJournal>? lireActions(dynamic data) => _data(data, FichierJournal.fromJson);
+
+  static Future<List<LogFiltre>?> operations(BuildContext context, {VoidCallback? onSessionInvalid}) async =>
+      lireOperations(await ApiService().get(context, AppConstants.logFiltresEndpoint, onSessionInvalid: onSessionInvalid));
+
+  static Future<List<LogUser>?> utilisateurs(BuildContext context, {VoidCallback? onSessionInvalid}) async =>
+      lireUtilisateurs(await ApiService().get(context, AppConstants.logUsersEndpoint, onSessionInvalid: onSessionInvalid));
+
+  static Future<List<FichierJournal>?> actions(BuildContext context,
+          {required DateTime debut, required DateTime fin, LogFiltre? operation, LogUser? utilisateur, VoidCallback? onSessionInvalid}) async =>
+      lireActions(await ApiService().get(context, AppConstants.fichierJournalEndpoint,
+          queryParams: parametres(debut: debut, fin: fin, operation: operation, utilisateur: utilisateur), onSessionInvalid: onSessionInvalid));
+
+  /// Recherche LOCALE (nouvelle interface, aucune requête) : description, type d'action ou utilisateur.
+  static List<FichierJournal> filtrer(List<FichierJournal> actions, String recherche) {
+    final q = recherche.toLowerCase();
+    if (q.isEmpty) return actions;
+    return [
+      for (final a in actions)
+        if (a.description.toLowerCase().contains(q) || a.typeLog.toLowerCase().contains(q) || a.userFullName.toLowerCase().contains(q)) a,
+    ];
+  }
+}

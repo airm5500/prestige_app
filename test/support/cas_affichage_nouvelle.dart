@@ -26,6 +26,7 @@ import 'faux_serveur_prestige.dart';
 import 'nouvelle_interface.dart';
 import 'cas_lot2.dart';
 import 'cas_lot3.dart';
+import 'cas_lot4.dart';
 
 /// [ouvrir] dans la nouvelle interface, présentation [p] (données de l'accueil A fournies par le serveur).
 Future<void> Function(WidgetTester, FauxServeurPrestige) enNouvelle(Future<void> Function(WidgetTester, FauxServeurPrestige) ouvrir,
@@ -97,6 +98,7 @@ final casAffichageNouvelle = <CasAffichage>[
   ...casLot1,
   ...casLot2,
   ...casLot3,
+  ...casLot4,
 ];
 
 /// États supplémentaires des modules d'origine encore ouverts dans la nouvelle interface (ceux d'Analyse et de Fiche

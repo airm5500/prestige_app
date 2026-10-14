@@ -7,7 +7,8 @@
 // lot 1 (Rapport d'Activité, Détail CA, Analyse Article, Fiche Article, Suivi Péremption, Suivi Crédit) et lot 2,
 // achats et stock (Suggestions, État de Stock, Visualisation BL, État Contrôle Achat, Retours fournisseurs,
 // Évolution stock, Analyse Saisies BL, Suivi Ajustements) et lot 3, analyses (Tableau : Analyses, Tableau : Ratios,
-// Suivi 20/80, Stat TVA, Marge Produits Vendus, CA Crédit, CA Global). Nouveaux menus réservés à l'administrateur et au
+// Suivi 20/80, Stat TVA, Marge Produits Vendus, CA Crédit, CA Global) et lot 4, le reste (Récap de caisse, Achats Fourn.,
+// Fichier Journal, Annulation Ventes ; seule Présences garde son écran, déjà refait). Nouveaux menus réservés à l'administrateur et au
 // pharmacien : vague 1 (vague1/), vague 2 (vague2/), vague 3 (vague3/ : Pointage BL, Avis, Rappels traitement).
 // « Fournisseurs » (liste des fournisseurs) n'est plus proposé dans la nouvelle interface (demande du
 // pharmacien) ; il reste dans l'ancienne.
@@ -15,13 +16,11 @@ import 'package:flutter/material.dart';
 
 import '../presences/presences_screen.dart';
 import '../providers/home_settings_provider.dart';
-import '../screens/achats_fournisseurs_screen.dart';
-import '../screens/annulation_vente_screen.dart';
-import '../screens/fichier_journal_screen.dart';
-import '../screens/recap_caisse_screen.dart';
 import 'charte.dart';
+import 'modules/achats_fournisseurs_nouveau.dart';
 import 'modules/ajustements_nouveau.dart';
 import 'modules/analyse_bl_nouveau.dart';
+import 'modules/annulation_ventes_nouveau.dart';
 import 'modules/articles_nouveau.dart';
 import 'modules/ca_credit_nouveau.dart';
 import 'modules/ca_global_nouveau.dart';
@@ -29,8 +28,10 @@ import 'modules/controle_achat_nouveau.dart';
 import 'modules/detail_ca_nouveau.dart';
 import 'modules/etat_stock_nouveau.dart';
 import 'modules/evolution_stock_nouveau.dart';
+import 'modules/fichier_journal_nouveau.dart';
 import 'modules/marge_produits_nouveau.dart';
 import 'modules/rapport_activite_nouveau.dart';
+import 'modules/recap_caisse_nouveau.dart';
 import 'modules/retours_fournisseurs_nouveau.dart';
 import 'modules/stat_tva_nouveau.dart';
 import 'modules/suivi_2080_nouveau.dart';
@@ -126,11 +127,11 @@ final menusModules = <MenuModule>[
   MenuModule('CA Global', 'Chiffre d\'affaires jour par jour', Icons.receipt_long_outlined, Famille.ventes, Question.vendu,
       () => const CaGlobalNouveau()),
   MenuModule('Récap de caisse', 'Encaissements par caissier et période', Icons.point_of_sale_outlined, Famille.ventes,
-      Question.vendu, () => const RecapCaisseScreen()),
+      Question.vendu, () => const RecapCaisseNouveau()),
   MenuModule('Rapport d\'Activité', 'Synthèse ventes, achats, règlements', Icons.summarize_outlined, Famille.ventes,
       Question.vendu, () => const RapportActiviteNouveau()),
   MenuModule('Fichier Journal', 'Actions des utilisateurs', Icons.history_edu_outlined, Famille.equipe, Question.equipe,
-      () => const FichierJournalScreen()),
+      () => const FichierJournalNouveau()),
   MenuModule('Etat Contrôle Achat', 'Contrôle des bons sur l\'année', Icons.fact_check_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const ControleAchatNouveau()),
   MenuModule('Marge Produits Vendus', 'Marge par produit', Icons.percent_outlined, Famille.analyses, Question.vendu,
@@ -160,13 +161,13 @@ final menusModules = <MenuModule>[
   MenuModule('Suivi Ajustements', 'Corrections de stock', Icons.rule_folder_outlined, Famille.stock, Question.commander,
       () => const AjustementsNouveau()),
   MenuModule('Achats Fourn.', 'Achats par fournisseur', Icons.shopping_cart_checkout_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const AchatsFournisseursScreen()),
+      Question.fournisseurs, () => const AchatsFournisseursNouveau()),
   MenuModule('Retours Fournisseurs', 'Retours et avoirs', Icons.assignment_return_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const RetoursFournisseursNouveau()),
   MenuModule('Suggestions', 'Suggestions de commande', Icons.lightbulb_outline, Famille.stock, Question.commander,
       () => const SuggestionsNouveau()),
   MenuModule('Annulation Ventes', 'Annuler une vente (protégé)', Icons.cancel_presentation_outlined, Famille.ventes,
-      Question.vendu, () => const AnnulationVenteScreen()),
+      Question.vendu, () => const AnnulationVentesNouveau()),
   MenuModule('Etat de Stock', 'Stock par rayon et grossiste', Icons.warehouse_outlined, Famille.stock, Question.commander,
       () => const EtatStockNouveau()),
   MenuModule('Visualisation BL', 'Bons de livraison du jour', Icons.receipt_outlined, Famille.fournisseurs,

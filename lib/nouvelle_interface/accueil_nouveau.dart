@@ -18,13 +18,13 @@ import '../providers/auth_provider.dart';
 import '../providers/home_settings_provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../providers/licence_provider.dart';
-import '../screens/fichier_journal_screen.dart';
 import '../utils/constants.dart';
 import 'alertes_accueil.dart';
 import 'charte.dart';
 import 'chiffres_du_jour.dart';
 import 'composants.dart';
 import 'menus.dart';
+import 'modules/fichier_journal_nouveau.dart';
 import 'presentation.dart';
 import 'reglages_nouveaux.dart';
 import 'vague1/alertes_vague1.dart';
@@ -718,7 +718,7 @@ class OngletEquipe extends StatelessWidget {
                     icone: Icons.history_edu_outlined,
                     titre: 'Fichier Journal',
                     sousTitre: 'Actions des utilisateurs',
-                    onTap: () => ouvrir(const FichierJournalScreen())),
+                    onTap: () => ouvrir(const FichierJournalNouveau())),
               ],
             ),
           if (!presences && !journal)

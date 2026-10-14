@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/common_data_model.dart';
 import '../models/ticket_z_model.dart';
+import '../donnees/recap_caisse_donnees.dart';
 import '../services/api_service.dart';
 import '../services/journal_app.dart';
 import '../widgets/erreurs_chargement.dart';
@@ -22,7 +23,6 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
   TimeOfDay _hrEnd = const TimeOfDay(hour: 23, minute: 59);
 
   String _userId = 'ALL';
-  String _description = 'ALL';
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -41,8 +41,7 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
   Future<void> _loadUsers() async {
     if (_usersErreur != null) setState(() => _usersErreur = null);
     try {
-      final api = ApiService();
-      final fetchedUsers = await api.getUsers(context);
+      final fetchedUsers = await RecapCaisse.caissiers(context); // lecture partagée (lib/donnees/recap_caisse_donnees.dart)
       if (mounted) {
         setState(() {
           _usersList = [
@@ -78,29 +77,16 @@ class _RecapCaisseScreenState extends State<RecapCaisseScreen> {
     });
 
     try {
-      final payload = {
-        "description": _description,
-        "dtStart": _formatDate(_dtStart),
-        "dtEnd": _formatDate(_dtEnd),
-        "hrStart": _formatTime(_hrStart),
-        "hrEnd": _formatTime(_hrEnd),
-        "userId": _userId,
-      };
+      // Corps et lecture partagés avec la nouvelle interface (lib/donnees/recap_caisse_donnees.dart).
+      final payload = RecapCaisse.corps(
+          debut: _dtStart, fin: _dtEnd, heureDebut: _hrStart, heureFin: _hrEnd, userId: _userId);
 
-      final api = ApiService();
-      final response = await api.fetchTicketZ(context, payload);
+      final response = await RecapCaisse.charger(context, payload);
 
       if (mounted) {
-        if (response != null && response['data'] != null) {
-          setState(() {
-            _data = TicketZResponse.fromJson(response['data']);
-          });
-        } else {
-          // Succès mais sans données
-          setState(() {
-            _data = TicketZResponse(datas: [], totauxGlobaux: []);
-          });
-        }
+        setState(() {
+          _data = response; // réponse sans « data » : récapitulatif vide (succès sans données)
+        });
       }
     } catch (e) {
       if (mounted) {
