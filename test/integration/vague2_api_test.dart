@@ -255,8 +255,9 @@ void main() {
       expect(g!.first.id, 'GARDE-TEST-1');
       final (r, _) = await essayer(tester, () => ApiGardes.rapport(app.ctx, 'GARDE-TEST-1'));
       expect(serveur.recues('/gardes/GARDE-TEST-1/rapport').single.parametres,
-          {'heures': '2', 'tri': 'montant', 'classe': '', 'start': '0', 'limit': '25'});
-      expect(r!.abc, hasLength(25));
+          {'heures': '2', 'tri': 'montant', 'classe': '', 'start': '0', 'limit': '${ApiGardes.taillePage}'});
+      expect(ApiGardes.taillePage, 100, reason: 'pages de 100 : moins de recalculs du serveur');
+      expect(r!.abc, hasLength(100));
       final (r2, _) = await essayer(tester, () => ApiGardes.rapport(app.ctx, 'GARDE-TEST-1', heures: 1, tri: TriGarde.quantite, classe: 'A', start: 0));
       expect(serveur.recues('/gardes/GARDE-TEST-1/rapport').last.parametres['classe'], 'A');
       expect(r2!.abc.every((p) => p.classe == 'A'), isTrue);
@@ -282,7 +283,7 @@ void main() {
   group('CA emplacement / famille', () {
     testWidgets('comparatif : paramètres exacts, colonnes dynamiques ; détail d\'une ligne', (tester) async {
       final app = await connecte(tester);
-      const f = FiltresCa(regroupement: RegroupementCa.zone, grossisteId: 'GRO-TEST-1');
+      const f = FiltresCa(regroupement: RegroupementCa.zone, grossistes: ['GRO-TEST-1']);
       final (c, _) = await essayer(tester, () => ApiCaZone.comparatif(app.ctx, f));
       expect(serveur.recues(ApiCaZone.route).single.parametres,
           {'typePeriode': 'TROIS_SEMAINES', 'regroupement': 'ZONE', 'zoneId': '', 'familleId': '', 'grossisteId': 'GRO-TEST-1'});

@@ -147,6 +147,33 @@ clients nouveaux (`GET /avis-clients/nombre?statut=NOUVEAU`) et les BL non point
 (`GET /pointage-bl/nombre?etat=NON_POINTES&du=&au=`). Exigences : `SELECT COUNT(*)` seul, mêmes filtres et même
 session que la route de liste, mêmes réponses d'erreur.
 
+## 8. Prévisions : les lectures réécrivent la colonne « en cours de commande » (`rafraichirEnCours`)
+
+**Constat** (version 3.2.1+30 de l'application, branche `claude/new-session-xm8ptu`). La mise à jour de la colonne
+« en cours » de `t_prevision_produit` n'est **pas** une route appelée par l'application : c'est le serveur qui la
+fait **à l'intérieur des routes de lecture**. `PrevisionCommandeServiceImpl.rafraichirEnCours(emplacement)` est appelé
+au début de `tableau()` (`GET /analyse-commande/tableau`), `previsions()` (`GET /analyse-commande/previsions`, donc
+**à chaque page « Afficher plus »**), `toutes()` (exports), `produit()` (`GET /analyse-commande/produit/{id}`) et
+`analyser()` (`GET /analyse-commande/analyse`). À chaque appel : relecture de toutes les commandes en cours
+(`enCoursCommandes()`), lecture de toutes les lignes de prévision de l'emplacement, puis un `UPDATE` par produit
+dont l'en-cours a changé (avec recalcul de la quantité recommandée et de la couverture). Le poste web fait de même :
+l'application ne peut pas l'éviter, elle peut seulement éviter les appels inutiles (ce qu'elle fait déjà : aucune
+lecture à l'ouverture des onglets secondaires, pages à la demande).
+
+**Demande.** Ne refaire ce rafraîchissement que s'il n'a pas déjà été fait récemment :
+
+- mémoriser par emplacement l'heure du dernier rafraîchissement (champ en mémoire du service ou colonne
+  `dt_EN_COURS` dans `t_prevision_calcul`) et **ne rien faire s'il date de moins de X minutes** (paramètre
+  `KEY_PREVISION_EN_COURS_MINUTES`, 15 par défaut, 0 = comportement actuel) ;
+- le refaire de toute façon après une écriture qui change les en-cours (création / réception / suppression d'une
+  commande : on peut simplement remettre l'heure mémorisée à zéro à ces endroits) ;
+- exposer cette heure dans `GET /analyse-commande/tableau` (`"enCoursAJour": "14/10/2026 09:42"`) : l'écran
+  pourra afficher « En cours de commande mis à jour à 09:42 » ;
+- éventuellement `?rafraichir=1` pour forcer le rafraîchissement (bouton ⟳ de l'écran).
+
+Lecture seule pour l'application : aucun changement de format de réponse n'est nécessaire, la demande est
+rétrocompatible.
+
 ---
 
 **Côté application, une fois ces points livrés** : la vague « écritures » (ajustement, retour fournisseur, commande

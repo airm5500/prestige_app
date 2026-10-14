@@ -203,6 +203,10 @@ void main() {
     await onglet(tester, 'À suivre');
     await attendreWidget(tester, find.byKey(const Key('pilotage_a_suivre')));
     expect(serveur.recues('/pilotage/onglet/asuivre').single.parametres, {'axe': 'VS_M1'});
+    // Taux de rupture en hausse : flèche vers le haut (sens réel) mais « défavorable » (couleurs inversées).
+    await attendreWidget(tester, find.byKey(const Key('variation_tauxRupture')));
+    expect(find.descendant(of: find.byKey(const Key('variation_tauxRupture')), matching: find.byIcon(Icons.arrow_upward)), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('variation_tauxRupture')), matching: find.textContaining('défavorable')), findsOneWidget);
     expect(find.text('PRODUIT A PERTE FICTIF'), findsOneWidget);
 
     await toucher(tester, find.byKey(const Key('pilotage_controler')), defilement: find.byKey(const Key('defilement_pilotage')));
@@ -239,12 +243,12 @@ void main() {
     await onglet(tester, 'Produits');
     await attendreWidget(tester, find.byKey(const Key('garde_produits_total')));
     await toucher(tester, find.byKey(const Key('bouton_afficher_plus')), defilement: find.byKey(const Key('defilement_garde_produits')));
-    await attendreQue(tester, () => serveur.recues('/gardes/GARDE-TEST-1/rapport').last.parametres['start'] == '25', raison: 'page suivante');
+    await attendreQue(tester, () => serveur.recues('/gardes/GARDE-TEST-1/rapport').last.parametres['start'] == '100', raison: 'page suivante (pages de 100)');
     await toucher(tester, find.byKey(const Key('tri_quantite')), defilement: find.byKey(const Key('defilement_garde_produits')));
     await attendreQue(tester, () => serveur.recues('/gardes/GARDE-TEST-1/rapport').last.parametres['tri'] == 'quantite', raison: 'tri');
     await toucher(tester, find.byKey(const Key('classe_A')), defilement: find.byKey(const Key('defilement_garde_produits')));
     await attendreQue(tester, () => serveur.recues('/gardes/GARDE-TEST-1/rapport').last.parametres['classe'] == 'A', raison: 'classe');
-    await attendreTexte(tester, '5 produits en classe A sur 30');
+    await attendreTexte(tester, '5 produits en classe A sur 130');
 
     expect(serveur.recues('/gardes/GARDE-TEST-1/vendeurs'), isEmpty);
     await onglet(tester, 'Vendeurs');

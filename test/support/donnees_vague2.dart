@@ -210,6 +210,9 @@ class DonneesVague2 {
           {'cle': 'rupturesVendus', 'libelle': 'Produits vendus en rupture', 'valeur': 7, 'unite': '', 'sousTitre': 'vendus ces 90 derniers jours, stock à zéro aujourd\'hui', 'alerte': true},
           {'cle': 'rateesACommander', 'libelle': 'Ventes ratées à commander', 'valeur': 3, 'unite': ''},
           {'cle': 'margeNegative', 'libelle': 'Vendus sous le prix d\'achat', 'valeur': 1, 'unite': '', 'alerte': true},
+          // Taux de rupture : une HAUSSE est défavorable (couleurs inversées dans l'application).
+          {'cle': 'tauxRupture', 'libelle': 'Taux de rupture', 'valeur': 4.2, 'unite': '%',
+            if (axe == 'VS_M1' || axe == 'VS_N1' || axe == 'YTD') ...{'reference': 3.0, 'variation': 40.0, 'ecart': 1.2, 'libelleReference': 'septembre 2026'}},
         ],
         'alertes': [
           {'niveau': 'critique', 'texte': '7 produit(s) vendu(s) ces 90 derniers jours sont en rupture : à commander.'},
@@ -250,7 +253,8 @@ class DonneesVague2 {
             : [garde('GARDE-TEST-0', 'Garde de décembre', '2025-12-24 20:00', '2025-12-25 08:00')],
       };
 
-  static const nombreProduitsGarde = 30;
+  /// Plus d'une page de 100 (Afficher plus).
+  static const nombreProduitsGarde = 130;
 
   static Map<String, Object?> rapport(Map<String, String> p) {
     final classe = p['classe'] ?? '';
@@ -258,7 +262,7 @@ class DonneesVague2 {
       for (var i = 1; i <= nombreProduitsGarde; i++)
         {
           'produitId': 'PG-$i', 'classe': i <= 5 ? 'A' : (i <= 12 ? 'B' : 'C'), 'cip': '44400${i.toString().padLeft(2, '0')}',
-          'libelle': 'PRODUIT DE GARDE FICTIF $i', 'quantite': 40 - i, 'montant': (40 - i) * 1000, 'marge': (40 - i) * 300, 'tauxMarge': 30.0,
+          'libelle': 'PRODUIT DE GARDE FICTIF $i', 'quantite': 140 - i, 'montant': (140 - i) * 1000, 'marge': (140 - i) * 300, 'tauxMarge': 30.0,
           'part': 3.3, 'cumulPart': 3.3 * i, 'stock': i,
         },
     ];
@@ -321,7 +325,11 @@ class DonneesVague2 {
     final base = [('ZONE-TEST-1', 'RAYON A', 'FAM-TEST-1', 'ANTALGIQUES FICTIFS', 100000), ('ZONE-TEST-2', 'RAYON B', 'FAM-TEST-2', 'SIROPS IMAGINAIRES', 60000)];
     final totaux = <String, int>{};
     for (final (zid, z, fid, f, m) in base) {
-      if ((p['zoneId'] ?? '').isNotEmpty && p['zoneId'] != zid) continue;
+      // Choix multiple (comme le serveur, util.FiltreListe) : identifiants séparés par des virgules, vide / ALL = tous.
+      final zonesChoisies = [for (final x in (p['zoneId'] ?? '').split(',')) if (x.trim().isNotEmpty && x.trim() != 'ALL') x.trim()];
+      final famillesChoisies = [for (final x in (p['familleId'] ?? '').split(',')) if (x.trim().isNotEmpty && x.trim() != 'ALL') x.trim()];
+      if (zonesChoisies.isNotEmpty && !zonesChoisies.contains(zid)) continue;
+      if (famillesChoisies.isNotEmpty && !famillesChoisies.contains(fid)) continue;
       final l = <String, Object?>{
         'zoneId': reg == 'FAMILLE' ? '' : zid, 'zone': reg == 'FAMILLE' ? '' : z, 'familleId': reg == 'ZONE' ? '' : fid, 'famille': reg == 'ZONE' ? '' : f,
         'libelle': reg == 'FAMILLE' ? f : z, 'montantHt': 0, 'achat': 0, 'tva': 0, 'marge': m ~/ 3, 'pourcentageMarge': 30.5,

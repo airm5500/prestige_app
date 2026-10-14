@@ -165,6 +165,17 @@ void main() {
     final c = ComparatifCa.depuis(Map<String, dynamic>.from(DonneesVague2.caZone({'typePeriode': 'TROIS_MOIS', 'regroupement': 'ZONE'})));
     await ouvrir(tester, CaLigneDetailScreen(filtres: const FiltresCa(type: TypePeriodeCa.troisMois), ligne: c.lignes.first, tranches: c.tranches));
     await photo(tester, '15_ca_detail_ligne');
+    await retour(tester);
+
+    // 17. CA : filtres à choix multiple (cases à cocher, « Tout » / « Aucun », compteur).
+    await ouvrir(tester, const CaZoneScreen());
+    await tester.tap(find.byKey(const Key('bouton_filtres')));
+    await pomper(tester, fois: 15);
+    await tester.tap(find.byKey(const Key('multi_emplacement')));
+    await pomper(tester, fois: 4);
+    await tester.tap(find.byKey(const Key('multi_emplacement_ZONE-TEST-1')));
+    await pomper(tester, fois: 4);
+    await photo(tester, '17_ca_filtres_choix_multiple');
     await fin(tester);
 
     // 16. Tablette : CA en tableau dense (colonnes dynamiques) et menu latéral avec Pilotage.

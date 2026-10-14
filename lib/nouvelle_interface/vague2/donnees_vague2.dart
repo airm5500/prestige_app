@@ -9,7 +9,7 @@
 //    /pilotage/onglet/synthese|asuivre?axe=&dtStart=&dtEnd=, et /pilotage/controler (écrit en base : seulement sur
 //    le bouton « Contrôler les chiffres », après confirmation) ;
 //  - Analyse de garde (web « gardemanager », session seulement) : /gardes/annees, /gardes?annee=,
-//    /gardes/{id}/rapport?heures=&tri=&classe=&start=&limit=, /gardes/{id}/vendeurs ;
+//    /gardes/{id}/rapport?heures=&tri=&classe=&start=&limit=100, /gardes/{id}/vendeurs ;
 //  - CA emplacement / famille (web « cazonegeomanager », session seulement) : /ca-zone-geo et /ca-zone-geo/detail.
 // JAMAIS appelées depuis le mobile (écritures ou calculs lourds) : [routesInterditesVague2].
 // Lecture TOLÉRANTE (outils de la vague 1) ; « success:false » : droit manquant si le message parle d'accès / de
@@ -833,6 +833,77 @@ class ChoixAxe {
   int get hashCode => Object.hash(axe, debut, fin);
 }
 
+/// Sens d'un indicateur : une hausse est-elle une bonne ou une mauvaise nouvelle ?
+enum SensIndicateur {
+  /// Une hausse est favorable (chiffre d'affaires, marge, ventes…).
+  hausseFavorable,
+
+  /// Une hausse est défavorable (ruptures, stock négatif, dormant, crédits, remises, annulations…).
+  hausseDefavorable,
+
+  /// Ni l'un ni l'autre (achats, valeur du stock, part tiers payant…) : flèche et texte, sans jugement.
+  neutre,
+}
+
+/// Sens de chaque tuile de /pilotage/onglet/* (clés « cle » de PilotageService, serveur claude/new-session-xm8ptu).
+/// Le web (PilotageManager.js : sens() = hausse / baisse / plat) ne qualifie pas les variations : la table est donc
+/// établie ici, indicateur par indicateur. Clé inconnue : neutre (on ne juge pas ce qu'on ne connaît pas).
+const sensIndicateurs = <String, SensIndicateur>{
+  // Ventes et marge : une hausse est favorable.
+  'caTTC': SensIndicateur.hausseFavorable,
+  'caHT': SensIndicateur.hausseFavorable,
+  'ca': SensIndicateur.hausseFavorable,
+  'marge': SensIndicateur.hausseFavorable,
+  'tauxMarge': SensIndicateur.hausseFavorable,
+  'nbVentes': SensIndicateur.hausseFavorable,
+  'panier': SensIndicateur.hausseFavorable,
+  'evolPanier': SensIndicateur.hausseFavorable,
+  'ratioVA': SensIndicateur.hausseFavorable,
+  'ratio': SensIndicateur.hausseFavorable,
+  'ecart': SensIndicateur.hausseFavorable, // écart ventes − achats
+  'rotation': SensIndicateur.hausseFavorable, // rotation du stock
+  'encaisse': SensIndicateur.hausseFavorable,
+  'tpRegle': SensIndicateur.hausseFavorable, // tiers payant réglé (créances encaissées)
+  // Une hausse est défavorable.
+  'tauxRupture': SensIndicateur.hausseDefavorable,
+  'ruptures': SensIndicateur.hausseDefavorable,
+  'rupturesVendus': SensIndicateur.hausseDefavorable,
+  'sousSeuil': SensIndicateur.hausseDefavorable,
+  'negatifs': SensIndicateur.hausseDefavorable,
+  'dormant': SensIndicateur.hausseDefavorable,
+  'peremption': SensIndicateur.hausseDefavorable,
+  'margeNegative': SensIndicateur.hausseDefavorable,
+  'rateesACommander': SensIndicateur.hausseDefavorable,
+  'remises': SensIndicateur.hausseDefavorable,
+  'tauxRemise': SensIndicateur.hausseDefavorable,
+  'credit': SensIndicateur.hausseDefavorable, // porté à crédit (impayés)
+  'annulees': SensIndicateur.hausseDefavorable,
+  'sansPrix': SensIndicateur.hausseDefavorable,
+  'sansRayon': SensIndicateur.hausseDefavorable,
+  'sansSeuil': SensIndicateur.hausseDefavorable,
+  // Neutres : dépendent du contexte (acheter plus n'est ni bien ni mal, etc.).
+  'achats': SensIndicateur.neutre,
+  'achatTTC': SensIndicateur.neutre,
+  'achat': SensIndicateur.neutre,
+  'nbBons': SensIndicateur.neutre,
+  'achatMoyen': SensIndicateur.neutre,
+  'coutAchat': SensIndicateur.neutre,
+  'tiersPayant': SensIndicateur.neutre,
+  'partTiersPayant': SensIndicateur.neutre,
+  'tpFacture': SensIndicateur.neutre,
+  'valeurAchat': SensIndicateur.neutre,
+  'valeurVente': SensIndicateur.neutre,
+  'frequentation': SensIndicateur.neutre,
+};
+
+SensIndicateur sensIndicateur(String cle) => sensIndicateurs[cle.trim()] ?? SensIndicateur.neutre;
+
+/// Lecture d'une variation : favorable (true), défavorable (false) ou sans jugement (null : neutre, nulle, absente).
+bool? variationFavorable(double? variation, SensIndicateur sens) {
+  if (variation == null || variation == 0 || sens == SensIndicateur.neutre) return null;
+  return (variation > 0) == (sens == SensIndicateur.hausseFavorable);
+}
+
 class TuilePilotage {
   final String cle;
   final String libelle;
@@ -870,6 +941,8 @@ class TuilePilotage {
   /// Valeur avec son unité (« 1 245 300 F », « 32,5 % », « 1,8 »).
   String get valeurTexte => valeurAvecUnite(valeur, unite);
   String? get referenceTexte => reference == null ? null : valeurAvecUnite(reference!, unite);
+
+  SensIndicateur get sens => sensIndicateur(cle);
 }
 
 String valeurAvecUnite(double v, String unite) {
@@ -1175,7 +1248,9 @@ class ApiGardes {
   static const routeAnnees = '/gardes/annees';
   static String routeRapport(String id) => '/gardes/${Uri.encodeComponent(id)}/rapport';
   static String routeVendeurs(String id) => '/gardes/${Uri.encodeComponent(id)}/vendeurs';
-  static const taillePage = 25;
+  /// Pages de 100 produits (et non 25) : le serveur recalcule toute l'analyse à chaque page demandée
+  /// (GardeRessource : calcul complet puis découpe start / limit) ; moins de pages = moins de recalculs.
+  static const taillePage = 100;
 
   /// Largeurs de tranche horaire proposées (heures).
   static const heuresPossibles = [1, 2, 3, 4];
@@ -1194,14 +1269,16 @@ class ApiGardes {
   }
 
   /// Paramètres du rapport, contrôlés (heures 1 à 4, classe A / B / C ou vide, tri connu).
-  static Map<String, String> parametresRapport({int heures = 2, TriGarde tri = TriGarde.montant, String classe = '', int start = 0}) {
+  static Map<String, String> parametresRapport({int heures = 2, TriGarde tri = TriGarde.montant, String classe = '', int start = 0, int limit = taillePage}) {
     if (!heuresPossibles.contains(heures)) throw ArgumentError.value(heures, 'heures');
     if (!classes.contains(classe)) throw ArgumentError.value(classe, 'classe');
-    return {'heures': '$heures', 'tri': tri.code, 'classe': classe, 'start': '${start < 0 ? 0 : start}', 'limit': '$taillePage'};
+    return {'heures': '$heures', 'tri': tri.code, 'classe': classe, 'start': '${start < 0 ? 0 : start}', 'limit': '${limit.clamp(1, taillePage)}'};
   }
 
-  static Future<RapportGarde> rapport(BuildContext context, String id, {int heures = 2, TriGarde tri = TriGarde.montant, String classe = '', int start = 0}) async {
-    final j = await ApiVague2.get(context, routeRapport(id), parametresRapport(heures: heures, tri: tri, classe: classe, start: start), 'l\'analyse de la garde');
+  static Future<RapportGarde> rapport(BuildContext context, String id,
+      {int heures = 2, TriGarde tri = TriGarde.montant, String classe = '', int start = 0, int limit = taillePage}) async {
+    final j = await ApiVague2.get(
+        context, routeRapport(id), parametresRapport(heures: heures, tri: tri, classe: classe, start: start, limit: limit), 'l\'analyse de la garde');
     return ApiVague2.lire(() => RapportGarde.depuis(j), 'l\'analyse de la garde');
   }
 
@@ -1237,39 +1314,56 @@ enum RegroupementCa {
   const RegroupementCa(this.code, this.libelle);
 }
 
+/// Choix multiple d'identifiants (emplacements, familles, grossistes cochés), envoyé comme le web depuis le 13/10 :
+/// identifiants séparés par des virgules (serveur : util.FiltreListe, vide ou « ALL » = pas de filtre, 500 au plus).
+/// Vide = aucun filtre (« Tous ») ; tout cocher revient aussi à ne pas filtrer (voir [FiltresCa.normaliser]).
+String idsSepares(Iterable<String> ids) => {for (final i in ids) if (i.trim().isNotEmpty) i.trim()}.join(',');
+
 class FiltresCa {
   final TypePeriodeCa type;
   final DateTime? debut;
   final DateTime? fin;
   final RegroupementCa regroupement;
-  final String zoneId;
-  final String familleId;
-  final String grossisteId;
+  final List<String> zones;
+  final List<String> familles;
+  final List<String> grossistes;
   const FiltresCa({
     this.type = TypePeriodeCa.troisSemaines,
     this.debut,
     this.fin,
     this.regroupement = RegroupementCa.zone,
-    this.zoneId = '',
-    this.familleId = '',
-    this.grossisteId = '',
+    this.zones = const [],
+    this.familles = const [],
+    this.grossistes = const [],
   });
 
-  FiltresCa copie({TypePeriodeCa? type, DateTime? debut, DateTime? fin, RegroupementCa? regroupement, String? zoneId, String? familleId, String? grossisteId}) =>
+  FiltresCa copie({TypePeriodeCa? type, DateTime? debut, DateTime? fin, RegroupementCa? regroupement, List<String>? zones, List<String>? familles, List<String>? grossistes}) =>
       FiltresCa(
         type: type ?? this.type,
         debut: debut ?? this.debut,
         fin: fin ?? this.fin,
         regroupement: regroupement ?? this.regroupement,
-        zoneId: zoneId ?? this.zoneId,
-        familleId: familleId ?? this.familleId,
-        grossisteId: grossisteId ?? this.grossisteId,
+        zones: zones ?? this.zones,
+        familles: familles ?? this.familles,
+        grossistes: grossistes ?? this.grossistes,
       );
+
+  /// Paramètres envoyés (« Z1,Z2 »).
+  String get zoneId => idsSepares(zones);
+  String get familleId => idsSepares(familles);
+  String get grossisteId => idsSepares(grossistes);
+
+  /// Choix « tout coché » ramené à « aucun filtre » (même résultat, URL courte, sous la borne de 500 du serveur).
+  static List<String> normaliser(List<String> choisis, List<String>? toutes) {
+    final c = {for (final i in choisis) if (i.trim().isNotEmpty) i.trim()};
+    if (toutes != null && toutes.isNotEmpty && toutes.every(c.contains)) return const [];
+    return c.toList();
+  }
 
   /// Calcul long (3 ans, ou période libre de plus d'un an) : délai plus long, indication pendant le chargement.
   bool get long => type == TypePeriodeCa.troisAns || (type == TypePeriodeCa.libre && debut != null && fin != null && fin!.difference(debut!).inDays > 366);
 
-  int get actifs => (zoneId.isEmpty ? 0 : 1) + (familleId.isEmpty ? 0 : 1) + (grossisteId.isEmpty ? 0 : 1);
+  int get actifs => (zones.isEmpty ? 0 : 1) + (familles.isEmpty ? 0 : 1) + (grossistes.isEmpty ? 0 : 1);
 
   String? erreur(DateTime maintenant) {
     if (type != TypePeriodeCa.libre) return null;

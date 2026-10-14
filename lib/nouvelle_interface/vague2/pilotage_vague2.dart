@@ -4,8 +4,9 @@
 //  - onglets internes « Synthèse » et « À suivre » (GET /pilotage/onglet/synthese|asuivre?axe=&dtStart=&dtEnd=) ;
 //  - axe de comparaison (GET /pilotage/axes : MOIS, VS_M1, VS_N1, YTD, G12, PERSO) ; PERSO : dates contrôlées
 //    (début ≤ fin, rien dans le futur, 3 ans au plus) ;
-//  - tuiles : valeur, unité, référence et variation (flèche + « Hausse / Baisse » + couleur, jamais la couleur
-//    seule).
+//  - tuiles : valeur, unité, référence et variation : la flèche suit le sens réel (hausse / baisse) ; couleur et
+//    texte « favorable / défavorable » selon l'indicateur (sensIndicateurs : couleurs inversées quand une hausse est
+//    mauvaise, gris sans jugement pour les indicateurs neutres), jamais la couleur seule.
 // JAMAIS appelés : /pilotage/recalculer, POST /pilotage/charges. /pilotage/controler ÉCRIT en base (vérifie les
 // mois affichés et recalcule ceux qui ont changé) : le web l'appelle à l'ouverture du menu et sur « Actualiser » ;
 // sur le mobile, SEULEMENT par le bouton « Contrôler les chiffres », après confirmation, un appui à la fois.
@@ -267,7 +268,7 @@ class TuileIndicateur extends StatelessWidget {
             child: Text(t.valeurTexte, key: Key('valeur_${t.cle}'), maxLines: 1, style: const TextStyle(color: Charte.encre, fontSize: 19, fontWeight: FontWeight.w800)),
           ),
           if (t.reference != null) ...[
-            Variation(t.variation, key: Key('variation_${t.cle}'), compacte: true),
+            Variation(t.variation, key: Key('variation_${t.cle}'), sens: t.sens, compacte: true),
             Text('${t.libelleReference.isEmpty ? 'Réf.' : t.libelleReference} : ${t.referenceTexte}',
                 maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Charte.gris, fontSize: 12)),
           ],

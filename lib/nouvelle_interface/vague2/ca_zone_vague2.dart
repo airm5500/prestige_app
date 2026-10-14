@@ -5,8 +5,10 @@
 //    contrôlées : début ≤ fin, rien dans le futur, 3 ans au plus). 3 ans (ou période libre de plus d'un an) est un
 //    choix normal : indication discrète pendant le chargement, « Annuler », délai d'attente plus long mais borné,
 //    jamais de relance automatique ;
-//  - regroupement Emplacement / Famille / Emplacement et famille, filtres emplacement, famille, grossiste (feuille
-//    des filtres ; listes /common/rayons, /common/famillearticles, /common/grossiste) ;
+//  - regroupement Emplacement / Famille / Emplacement et famille, filtres emplacement, famille, grossiste à CHOIX
+//    MULTIPLE (cases à cocher, « Tout » / « Aucun », compteur ; feuille des filtres ; listes /common/rayons,
+//    /common/famillearticles, /common/grossiste), envoyés comme le web : identifiants séparés par des virgules
+//    (« Z1,Z2 ») ; aucun coché ou tout coché = aucun filtre (paramètre vide) ;
 //  - colonnes dynamiques t_<cle> (montant), q_<cle> (quantité), e_<cle> (évolution) par tranche : une carte par
 //    ligne sur téléphone (tranches en liste, évolution en flèche + texte), tableau dense sur tablette ; totaux
 //    généraux en cartes ;
@@ -115,7 +117,7 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
     final ok = await ouvrirFeuilleFiltres(
       context,
       titre: 'Regroupement et filtres',
-      effacer: () => f = f.copie(regroupement: RegroupementCa.zone, zoneId: '', familleId: '', grossisteId: ''),
+      effacer: () => f = f.copie(regroupement: RegroupementCa.zone, zones: const [], familles: const [], grossistes: const []),
       contenu: (ctx, setState) => ValueListenableBuilder<int>(
         valueListenable: _versionOptions,
         builder: (_, __, ___) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -128,43 +130,54 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
             onChanged: (r) => setState(() => f = f.copie(regroupement: r)),
           ),
           const SizedBox(height: 14),
-          ChoixListe(
+          ChoixMultiple(
             key: const Key('filtre_emplacement'),
-            libelle: 'Emplacement',
+            cle: 'emplacement',
+            libelle: 'Emplacements',
             icone: Icons.shelves,
             options: _options[ApiVague2.routeRayons],
             erreur: _erreursOptions[ApiVague2.routeRayons],
-            valeur: f.zoneId,
-            tous: 'Tous les emplacements',
-            onChanged: (v) => setState(() => f = f.copie(zoneId: v)),
+            valeurs: f.zones,
+            onChanged: (v) => setState(() => f = f.copie(zones: v)),
           ),
           const SizedBox(height: 12),
-          ChoixListe(
+          ChoixMultiple(
             key: const Key('filtre_famille'),
-            libelle: 'Famille',
+            cle: 'famille',
+            libelle: 'Familles',
             icone: Icons.category_outlined,
             options: _options[ApiVague2.routeFamilles],
             erreur: _erreursOptions[ApiVague2.routeFamilles],
-            valeur: f.familleId,
-            tous: 'Toutes les familles',
-            onChanged: (v) => setState(() => f = f.copie(familleId: v)),
+            valeurs: f.familles,
+            onChanged: (v) => setState(() => f = f.copie(familles: v)),
           ),
           const SizedBox(height: 12),
-          ChoixListe(
+          ChoixMultiple(
             key: const Key('filtre_grossiste'),
-            libelle: 'Grossiste',
+            cle: 'grossiste',
+            libelle: 'Grossistes',
             icone: Icons.local_shipping_outlined,
             options: _options[ApiVague2.routeGrossistes],
             erreur: _erreursOptions[ApiVague2.routeGrossistes],
-            valeur: f.grossisteId,
-            tous: 'Tous les grossistes',
-            onChanged: (v) => setState(() => f = f.copie(grossisteId: v)),
+            valeurs: f.grossistes,
+            onChanged: (v) => setState(() => f = f.copie(grossistes: v)),
           ),
         ]),
       ),
     );
-    if (ok && mounted) _appliquer(f);
+    if (ok && mounted) {
+      List<String>? ids(String route) => _options[route]?.map((o) => o.id).toList();
+      _appliquer(f.copie(
+        zones: FiltresCa.normaliser(f.zones, ids(ApiVague2.routeRayons)),
+        familles: FiltresCa.normaliser(f.familles, ids(ApiVague2.routeFamilles)),
+        grossistes: FiltresCa.normaliser(f.grossistes, ids(ApiVague2.routeGrossistes)),
+      ));
+    }
   }
+
+  /// « Emplacement : RAYON A » (un seul) ou « Emplacements : 3 sélectionnés ».
+  String _etiquette(String singulier, String pluriel, String route, List<String> ids) =>
+      ids.length == 1 ? '$singulier : ${_libelleOption(route, ids.single)}' : '$pluriel : ${ids.length} sélectionnés';
 
   String _libelleOption(String route, String id) => (_options[route] ?? const <OptionListe>[]).where((o) => o.id == id).firstOrNull?.libelle ?? id;
 
@@ -205,12 +218,12 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
         ),
         if (_filtres.actifs > 0)
           Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            if (_filtres.zoneId.isNotEmpty) Etiquette('Emplacement : ${_libelleOption(ApiVague2.routeRayons, _filtres.zoneId)}'),
-            if (_filtres.familleId.isNotEmpty) Etiquette('Famille : ${_libelleOption(ApiVague2.routeFamilles, _filtres.familleId)}'),
-            if (_filtres.grossisteId.isNotEmpty) Etiquette('Grossiste : ${_libelleOption(ApiVague2.routeGrossistes, _filtres.grossisteId)}'),
+            if (_filtres.zones.isNotEmpty) Etiquette(_etiquette('Emplacement', 'Emplacements', ApiVague2.routeRayons, _filtres.zones)),
+            if (_filtres.familles.isNotEmpty) Etiquette(_etiquette('Famille', 'Familles', ApiVague2.routeFamilles, _filtres.familles)),
+            if (_filtres.grossistes.isNotEmpty) Etiquette(_etiquette('Grossiste', 'Grossistes', ApiVague2.routeGrossistes, _filtres.grossistes)),
             TextButton(
               key: const Key('filtres_retirer'),
-              onPressed: () => _appliquer(_filtres.copie(zoneId: '', familleId: '', grossisteId: '')),
+              onPressed: () => _appliquer(_filtres.copie(zones: const [], familles: const [], grossistes: const [])),
               child: const Text('Retirer les filtres'),
             ),
           ]),

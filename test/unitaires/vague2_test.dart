@@ -196,19 +196,19 @@ void main() {
     });
 
     test('rapport : KPI, tranches, ABC, résumé ; « indicateurs » si « kpi » absent', () {
-      final r = RapportGarde.depuis(DonneesVague2.rapport({'start': '0', 'limit': '25'}));
+      final r = RapportGarde.depuis(DonneesVague2.rapport({'start': '0', 'limit': '100'}));
       expect(r.kpi.montant, 410000);
       expect(r.kpi.caMobile, 85000);
       expect(r.tranches, hasLength(6));
-      expect(r.abc, hasLength(25));
-      expect(r.totalFiltre, 30);
+      expect(r.abc, hasLength(100));
+      expect(r.totalFiltre, 130);
       expect(r.resume.first.classe, 'A');
       expect(RapportGarde.depuis({'indicateurs': {'ventes': 4}}).kpi.ventes, 4);
     });
 
     test('paramètres du rapport contrôlés (heures 1 à 4, classe A / B / C)', () {
-      expect(ApiGardes.parametresRapport(heures: 3, tri: TriGarde.marge, classe: 'B', start: 25),
-          {'heures': '3', 'tri': 'marge', 'classe': 'B', 'start': '25', 'limit': '25'});
+      expect(ApiGardes.parametresRapport(heures: 3, tri: TriGarde.marge, classe: 'B', start: 100),
+          {'heures': '3', 'tri': 'marge', 'classe': 'B', 'start': '100', 'limit': '100'});
       expect(() => ApiGardes.parametresRapport(heures: 7), throwsArgumentError);
       expect(() => ApiGardes.parametresRapport(classe: 'D'), throwsArgumentError);
     });
@@ -248,7 +248,7 @@ void main() {
 
     test('filtres : paramètres exacts ; période libre contrôlée ; 3 ans = calcul long', () {
       final now = DateTime(2026, 10, 14);
-      const f = FiltresCa(regroupement: RegroupementCa.famille, zoneId: 'ZONE-TEST-1');
+      const f = FiltresCa(regroupement: RegroupementCa.famille, zones: ['ZONE-TEST-1']);
       expect(f.parametres, {'typePeriode': 'TROIS_SEMAINES', 'regroupement': 'FAMILLE', 'zoneId': 'ZONE-TEST-1', 'familleId': '', 'grossisteId': ''});
       expect(f.erreur(now), isNull);
       expect(f.long, isFalse);

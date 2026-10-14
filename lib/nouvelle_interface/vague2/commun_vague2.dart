@@ -77,25 +77,30 @@ class BarresHorizontales extends StatelessWidget {
   }
 }
 
-/// Variation : flèche + texte + couleur (« Hausse +12,5 % »). [inverse] : une hausse est une mauvaise nouvelle.
+/// Variation : flèche + texte + couleur (« Hausse +12,5 % »). La flèche suit le SENS RÉEL (hausse / baisse) ; selon
+/// [sens], la couleur et le mot « favorable » / « défavorable » disent si c'est une bonne nouvelle (jamais la couleur
+/// seule) ; neutre : gris, sans jugement.
 class Variation extends StatelessWidget {
   final double? valeur;
   final String? suffixe;
-  final bool inverse;
+  final SensIndicateur sens;
   final bool compacte;
-  const Variation(this.valeur, {super.key, this.suffixe, this.inverse = false, this.compacte = false});
+  const Variation(this.valeur, {super.key, this.suffixe, this.sens = SensIndicateur.hausseFavorable, this.compacte = false});
 
   @override
   Widget build(BuildContext context) {
     final v = valeur;
-    final (icone, mot, couleur) = v == null
-        ? (Icons.remove, 'Sans comparaison', Charte.gris)
+    final favorable = variationFavorable(v, sens);
+    final couleur = favorable == null ? Charte.gris : (favorable ? Charte.vertTexte : Charte.rougeTexte);
+    final (icone, mot) = v == null
+        ? (Icons.remove, 'Sans comparaison')
         : v > 0
-            ? (Icons.arrow_upward, 'Hausse', inverse ? Charte.rougeTexte : Charte.vertTexte)
+            ? (Icons.arrow_upward, 'Hausse')
             : v < 0
-                ? (Icons.arrow_downward, 'Baisse', inverse ? Charte.vertTexte : Charte.rougeTexte)
-                : (Icons.drag_handle, 'Stable', Charte.gris);
-    final texte = v == null ? mot : (compacte ? variationTexte(v) : '$mot ${variationTexte(v)}');
+                ? (Icons.arrow_downward, 'Baisse')
+                : (Icons.drag_handle, 'Stable');
+    final jugement = favorable == null ? '' : (favorable ? ' · favorable' : ' · défavorable');
+    final texte = v == null ? mot : (compacte ? '${variationTexte(v)}$jugement' : '$mot ${variationTexte(v)}$jugement');
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icone, size: 16, color: couleur, semanticLabel: mot),
       const SizedBox(width: 3),
@@ -198,6 +203,116 @@ class ChoixListe extends StatelessWidget {
         for (final x in o) DropdownMenuItem(value: x.id, child: Text(x.libelle, overflow: TextOverflow.ellipsis)),
       ],
       onChanged: options == null ? null : (v) => onChanged(v ?? ''),
+    );
+  }
+}
+
+/// Résumé d'un choix multiple : « Aucun filtre (tous) », « 1 sélectionné », « 3 sélectionnés », « Tous (12) ».
+String resumeChoixMultiple(int choisis, int total) {
+  if (choisis == 0) return 'Aucun filtre (tous)';
+  if (total > 0 && choisis >= total) return 'Tous ($total)';
+  return '$choisis sélectionné${choisis > 1 ? 's' : ''}';
+}
+
+/// Choix MULTIPLE dans une feuille (emplacements, familles, grossistes) : en-tête dépliable (libellé + compteur),
+/// boutons « Tout » / « Aucun », une case à cocher par option. Aucun coché = aucun filtre.
+class ChoixMultiple extends StatefulWidget {
+  final String cle;
+  final String libelle;
+  final IconData icone;
+  final List<OptionListe>? options;
+  final Object? erreur;
+  final List<String> valeurs;
+  final ValueChanged<List<String>> onChanged;
+  const ChoixMultiple({
+    super.key,
+    required this.cle,
+    required this.libelle,
+    required this.icone,
+    required this.options,
+    required this.erreur,
+    required this.valeurs,
+    required this.onChanged,
+  });
+
+  @override
+  State<ChoixMultiple> createState() => _ChoixMultipleState();
+}
+
+class _ChoixMultipleState extends State<ChoixMultiple> {
+  bool _ouvert = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final o = widget.options ?? const <OptionListe>[];
+    final choisis = widget.valeurs.toSet();
+    final nb = o.isEmpty ? choisis.length : o.where((x) => choisis.contains(x.id)).length;
+    final aide = widget.erreur != null ? 'Liste indisponible' : (widget.options == null ? 'Chargement de la liste…' : resumeChoixMultiple(nb, o.length));
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: Charte.bordureChamp), borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Semantics(
+          container: true,
+          button: true,
+          expanded: _ouvert,
+          label: widget.libelle,
+          value: aide,
+          excludeSemantics: true,
+          child: InkWell(
+            key: Key('multi_${widget.cle}'),
+            onTap: widget.options == null ? null : () => setState(() => _ouvert = !_ouvert),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(children: [
+                  Icon(widget.icone, color: Charte.gris),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(widget.libelle, style: const TextStyle(color: Charte.encre, fontSize: 15, fontWeight: FontWeight.w600)),
+                      Text(aide, key: Key('multi_${widget.cle}_resume'), style: const TextStyle(color: Charte.gris, fontSize: 13)),
+                    ]),
+                  ),
+                  Icon(_ouvert ? Icons.expand_less : Icons.expand_more, color: Charte.navy),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        if (_ouvert && o.isNotEmpty) ...[
+          const Divider(height: 1),
+          Row(children: [
+            TextButton(
+              key: Key('multi_${widget.cle}_tout'),
+              style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
+              onPressed: () => widget.onChanged([for (final x in o) x.id]),
+              child: const Text('Tout'),
+            ),
+            TextButton(
+              key: Key('multi_${widget.cle}_aucun'),
+              style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
+              onPressed: () => widget.onChanged(const []),
+              child: const Text('Aucun'),
+            ),
+          ]),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 264),
+            child: ListView(shrinkWrap: true, padding: EdgeInsets.zero, children: [
+              for (final x in o)
+                CheckboxListTile(
+                  key: Key('multi_${widget.cle}_${x.id}'),
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: choisis.contains(x.id),
+                  title: Text(x.libelle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  onChanged: (v) => widget.onChanged(v == true ? [...widget.valeurs, x.id] : [for (final i in widget.valeurs) if (i != x.id) i]),
+                ),
+            ]),
+          ),
+        ],
+      ]),
     );
   }
 }

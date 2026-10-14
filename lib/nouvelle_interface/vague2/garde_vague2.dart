@@ -3,7 +3,10 @@
 //  - gardes d'une année (GET /gardes/annees puis GET /gardes?annee=, la plus récente année par défaut) ;
 //  - pour une garde (GET /gardes/{id}/rapport?heures=2&tri=montant&classe=&start=0&limit=25) : chiffres clés
 //    (ventes, clients, montant, marge et taux, montant par heure, espèces / mobile…), tranches horaires en barres
-//    (largeur 1 à 4 h), résumé ABC ; produits classés A / B / C, triés par montant / quantité / marge, pages de 25 ;
+//    (largeur 1 à 4 h), résumé ABC ; produits classés A / B / C, triés par montant / quantité / marge, pages de 100
+//    (le serveur recalcule l'analyse à chaque page : moins de pages, moins de recalculs) ;
+//  - ce qui est chargé est GARDÉ : onglets conservés (pas de rechargement en changeant d'onglet), et changer la
+//    largeur des tranches ne relit que la synthèse (limit=1) sans vider les produits déjà chargés ;
 //    vendeurs (GET /gardes/{id}/vendeurs, lus à la première ouverture de l'onglet).
 // Aucune création, modification ni suppression de garde, ni inventaire, ni suggestion.
 import 'package:flutter/material.dart';
@@ -144,6 +147,11 @@ class _GardeDetailScreenState extends State<GardeDetailScreen> with SingleTicker
   Object? _erreur;
   int _generation = 0;
 
+  // Synthèse seule (largeur des tranches) : les produits déjà chargés sont gardés.
+  bool _chargementSynthese = false;
+  Object? _erreurSynthese;
+  int _generationSynthese = 0;
+
   List<VendeurGarde>? _vendeurs;
   Object? _erreurVendeurs;
   bool _chargementVendeurs = false;
@@ -169,7 +177,10 @@ class _GardeDetailScreenState extends State<GardeDetailScreen> with SingleTicker
 
   Future<void> _charger() async {
     final g = ++_generation;
+    _generationSynthese++;
     setState(() {
+      _chargementSynthese = false;
+      _erreurSynthese = null;
       _chargement = true;
       _chargementPlus = false;
       _erreur = null;
@@ -189,6 +200,32 @@ class _GardeDetailScreenState extends State<GardeDetailScreen> with SingleTicker
       setState(() {
         _erreur = e;
         _chargement = false;
+      });
+    }
+  }
+
+  /// Nouvelle largeur des tranches : relit la synthèse (1 produit demandé), garde la liste des produits.
+  Future<void> _chargerSynthese() async {
+    if (_rapport == null || _chargement) return _charger();
+    final g = ++_generationSynthese;
+    setState(() {
+      _chargementSynthese = true;
+      _erreurSynthese = null;
+    });
+    try {
+      final r = await ApiGardes.rapport(context, widget.garde.id, heures: _heures, tri: _tri, classe: _classe, limit: 1);
+      if (!mounted || g != _generationSynthese) return;
+      final avant = _rapport!;
+      setState(() {
+        _rapport = RapportGarde(
+            garde: r.garde ?? avant.garde, kpi: r.kpi, tranches: r.tranches, abc: _abc, totalAbc: avant.totalAbc, totalFiltre: avant.totalFiltre, resume: r.resume);
+        _chargementSynthese = false;
+      });
+    } catch (e) {
+      if (!mounted || g != _generationSynthese) return;
+      setState(() {
+        _erreurSynthese = e;
+        _chargementSynthese = false;
       });
     }
   }
@@ -244,7 +281,9 @@ class _GardeDetailScreenState extends State<GardeDetailScreen> with SingleTicker
               style: const TextStyle(color: Charte.gris, fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ..._etat(),
-          if (r != null && !_chargement) ..._synthese(r),
+          if (_chargementSynthese) const EtatChargement(texte: 'Nouvelles tranches horaires…'),
+          if (_erreurSynthese != null) EtatErreur(erreur: _erreurSynthese!, reessayer: _chargerSynthese),
+          if (r != null && !_chargement && !_chargementSynthese) ..._synthese(r),
         ]),
         ListView(key: const Key('defilement_garde_produits'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
           const Text('Trier par', style: TextStyle(color: Charte.gris, fontWeight: FontWeight.w600)),
@@ -308,7 +347,7 @@ class _GardeDetailScreenState extends State<GardeDetailScreen> with SingleTicker
         cle: (h, _) => Key('heures_$h'),
         onChanged: (h) {
           setState(() => _heures = h);
-          _charger();
+          _chargerSynthese();
         },
       ),
       const SizedBox(height: 6),
