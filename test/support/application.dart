@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:prestige_app/interface_version.dart';
 import 'package:prestige_app/main.dart';
+import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/services/journal_app.dart';
@@ -42,6 +43,10 @@ void preparerTelephone(FauxServeurPrestige serveur,
     {Map<String, Object> autres = const {}, bool nouvelle = false, Presentation presentation = Presentation.automatique}) {
   InterfaceVersion.useNew.value = nouvelle;
   PresentationPrefs.choix.value = presentation;
+  // Nombres des alertes de l'accueil A : rien de compté ni de mémorisé d'un test à l'autre.
+  AlertesAccueil.instance.oublier();
+  AlertesAccueil.maintenant = DateTime.now;
+  AlertesAccueil.delaiMax = AlertesAccueil.delaiParDefaut;
   SharedPreferences.setMockInitialValues(serveur.preferencesApp(autres: {
     InterfaceVersion.cle: nouvelle,
     PresentationPrefs.cle: presentation.name,

@@ -1,7 +1,7 @@
 // lib/nouvelle_interface/accueil_nouveau.dart
 // Accueil de la NOUVELLE interface (maquettes §2) avec la barre du bas Accueil · Analyses · Équipe · Réglages.
 //  - A · Tableau de bord (par défaut sur téléphone) : en-tête bleu arrondi, chiffres du jour (CA, marge, crédits,
-//    équipe), alertes cliquables, puis tous les menus rangés par familles sur une seule page ;
+//    équipe), alertes cliquables dont le nombre se compte à la demande (bouton ⟳, alertes_accueil.dart), puis tous les menus rangés par familles sur une seule page ;
 //  - B · Compact (automatiquement sur tablette) : barre blanche, recherche de menu, liste par familles ; sur
 //    tablette, menu latéral bleu et menus sur deux colonnes ;
 //  - C · Guidé : « Que voulez-vous savoir ? », cinq questions métier, puis les menus de la question.
@@ -17,6 +17,7 @@ import '../providers/ip_config_provider.dart';
 import '../providers/licence_provider.dart';
 import '../screens/fichier_journal_screen.dart';
 import '../utils/constants.dart';
+import 'alertes_accueil.dart';
 import 'charte.dart';
 import 'chiffres_du_jour.dart';
 import 'composants.dart';
@@ -325,19 +326,24 @@ class _AccueilTableauDeBord extends StatelessWidget {
                 ),
               ),
             if (peremption != null || controle != null) const TitreSection('À surveiller'),
+            // Nombres comptés à la demande seulement (bouton ⟳ de chaque alerte), jamais automatiquement.
             if (peremption != null)
-              _Alerte(
+              AlerteComptee(
+                key: const Key('alerte_peremption'),
+                alerte: AlerteAccueil.peremption,
                 bande: Charte.rouge,
                 titre: 'Produits proches de la péremption',
-                detail: 'Quantités et valeurs à surveiller',
+                detail: 'Lots périmés ou proches de l\'être',
                 onTap: () => ouvrirModule(context, peremption),
               ),
             if (peremption != null && controle != null) const SizedBox(height: 8),
             if (controle != null)
-              _Alerte(
+              AlerteComptee(
+                key: const Key('alerte_controle'),
+                alerte: AlerteAccueil.controleAchat,
                 bande: Charte.ambre,
                 titre: 'Contrôle des bons de livraison',
-                detail: 'Bons saisis et contrôlés sur l\'année',
+                detail: 'Bons contrôlés aujourd\'hui, tous groupes',
                 onTap: () => ouvrirModule(context, controle),
               ),
             if (menus.isEmpty)
@@ -358,29 +364,6 @@ class _AccueilTableauDeBord extends StatelessWidget {
       ]),
     );
   }
-}
-
-class _Alerte extends StatelessWidget {
-  final Color bande;
-  final String titre;
-  final String detail;
-  final VoidCallback onTap;
-  const _Alerte({required this.bande, required this.titre, required this.detail, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => CarteBande(
-        bande: bande,
-        onTap: onTap,
-        child: Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(titre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Charte.encre)),
-              Text(detail, style: const TextStyle(fontSize: 13, color: Charte.gris)),
-            ]),
-          ),
-          const Icon(Icons.chevron_right, color: Charte.gris),
-        ]),
-      );
 }
 
 // ---------------------------------------------------------------------------------------------------------------

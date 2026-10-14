@@ -3,12 +3,14 @@
 //   CAPTURES_REFONTE=1 flutter test test/refonte_captures_test.dart --update-goldens
 // Fichiers produits : docs/maquettes/captures_refonte/*.png, téléphone 1080 × 2400 px (411 × 914 dp), plus une
 // capture tablette 1920 × 1200 px. Police Roboto du SDK Flutter (sous les noms Lato, voir support/polices.dart).
-// Données : faux serveur Prestige « en mémoire », données fictives.
+// Données : faux serveur Prestige « en mémoire », données fictives. L'accueil A est photographié après un appui
+// sur ⟳ de chaque alerte (nombres affichés).
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/screens/analyse_article_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
@@ -83,7 +85,17 @@ void main() {
     await tester.tap(find.byKey(const Key('connexion_se_connecter')));
     await pomperJusqua(tester, () => find.text('Chiffre d\'affaires').evaluate().isNotEmpty);
     await pomperJusqua(tester, () => find.text('…').evaluate().isEmpty, raison: 'chiffres du jour chargés');
+    // Alertes comptées à la demande : appui sur ⟳ de chacune (nombre et heure affichés).
+    donneesAlertes(serveur);
+    final jour = DateTime.now();
+    AlertesAccueil.maintenant = () => DateTime(jour.year, jour.month, jour.day, 14, 32);
+    for (final cle in ['peremption', 'controle']) {
+      await tester.tap(find.byKey(Key('alerte_${cle}_actualiser')));
+      await pomperJusqua(tester, () => find.byKey(Key('alerte_${cle}_nombre')).evaluate().isNotEmpty, raison: 'alerte $cle comptée');
+    }
+    await tester.pump(const Duration(seconds: 1));
     await photo(tester, '2_accueil_A_tableau_de_bord');
+    AlertesAccueil.maintenant = DateTime.now;
 
     // 5. Un module (Analyse Article) avec le thème de la nouvelle interface.
     await tester.scrollUntilVisible(find.text('Analyse Article'), 200, scrollable: find.byType(Scrollable).first);

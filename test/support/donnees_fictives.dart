@@ -154,4 +154,38 @@ class DonneesFictives {
       ],
     };
   }
+
+  // --- Alertes de l'accueil A (comptées à la demande) ---
+
+  /// Suivi Péremption : GET /fichearticle/perimes (format de SuiviPeremptionResponse) : 3 lots.
+  static const lotsPerimes = 3;
+  static Map<String, Object?> perimes() {
+    Map<String, Object?> lot(String cip, String libelle, String numLot, String date, String statut, int qte) => {
+          'libelle': libelle, 'codeCip': cip, 'numLot': numLot, 'datePerement': date, 'statut': statut, 'quantiteLot': qte,
+          'valeurAchat': qte * 800, 'valeurVente': qte * 1200, 'libelleRayon': 'RAYON A', 'libelleGrossiste': 'GROSSISTE FICTIF',
+          'libelleFamille': 'FAMILLE FICTIVE',
+        };
+    return {
+      'total': lotsPerimes,
+      'metaData': {'totalQuantiteLot': 9, 'totalValeurAchat': 7200, 'totalValeurVente': 10800, 'periode': 0},
+      'data': [
+        lot('9990001', libelleArticle1, 'LOT-TEST-1', '30/09/2026', 'Périmé', 2),
+        lot('9990002', libelleArticle2, 'LOT-TEST-2', '15/11/2026', 'Périme dans 1 mois', 4),
+        lot('9990003', 'POMMADE FICTIVE 30G', 'LOT-TEST-3', '20/12/2026', 'Périme dans 2 mois', 3),
+      ],
+    };
+  }
+
+  /// Etat Contrôle Achat : GET /etat-control-bon/list-annuelle (par groupe) : 4 + 3 = 7 bons.
+  static const bonsControles = 7;
+  static Map<String, Object?> etatControleAchat() => {
+        'data': [
+          {'groupByLibelle': 'GROUPE FICTIF A', 'nbreBon': 4, 'montantHtaxe': 400000, 'montantTtc': 472000, 'montantTaxe': 72000,
+            'montantVenteTtc': 600000, 'montantMarge': 128000, 'pourcentage': 60},
+          {'groupByLibelle': 'GROUPE FICTIF B', 'nbreBon': 3, 'montantHtaxe': 250000, 'montantTtc': 295000, 'montantTaxe': 45000,
+            'montantVenteTtc': 380000, 'montantMarge': 85000, 'pourcentage': 40},
+        ],
+        'metaData': {'totalNbreBon': bonsControles, 'totalMarge': 213000, 'totalTtc': 767000, 'totalTaxe': 117000,
+          'totalVenteTtc': 980000, 'totaltHtaxe': 650000},
+      };
 }

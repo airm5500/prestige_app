@@ -15,6 +15,9 @@ import '../utils/saisie.dart';
 class SuiviPeremptionScreen extends StatefulWidget {
   const SuiviPeremptionScreen({Key? key}) : super(key: key);
 
+  /// Lignes demandées par page (mêmes paramètres que le comptage à la demande de l'accueil A).
+  static const taillePage = 20;
+
   @override
   _SuiviPeremptionScreenState createState() => _SuiviPeremptionScreenState();
 }
@@ -33,7 +36,7 @@ class _SuiviPeremptionScreenState extends State<SuiviPeremptionScreen> {
 
   // Pagination
   int _currentPage = 1;
-  final int _limit = 20;
+  final int _limit = SuiviPeremptionScreen.taillePage;
   final ScrollController _scrollController = ScrollController();
 
   @override

@@ -11,6 +11,16 @@ import '../utils/date_formatter.dart';
 import '../ui_helpers/base_screen_logic.dart';
 import '../widgets/erreurs_chargement.dart';
 
+/// Paramètres de GET /etat-control-bon/list-annuelle (écran et comptage à la demande de l'accueil A : mêmes
+/// paramètres, l'accueil utilisant les filtres par défaut de l'écran — période du jour, tous les groupes).
+Map<String, String> parametresEtatControleAchat(DateTime debut, DateTime fin, {String groupeId = ''}) => {
+      'dtStart': DateFormatter.toApiFormat(debut),
+      'dtEnd': DateFormatter.toApiFormat(fin),
+      'groupeId': groupeId,
+      'groupBy': 'GROUP', // Comme spécifié dans l'URL d'exemple
+      'limit': '9999',
+    };
+
 class EtatControleAchatScreen extends StatefulWidget {
   const EtatControleAchatScreen({super.key});
 
@@ -44,13 +54,7 @@ class _EtatControleAchatScreenState extends State<EtatControleAchatScreen> with 
 
   Future<void> _loadData() async {
     reessai = _loadData; // « Réessayer » relance ce chargement
-    final queryParams = {
-      'dtStart': DateFormatter.toApiFormat(_startDate),
-      'dtEnd': DateFormatter.toApiFormat(_endDate),
-      'groupeId': _selectedGroupe?.id ?? '',
-      'groupBy': 'GROUP', // Comme spécifié dans l'URL d'exemple
-      'limit': '9999',
-    };
+    final queryParams = parametresEtatControleAchat(_startDate, _endDate, groupeId: _selectedGroupe?.id ?? '');
 
     final data = await apiGet(AppConstants.etatControleAchatEndpoint, queryParams: queryParams);
 

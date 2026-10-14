@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/screens/login_screen.dart';
+import 'package:prestige_app/utils/constants.dart';
 
 import 'application.dart';
 import 'donnees_fictives.dart';
@@ -22,6 +23,13 @@ void donneesAccueil(FauxServeurPrestige serveur) {
   serveur.quand('/recap/dashboard', ReponseFausse.json(DonneesFictives.recapDuJour()), methode: 'GET');
   serveur.route('/rh/presence', (r) => ReponseFausse.json(DonneesFictives.presenceEquipe(r.parametres['jour'] ?? '2026-10-13')),
       methode: 'GET');
+}
+
+/// Réponses des routes que comptent les alertes de l'accueil A (seulement après un appui sur ⟳) et que lisent les
+/// modules Suivi Péremption et Etat Contrôle Achat.
+void donneesAlertes(FauxServeurPrestige serveur) {
+  serveur.quand(AppConstants.suiviPeremptionEndpoint, ReponseFausse.json(DonneesFictives.perimes()), methode: 'GET');
+  serveur.quand(AppConstants.etatControleAchatEndpoint, ReponseFausse.json(DonneesFictives.etatControleAchat()), methode: 'GET');
 }
 
 /// Téléphone configuré, nouvelle interface dans la présentation [p].
