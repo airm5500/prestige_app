@@ -97,6 +97,20 @@ Future<void> amener(WidgetTester tester, Finder f, {String defilement = 'defilem
 
 Iterable<RequeteRecue> postsQuantite() => serveur.recues(AppConstants.suggestionUpdateQteEndpoint, methode: 'POST');
 
+/// État du champ de quantité et de son bouton (diagnostic) : texte, activé, erreur, bouton ou indicateur d'envoi.
+String etatSaisie(WidgetTester tester, Finder champ) {
+  final c = champ.evaluate().isEmpty ? null : tester.widget<TextField>(champ);
+  final bouton = find.byKey(const Key('qte_enregistrer_${DonneesLot2.article1}'));
+  return 'champ « ${c?.controller?.text} » (activé : ${c?.enabled}, erreur : ${c?.decoration?.errorText}), '
+      'bouton : ${bouton.evaluate().isNotEmpty}, focalisé : ${c?.focusNode?.hasFocus}';
+}
+
+/// Textes des messages (SnackBar) présents dans l'arbre.
+List<String> messagesAffiches() => [
+      for (final e in find.descendant(of: find.byType(SnackBar), matching: find.byType(Text)).evaluate())
+        (e.widget as Text).data ?? '',
+    ];
+
 void main() {
   setUpAll(chargerPolicesReelles);
 
@@ -158,10 +172,20 @@ void main() {
     await attendreQue(tester, () => postsQuantite().length == 2, raison: 'second enregistrement');
     await attendreQue(tester, () => find.byKey(const Key('qte_enregistrer_${DonneesLot2.article1}')).evaluate().isNotEmpty, raison: 'fin de l\'envoi'); // envoi terminé : le bouton revient
 
-    // Quantité refusée : message, rien n'est envoyé.
+    // Quantité refusée : message, rien n'est envoyé. Comme l'utilisateur, on touche d'abord le champ : il a perdu le
+    // focus pendant l'envoi (désactivé) ; sans ce toucher, la saisie simulée peut viser l'ancienne connexion clavier et
+    // laisser « 24 » dans le champ (l'appui enregistrerait alors 24 une troisième fois).
+    await tester.tap(champ);
+    await tester.pump();
     await tester.enterText(champ, '');
+    await tester.pump();
+    final avantAppui = etatSaisie(tester, champ);
+    expect(tester.widget<TextField>(champ).controller!.text, '', reason: 'champ vidé avant l\'appui : $avantAppui');
     await toucher(tester, bouton);
-    expect(find.text('Quantité invalide (0 à 99999) : non enregistrée.'), findsOneWidget);
+    // Diagnostic complet en cas d'échec (CI) : champ avant / après l'appui, messages présents, envois.
+    expect(find.text('Quantité invalide (0 à 99999) : non enregistrée.'), findsOneWidget,
+        reason: 'avant l\'appui : $avantAppui ; après : ${etatSaisie(tester, champ)} ; messages : ${messagesAffiches()} ; '
+            'envois : ${postsQuantite().length}');
     await stabiliser(tester, tours: 6);
     expect(postsQuantite(), hasLength(2));
 
