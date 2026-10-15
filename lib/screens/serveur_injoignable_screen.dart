@@ -116,7 +116,8 @@ class _ServeurInjoignableScreenState extends State<ServeurInjoignableScreen> {
         return (
           'Prestige introuvable à cette adresse',
           'Un serveur répond, mais l\'application Prestige n\'y est pas trouvée (nom de l\'application ou port incorrect, '
-              'application arrêtée). La licence n\'est pas en cause.'
+              'application arrêtée). Si Prestige est en cours de mise à jour (redéploiement), réessayez dans un instant. '
+              'La licence n\'est pas en cause.'
         );
       case LicenceIssue.serverError:
         return (

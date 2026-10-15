@@ -35,6 +35,22 @@ Future<void> Function(WidgetTester, FauxServeurPrestige) parcoursDemarrage(Type 
       await tester.pump(const Duration(milliseconds: 500));
     };
 
+/// Tentative de connexion pendant un redéploiement (404 de POST /user/auth) : le message « Serveur indisponible »
+/// doit s'afficher (3.10.2).
+Future<void> Function(WidgetTester, FauxServeurPrestige) connexionIndisponible(Future<void> Function(WidgetTester, FauxServeurPrestige) ouvrir) =>
+    (tester, serveur) async {
+      await ouvrir(tester, serveur);
+      serveur.quand('/user/auth', ReponseFausse.introuvable(), methode: 'POST');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Identifiant'), 'pharmacien.test');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Mot de passe'), 'MotDePasse-Fictif-1');
+      final bouton = find.byKey(const Key('connexion_se_connecter'));
+      await tester.tap(bouton.evaluate().isNotEmpty ? bouton : find.widgetWithText(ElevatedButton, 'Connexion'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Serveur indisponible, veuillez réessayer.'), findsOneWidget);
+    };
+
 /// Écran connecté rendu seul (avec le thème et les providers de l'application) ; [recherche] saisie ensuite.
 Future<void> Function(WidgetTester, FauxServeurPrestige) ecranConnecte(Widget Function() ecran, {String? recherche}) =>
     (tester, serveur) async {
@@ -56,6 +72,8 @@ final casAffichage = <CasAffichage>[
   CasAffichage('Licence requise',
       parcoursDemarrage(LicenceRegistrationScreen, preparer: (s) => s.quand('/licence/find', ReponseFausse.vide()))),
   CasAffichage('Connexion', parcoursDemarrage(LoginScreen)),
+  // 3.10.2 : Prestige en cours de redéploiement (404 de /user/auth) → « Serveur indisponible, veuillez réessayer. »
+  CasAffichage('Connexion · serveur indisponible', connexionIndisponible(parcoursDemarrage(LoginScreen))),
   CasAffichage('Accueil', ecranConnecte(() => const HomeScreen())),
   for (final m in modulesAccueil) CasAffichage(m.tuile, ecranConnecte(m.ecran)),
   for (final e in etatsSupplementaires) CasAffichage(e.nom, ecranConnecte(e.ecran, recherche: e.recherche)),

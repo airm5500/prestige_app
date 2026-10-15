@@ -115,7 +115,12 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString().replaceFirst("Exception: ", "");
+      // 3.10.2 : Prestige momentanément indisponible (redéploiement : 404 de /user/auth ; 502 / 503 / 504 ; connexion
+      // refusée) → message clair, jamais « erreur 404 ». Un mot de passe faux (réponse 200 success:false) n'est pas
+      // concerné ; le Wi-Fi coupé garde son message (« Serveur injoignable… Vérifiez le Wi-Fi »).
+      _errorMessage = e is ApiLoadException && e.serveurIndisponible
+          ? ApiLoadException.messageServeurIndisponible
+          : e.toString().replaceFirst("Exception: ", "");
       notifyListeners();
       return _errorMessage;
     }

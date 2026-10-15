@@ -2,7 +2,7 @@
 // serveur éteint ou un Wi-Fi coupé, puis serveur de nouveau joignable) :
 //  - lancement serveur coupé → écran « serveur injoignable » (licence non en cause) → retour du serveur → réessai
 //    automatique (10 s) → connexion ;
-//  - connexion pendant la coupure → message réseau, saisie gardée → retour → connexion ;
+//  - connexion pendant la coupure → « Serveur indisponible » (3.10.2 : serveur arrêté), saisie gardée → retour → connexion ;
 //  - module (Suivi Crédit) : trois cycles coupure / retour (ouverture, changement de période, « Réessayer ») : message
 //    réseau à chaque coupure, jamais « aucun crédit », données à chaque retour, aucune requête en rafale ;
 //  - accueil A : chiffres « Indisponible » pendant la coupure, puis relus par ⟳ ;
@@ -18,6 +18,7 @@ import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/nouvelle_interface/vague3/pointage_vague3.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/screens/serveur_injoignable_screen.dart';
+import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 
 import '../support/application.dart';
@@ -85,7 +86,7 @@ void main() {
     await fermerApplication(tester);
   });
 
-  testWidgets('connexion pendant la coupure → message réseau, saisie gardée → retour → connexion (trois cycles)', (tester) async {
+  testWidgets('connexion pendant la coupure (serveur arrêté) → « Serveur indisponible » (3.10.2), saisie gardée → retour → connexion (trois cycles)', (tester) async {
     telephone(tester);
     await lancerApplication(tester);
     await pomper(tester, () => find.byType(LoginScreen).evaluate().isNotEmpty, raison: 'connexion', max: 100);
@@ -95,7 +96,8 @@ void main() {
       serveur.coupe = true;
       await tester.tap(cle('connexion_se_connecter'));
       await laisser(tester);
-      expect(find.textContaining('injoignable'), findsOneWidget, reason: 'cycle $cycle : message réseau');
+      // Serveur arrêté = connexion refusée : « Serveur indisponible, veuillez réessayer. » (3.10.2 ; avant : « injoignable »).
+      expect(find.text(ApiLoadException.messageServeurIndisponible), findsOneWidget, reason: 'cycle $cycle : serveur indisponible');
       expect(find.text(DonneesFictives.identifiant), findsOneWidget, reason: 'cycle $cycle : identifiant gardé');
     }
     serveur.coupe = false;

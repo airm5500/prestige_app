@@ -14,7 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.10.1+42** (`pubspec.yaml`) : réponses du pharmacien sur la 3.10.0
+Version en préparation (pas encore publiée) : **3.10.2+43** (`pubspec.yaml`) : « Serveur indisponible, veuillez
+réessayer » à la connexion pendant un redéploiement de Prestige (`docs/NOTE_VERSION_3.10.2.md`). Précédentes livraisons :
+3.10.1+42 : réponses du pharmacien sur la 3.10.0
 (P4 par défaut, réglage « Style des icônes » visible pour l'administrateur et le pharmacien, demande serveur du montant
 par grossiste à transmettre, `docs/NOTE_VERSION_3.10.1.md`). Précédentes livraisons : 3.10.0+41 (décisions du
 pharmacien : icônes

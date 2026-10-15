@@ -77,6 +77,9 @@ final casAffichageNouvelle = <CasAffichage>[
       enNouvelle(parcoursDemarrage(LicenceRegistrationScreen, preparer: (s) => s.quand('/licence/find', ReponseFausse.vide())))),
   CasAffichage('Connexion A', enNouvelle(parcoursDemarrage(LoginScreen))),
   CasAffichage('Connexion B', enNouvelle(parcoursDemarrage(LoginScreen), p: Presentation.compact)),
+  // 3.10.2 : connexion pendant un redéploiement de Prestige.
+  CasAffichage('Connexion A · serveur indisponible', enNouvelle(connexionIndisponible(parcoursDemarrage(LoginScreen)))),
+  CasAffichage('Connexion B · serveur indisponible', enNouvelle(connexionIndisponible(parcoursDemarrage(LoginScreen)), p: Presentation.compact)),
   for (final (lettre, p) in presentationsTestees)
     CasAffichage('Accueil $lettre', enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: p)),
   // Alertes de l'accueil A : nombres affichés ; puis échec (500) et comptage en cours (réponse lente).

@@ -9,6 +9,7 @@ import 'package:prestige_app/nouvelle_interface/apparence_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
+import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/utils/constants.dart';
 
 import '../support/application.dart';
@@ -102,6 +103,31 @@ void main() {
       mesurer('Requêtes — connexion + accueil $nom', rs.length, seuil: plafond, unite: 'requêtes', detail: detailRequetes(rs));
       expect(rs.where((r) => r.chemin.startsWith('/tableau-bord/alertes')), isEmpty, reason: 'alertes jamais comptées sans ⟳');
       expect(serveur.recues(AppConstants.authEndpoint), hasLength(1), reason: 'une seule connexion');
+      await fermerApplication(tester);
+    });
+  }
+
+  // 3.10.2 : connexion pendant un redéploiement (404 de /user/auth) ou Prestige surchargé (503) : UNE requête,
+  // message « Serveur indisponible », aucune relance automatique ni lecture de /officine ; temps jusqu'au message.
+  for (final (cas, statut) in [('404 (redéploiement)', 404), ('503', 503)]) {
+    testWidgets('connexion en $cas : plafond 1 requête, message affiché', (tester) async {
+      telephone(tester);
+      preparerNouvelle(serveur, p: Presentation.compact);
+      await jusquConnexion(tester);
+      serveur.quand(AppConstants.authEndpoint, statut == 404 ? ReponseFausse.introuvable() : ReponseFausse.erreurServeur(statut: statut),
+          methode: 'POST');
+      final sw = Stopwatch();
+      final rs = await compter(serveur, () async {
+        await tester.enterText(find.widgetWithText(TextFormField, 'Identifiant'), DonneesFictives.identifiant);
+        await tester.enterText(find.widgetWithText(TextFormField, 'Mot de passe'), DonneesFictives.motDePasse);
+        sw.start();
+        await tester.tap(find.byKey(const Key('connexion_se_connecter')));
+        await pomper(tester, () => find.text(ApiLoadException.messageServeurIndisponible).evaluate().isNotEmpty, raison: 'message');
+        sw.stop();
+        await laisser(tester, secondes: 10); // 10 s sans rien toucher : aucune relance
+      });
+      mesurer('Requêtes — connexion en $cas', rs.length, seuil: 1, unite: 'requêtes', detail: detailRequetes(rs));
+      mesurer('Connexion en $cas → message « Serveur indisponible »', sw.elapsedMicroseconds / 1000, seuil: Seuils.accueilMs, unite: 'ms');
       await fermerApplication(tester);
     });
   }

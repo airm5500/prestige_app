@@ -52,7 +52,25 @@ class ApiLoadException implements Exception {
   final String message;
   final NatureErreur nature;
   final int? code;
-  const ApiLoadException(this.message, {this.nature = NatureErreur.reseau, this.code});
+
+  /// Le serveur a REFUSÉ la connexion (port fermé : Prestige arrêté ou en cours de redémarrage), ≠ Wi-Fi coupé.
+  final bool connexionRefusee;
+  const ApiLoadException(this.message, {this.nature = NatureErreur.reseau, this.code, this.connexionRefusee = false});
+
+  /// Message de la connexion quand Prestige est momentanément indisponible (3.10.2).
+  static const messageServeurIndisponible = 'Serveur indisponible, veuillez réessayer.';
+
+  /// Codes HTTP d'un serveur momentanément indisponible derrière un frontal (Bad Gateway, Service Unavailable,
+  /// Gateway Timeout).
+  static const codesIndisponible = {502, 503, 504};
+
+  /// Prestige est momentanément indisponible (3.10.2, demande du pharmacien : « erreur 404 » pendant un
+  /// redéploiement) : 404 d'une route TOUJOURS présente (connexion), 502 / 503 / 504, connexion refusée. À n'utiliser
+  /// que pour ces routes : ailleurs, un 404 peut être une réponse métier (élément introuvable).
+  bool get serveurIndisponible =>
+      (nature == NatureErreur.refus && code == 404) ||
+      (nature == NatureErreur.serveur && codesIndisponible.contains(code)) ||
+      (nature == NatureErreur.reseau && connexionRefusee);
 
   static const messageReseau = 'Serveur injoignable. Vérifiez le Wi-Fi ou les données mobiles puis réessayez.';
   static const messageDelai = 'Le serveur met trop de temps à répondre. Vérifiez le réseau puis réessayez.';
@@ -74,7 +92,7 @@ class ApiLoadException implements Exception {
       case NatureErreur.reseau:
         return ApiLoadException(message == messageReseau
             ? 'Serveur injoignable ($quoi non chargés). Vérifiez le Wi-Fi ou les données mobiles puis réessayez.'
-            : message, nature: nature, code: code);
+            : message, nature: nature, code: code, connexionRefusee: connexionRefusee);
       case NatureErreur.delai:
         return ApiLoadException('Le serveur met trop de temps à répondre ($quoi non chargés). Vérifiez le réseau puis réessayez.',
             nature: nature, code: code);
@@ -348,6 +366,18 @@ class ApiService {
   }
 
   /// Envoie la requête ; les échecs réseau et les délais deviennent des [ApiLoadException].
+  /// Connexion refusée par la machine du serveur (ECONNREFUSED : 111 Linux / Android, 61 iOS / macOS, 10061 Windows),
+  /// directement ou enveloppée par le client HTTP (« Connection refused »). Rien de nominatif n'est lu.
+  static bool connexionRefusee(Object e) {
+    if (e is SocketException) {
+      final c = e.osError?.errorCode;
+      if (c == 111 || c == 61 || c == 10061) return true;
+      return '${e.message} ${e.osError?.message ?? ''}'.toLowerCase().contains('refused');
+    }
+    if (e is http.ClientException) return e.message.toLowerCase().contains('connection refused');
+    return false;
+  }
+
   static Future<http.Response> _envoyer(Future<http.Response> Function() requete, Duration delai) async {
     try {
       return await requete().timeout(delai);
@@ -355,10 +385,10 @@ class ApiService {
       throw const ApiLoadException(ApiLoadException.messageDelai, nature: NatureErreur.delai);
     } on HandshakeException {
       throw const ApiLoadException(ApiLoadException.messageCertificat, nature: NatureErreur.reseau);
-    } on SocketException {
-      throw const ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau);
-    } on http.ClientException {
-      throw const ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau);
+    } on SocketException catch (e) {
+      throw ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau, connexionRefusee: connexionRefusee(e));
+    } on http.ClientException catch (e) {
+      throw ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau, connexionRefusee: connexionRefusee(e));
     } on HttpException {
       throw const ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau);
     } on ArgumentError {

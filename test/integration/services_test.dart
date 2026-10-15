@@ -156,11 +156,11 @@ void main() {
       expect(app.auth.isLoading, isFalse);
     });
 
-    testWidgets('serveur injoignable à la connexion : message réseau', (tester) async {
+    testWidgets('serveur arrêté (connexion refusée) à la connexion : « Serveur indisponible » (3.10.2)', (tester) async {
       final app = await monter(tester);
       await tester.runAsync(serveur.arreter);
       final message = await appel(tester, () => app.auth.login(app.ctx, DonneesFictives.identifiant, DonneesFictives.motDePasse, false));
-      expect(message, ApiLoadException.messageReseau);
+      expect(message, ApiLoadException.messageServeurIndisponible);
     });
 
     testWidgets('« Rester connecté » : identifiant mémorisé, mot de passe dans le stockage sûr (pas en clair)', (tester) async {
