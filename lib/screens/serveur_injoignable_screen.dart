@@ -9,9 +9,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/licence_lookup.dart';
 import '../providers/ip_config_provider.dart';
 import '../providers/licence_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/pin_code_dialog.dart';
 import 'settings_screen.dart';
 import '../interface_version.dart';
@@ -127,6 +127,13 @@ class _ServeurInjoignableScreenState extends State<ServeurInjoignableScreen> {
         return (
           'Réponse inattendue du serveur',
           'L\'adresse configurée ne semble pas être celle du serveur Prestige. Vérifiez la configuration. La licence n\'est pas en cause.'
+        );
+      case LicenceIssue.unreachable when echec?.detail == ApiLoadException.messageCertificat:
+        // Le serveur répond, mais son certificat HTTPS est refusé : ni le Wi-Fi ni le serveur éteint (3.9.1).
+        return (
+          ApiLoadException.titreCertificat,
+          'La connexion sécurisée (HTTPS) est refusée : le certificat du serveur n\'est pas reconnu par ce téléphone. '
+              'Vérifiez l\'adresse https:// ou le certificat installé sur le serveur. La licence n\'est pas en cause.'
         );
       case LicenceIssue.unreachable:
       case null:

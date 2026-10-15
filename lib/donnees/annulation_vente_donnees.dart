@@ -151,7 +151,10 @@ class AnnulationVente {
     if (echec != null && echec.nature == NatureErreur.session) {
       return ResultatAnnulation(IssueAnnulation.session, echec.message, TonResultat.erreur); // retour à la connexion géré globalement
     }
-    final sansReponse = echec != null && (echec.nature == NatureErreur.reseau || echec.nature == NatureErreur.delai);
+    // Réponse illisible (JSON partiel, 3.9.1) : le serveur a pu annuler la vente avant que sa réponse ne soit abîmée ;
+    // comme sans réponse, l'état est VÉRIFIÉ par la relecture au lieu d'annoncer « refusée ».
+    final sansReponse =
+        echec != null && (echec.nature == NatureErreur.reseau || echec.nature == NatureErreur.delai || echec.nature == NatureErreur.reponse);
     if (echec != null && !sansReponse) {
       return ResultatAnnulation(IssueAnnulation.refusee, 'Annulation refusée : ${echec.message}', TonResultat.erreur);
     }

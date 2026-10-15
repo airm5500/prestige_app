@@ -142,6 +142,9 @@ class DiagnosticErreur {
       return const DiagnosticErreur(CauseErreur.autre, 'Chargement impossible', 'Une erreur inattendue est survenue.', Icons.error_outline);
     }
     return switch (e.nature) {
+      // Certificat HTTPS refusé : le serveur répond, ce n'est pas une panne réseau (titre distinct, 3.9.1).
+      NatureErreur.reseau when e.certificatRefuse =>
+        DiagnosticErreur(CauseErreur.reseau, ApiLoadException.titreCertificat, e.message, Icons.gpp_bad_outlined),
       NatureErreur.reseau => DiagnosticErreur(CauseErreur.reseau, 'Serveur injoignable', e.message, Icons.wifi_off),
       NatureErreur.delai => DiagnosticErreur(CauseErreur.delai, 'Le serveur ne répond pas', e.message, Icons.hourglass_empty),
       NatureErreur.session =>

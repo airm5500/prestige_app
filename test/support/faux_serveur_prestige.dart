@@ -71,7 +71,15 @@ class ReponseFausse {
   /// Ne répond jamais (la connexion reste ouverte jusqu'à l'arrêt du serveur) : délai dépassé côté application.
   final bool jamais;
 
-  const ReponseFausse._(this.statut, this.octets, this.entetes, {this.delai = Duration.zero, this.jamais = false});
+  /// Réponse TRONQUÉE (tests réseau) : la longueur annoncée (Content-Length) dépasse le corps envoyé, puis la
+  /// connexion est fermée au milieu du corps (coupure pendant le transfert).
+  final bool tronquee;
+
+  /// Connexion fermée sans aucune réponse (coupure en pleine requête).
+  final bool coupee;
+
+  const ReponseFausse._(this.statut, this.octets, this.entetes,
+      {this.delai = Duration.zero, this.jamais = false, this.tronquee = false, this.coupee = false});
 
   static const _json = {'content-type': 'application/json; charset=utf-8'};
 
@@ -104,8 +112,15 @@ class ReponseFausse {
   /// Application Prestige absente à cette adresse (404).
   factory ReponseFausse.introuvable() => ReponseFausse.texte('<html>Not Found</html>', statut: 404);
 
-  /// Réponse retardée de [delai] (horloge réelle).
-  ReponseFausse apres(Duration delai) => ReponseFausse._(statut, octets, entetes, delai: delai);
+  /// Réponse retardée de [delai] (horloge réelle ; horloge simulée avec [FauxServeurPrestige.clientMemoire]).
+  ReponseFausse apres(Duration delai) => ReponseFausse._(statut, octets, entetes, delai: delai, tronquee: tronquee, coupee: coupee);
+
+  /// Corps [corps] coupé pendant le transfert : longueur annoncée non atteinte, connexion fermée (tests réseau).
+  factory ReponseFausse.tronquee(String corps) =>
+      ReponseFausse._(200, utf8.encode(corps), const {'content-type': 'application/json; charset=utf-8'}, tronquee: true);
+
+  /// Connexion fermée par le serveur avant toute réponse (tests réseau).
+  factory ReponseFausse.coupee() => const ReponseFausse._(200, [], {}, coupee: true);
 
   /// Ne répond jamais.
   factory ReponseFausse.sansReponse() => const ReponseFausse._(200, [], {}, jamais: true);
@@ -149,12 +164,15 @@ class FauxServeurPrestige {
   int get port => _serveur?.port ?? (throw StateError('Faux serveur non démarré'));
   bool get demarre => _serveur != null;
 
-  /// « http://127.0.0.1:port/prestige ».
-  String get racine => 'http://127.0.0.1:$port/$application';
+  /// Servi en HTTPS ([demarrerSecurise]) ?
+  bool https = false;
+
+  /// « http://127.0.0.1:port/prestige » (« https://… » si [demarrerSecurise]).
+  String get racine => '${https ? 'https' : 'http'}://127.0.0.1:$port/$application';
 
   /// Préférences qui font viser ce serveur par l'application (même format que la Configuration IP).
   Map<String, Object> preferencesApp({Map<String, Object> autres = const {}}) => {
-        'local_ip': '127.0.0.1',
+        'local_ip': https ? 'https://127.0.0.1' : '127.0.0.1',
         'port_key': '$port',
         'app_name_key': application,
         'use_local_ip': true,
@@ -168,6 +186,15 @@ class FauxServeurPrestige {
     final s = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _serveur = s;
     s.listen(_traiter);
+  }
+
+  /// Démarre le serveur en HTTPS (tests réseau) avec le certificat de [contexte] (certificat de test généré).
+  Future<void> demarrerSecurise(SecurityContext contexte) async {
+    if (_serveur != null) return;
+    final s = await HttpServer.bindSecure(InternetAddress.loopbackIPv4, 0, contexte);
+    https = true;
+    _serveur = s;
+    s.listen(_traiter, onError: (_) {}); // poignée de main refusée par le client : rien à faire
   }
 
   /// Arrête le serveur : les requêtes suivantes échouent (connexion refusée), comme un serveur éteint.
@@ -273,6 +300,9 @@ class FauxServeurPrestige {
         final r = await repondre(req.method, req.url, req.headers['cookie'], req.body);
         if (r.jamais) return Completer<http.Response>().future;
         if (r.delai > Duration.zero) await Future<void>.delayed(r.delai);
+        // Même exception que le client HTTP réel (IOClient) quand la connexion se ferme avant / pendant le corps.
+        if (r.coupee) throw http.ClientException('Connection closed before full header was received', req.url);
+        if (r.tronquee) throw http.ClientException('Connection closed while receiving data', req.url);
         // Plusieurs en-têtes de même nom : réunis par « , » (comme le fait package:http).
         return http.Response.bytes(r.octets, r.statut, headers: r.entetes.map((k, v) => MapEntry(k, v.replaceAll('\n', ', '))), request: req);
       });
@@ -298,6 +328,21 @@ class FauxServeurPrestige {
       final reponse = await repondre(req.method, req.uri, req.headers.value('cookie'), corps);
       if (reponse.jamais) return; // la connexion reste ouverte (fermée par arreter())
       if (reponse.delai > Duration.zero) await Future<void>.delayed(reponse.delai);
+      if (reponse.coupee || reponse.tronquee) {
+        // Coupure : en-têtes (longueur annoncée plus grande que le corps) puis une partie du corps, ou rien du tout.
+        final res = req.response;
+        res.statusCode = reponse.statut;
+        reponse.entetes.forEach(res.headers.set);
+        if (reponse.tronquee) res.contentLength = reponse.octets.length + 64;
+        final sock = await res.detachSocket(writeHeaders: reponse.tronquee);
+        if (reponse.tronquee) {
+          sock.add(reponse.octets);
+          await sock.flush();
+        }
+        sock.destroy();
+        _enAttente.remove(req);
+        return;
+      }
       final res = req.response;
       res.statusCode = reponse.statut;
       // Plusieurs Set-Cookie (séparés par « \n » dans [ReponseFausse.entetes]) : un en-tête chacun, comme Prestige.

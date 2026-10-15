@@ -124,9 +124,9 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _uiErrorMessage = errorMessage;
         });
-      } else {
-        _fetchAndDisplayOfficineName();
       }
+      // Connexion réussie : AuthProvider.login vient de relire l'officine ; plus de seconde lecture de /officine
+      // ici (3.9.1 : une requête de trop à chaque connexion, relevée par test/performance/requetes_test.dart).
 
       setState(() => _isLoading = false);
     }

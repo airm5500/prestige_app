@@ -105,6 +105,11 @@ class ContenuTicketZ {
       ];
 }
 
+/// Nombre maximal de pages d'un PDF de l'application (3.9.1). Le paquet `pdf` s'arrête par défaut à 20 pages
+/// (TooManyPagesException) : une Marge ou un CA Crédit de plus de ~800 lignes n'était alors PAS produit. 500 pages
+/// A4 ≈ 20 000 lignes.
+const pagesMaxPdf = 500;
+
 /// Texte compatible avec la police Helvetica intégrée (Latin-1) : espaces fines et insécables → espace, apostrophe
 /// typographique → ', tirets longs → -, « … » → ..., flèche → -, tout autre caractère hors Latin-1 → ?.
 String pdfTexte(String s) {
@@ -175,6 +180,7 @@ class RecapCaissePdf {
 
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
+      maxPages: pagesMaxPdf,
       margin: const pw.EdgeInsets.fromLTRB(36, 32, 36, 32),
       footer: (ctx) => pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         texte('Prestige Pharmacien - imprimé le ${c.imprimeLe}', taille: 8, couleur: _gris),

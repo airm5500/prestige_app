@@ -1,6 +1,8 @@
 // lib/donnees/peremption_donnees.dart
 // Suivi Péremption, logique COMMUNE aux deux interfaces : page demandée (ApiService.getSuiviPeremption, mêmes
 // paramètres : query, nbreMois, page, start, limit), fusion des pages chargées au défilement, export PDF.
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -10,6 +12,7 @@ import 'package:printing/printing.dart';
 import '../models/suivi_peremption_model.dart';
 import '../services/api_service.dart';
 import '../utils/saisie.dart';
+import 'recap_caisse_pdf.dart' show pagesMaxPdf, pdfTexte;
 
 class SuiviPeremption {
   SuiviPeremption._();
@@ -38,33 +41,52 @@ class SuiviPeremption {
   /// Reste-t-il des lignes à charger ?
   static bool aSuite(SuiviPeremptionResponse? r) => r != null && r.data.length < r.total;
 
-  /// PDF de la liste chargée (impression / partage du système).
+  /// PDF de la liste chargée (impression / partage du système). Police Open Sans téléchargée si Internet répond ;
+  /// sinon (réseau local de l'officine sans Internet, 3.9.1) police Helvetica intégrée : le PDF est toujours produit.
   static Future<void> imprimerPdf(SuiviPeremptionResponse donnees) async {
+    pw.Font? police, gras;
+    try {
+      police = await PdfGoogleFonts.openSansRegular().timeout(delaiPolice);
+      gras = await PdfGoogleFonts.openSansBold().timeout(delaiPolice);
+    } catch (_) {
+      police = gras = null; // hors ligne : Helvetica intégrée
+    }
+    final dateImpression = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final o = await octets(donnees, police: police, gras: gras);
+    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => o, name: 'Suivi_Peremption_$dateImpression');
+  }
+
+  /// Attente maximale du téléchargement de la police (au-delà : police intégrée).
+  static const delaiPolice = Duration(seconds: 8);
+
+  /// Octets du PDF A4 ([police] / [gras] null : Helvetica intégrée, textes ramenés au Latin-1 par [pdfTexte]).
+  static Future<Uint8List> octets(SuiviPeremptionResponse donnees, {pw.Font? police, pw.Font? gras, DateTime? maintenant}) {
     final pdf = pw.Document();
-    final font = await PdfGoogleFonts.openSansRegular();
-    final fontBold = await PdfGoogleFonts.openSansBold();
+    final integree = police == null;
+    String t(String s) => integree ? pdfTexte(s) : s;
     final items = donnees.data;
     final meta = donnees.metaData;
-    final dateImpression = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final dateImpression = DateFormat('dd/MM/yyyy HH:mm').format(maintenant ?? DateTime.now());
 
     pw.Widget resume(String label, String value) => pw.Column(children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-          pw.Text(value, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+          pw.Text(t(label), style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+          pw.Text(t(value), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
         ]);
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
+        maxPages: pagesMaxPdf,
         margin: const pw.EdgeInsets.all(20),
-        theme: pw.ThemeData.withFont(base: font, bold: fontBold),
+        theme: integree ? pw.ThemeData.base() : pw.ThemeData.withFont(base: police, bold: gras),
         build: (pw.Context context) => [
           pw.Header(
             level: 0,
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text("Suivi Péremption", style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                pw.Text("Imprimé le: $dateImpression", style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                pw.Text(t("Suivi Péremption"), style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                pw.Text(t("Imprimé le: $dateImpression"), style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
               ],
             ),
           ),
@@ -83,9 +105,9 @@ class SuiviPeremption {
           ),
           pw.SizedBox(height: 20),
           pw.TableHelper.fromTextArray(
-            headers: ['Code', 'Libellé', 'Lot', 'Date Pér.', 'Qté', 'Statut'],
+            headers: ['Code', 'Libellé', 'Lot', 'Date Pér.', 'Qté', 'Statut'].map(t).toList(),
             data: items
-                .map((item) => [item.codeCip, item.libelle, item.numLot, item.datePerement, item.quantiteLot.toInt().toString(), item.statut])
+                .map((item) => [item.codeCip, item.libelle, item.numLot, item.datePerement, item.quantiteLot.toInt().toString(), item.statut].map(t).toList())
                 .toList(),
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
             headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
@@ -105,6 +127,6 @@ class SuiviPeremption {
       ),
     );
 
-    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save(), name: 'Suivi_Peremption_$dateImpression');
+    return pdf.save();
   }
 }

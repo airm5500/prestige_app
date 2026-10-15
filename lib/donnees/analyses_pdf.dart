@@ -17,7 +17,7 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
-import 'recap_caisse_pdf.dart' show pdfTexte;
+import 'recap_caisse_pdf.dart' show pagesMaxPdf, pdfTexte;
 
 export 'recap_caisse_pdf.dart' show pdfTexte;
 
@@ -138,6 +138,7 @@ class AnalysesPdf {
 
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
+      maxPages: pagesMaxPdf,
       margin: const pw.EdgeInsets.fromLTRB(32, 32, 32, 32),
       footer: (ctx) => pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         texte('Prestige Pharmacien - ${c.titre} - imprimé le ${c.imprimeLe}', taille: 8, couleur: _gris),

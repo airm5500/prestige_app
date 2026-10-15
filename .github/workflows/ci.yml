@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +32,7 @@ jobs:
       # Les ERREURS bloquent. Les avertissements et remarques hérités sont listés sans bloquer, mais leur
       # nombre ne doit pas augmenter : plafond 57 (relevé le 13/10/2026) — le baisser quand on en corrige.
       - name: Analyse
+        id: analyse
         run: |
           set -o pipefail
           flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyse.txt
@@ -39,12 +40,65 @@ jobs:
           echo "Remarques de l'analyse : $n (plafond 57)"
           test "$n" -le 57
 
-      # TOUT test/ (voir test/README.md) : non-régression, unitaires, intégration et bout en bout contre le faux
-      # serveur Prestige local (127.0.0.1), ergonomie (5 tailles d'écran × 2 échelles de texte) et cohérence du
-      # thème. Aucun émulateur ni vrai serveur nécessaire.
-      - name: Tests
-        run: flutter test
+      # Socle de tests (voir test/README.md), par catégorie pour des journaux lisibles. Aucun émulateur ni vrai
+      # serveur : l'application entière tourne dans `flutter test`, contre le faux serveur Prestige.
+      # Garde-fou : tout fichier *_test.dart de test/ doit appartenir à une catégorie lancée ci-dessous.
+      - name: Contrôle des catégories de tests
+        id: categories
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          hors=$(find test -name '*_test.dart' | grep -vE '^test/[^/]+_test\.dart$|^test/(unitaires|non_regression|integration|e2e|ergonomie|performance|reseau)/' || true)
+          if [ -n "$hors" ]; then echo "::error title=Tests hors catégorie::$hors"; exit 1; fi
+          mkdir -p build/rapport_tests
 
+      # Toutes les catégories sont jouées même si l'une échoue (rapport complet) ; le job échoue alors, et l'APK
+      # n'est pas construit. Chaque catégorie écrit aussi ses résultats (JSON) pour le rapport.
+      - name: Tests unitaires et non-régression
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        shell: bash
+        run: flutter test --file-reporter json:build/rapport_tests/1-unitaires.json $(find test -maxdepth 1 -name '*_test.dart' | sort) test/unitaires test/non_regression
+
+      - name: Tests d'intégration (services contre le faux serveur HTTP local)
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        run: flutter test --file-reporter json:build/rapport_tests/2-integration.json test/integration
+
+      - name: Tests de bout en bout (application entière, deux interfaces, pannes)
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        run: flutter test --file-reporter json:build/rapport_tests/3-e2e.json test/e2e
+
+      - name: Tests d'ergonomie et de cohérence d'affichage (5 tailles × 2 échelles de texte)
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        run: flutter test --file-reporter json:build/rapport_tests/4-ergonomie.json test/ergonomie
+
+      # Un fichier à la fois (-j 1) : les temps mesurés ne sont pas faussés par les autres tests.
+      - name: Tests de performance (temps, images, nombre de requêtes, PDF — seuils)
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        run: flutter test -j 1 --file-reporter json:build/rapport_tests/5-performance.json test/performance
+
+      - name: Tests réseau (serveur lent, réponses tronquées, coupures, local/distant, HTTPS)
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        run: flutter test --file-reporter json:build/rapport_tests/6-reseau.json test/reseau
+
+      # Rapport de tests de livraison : résumé par catégorie + mesures de performance et de requêtes, dans le
+      # résumé du job et en artefact « rapport-tests » (à côté de l'APK).
+      - name: Rapport de tests de livraison
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        shell: bash
+        run: dart run tool/rapport_tests.dart build/rapport_tests >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.categories.outcome == 'success' }}
+        with:
+          name: rapport-tests
+          path: |
+            build/rapport_tests/rapport.md
+            build/rapport_tests/resume.json
+            build/rapport_tests/*.json
+          retention-days: 30
+
+      # APK construit seulement si l'analyse et TOUTES les catégories de tests ont réussi (étapes sans condition :
+      # sautées dès qu'une étape précédente a échoué).
       - name: Build APK
         run: flutter build apk --release
 

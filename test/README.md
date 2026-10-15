@@ -1,14 +1,38 @@
 # Tests de l'application du pharmacien
 
-Tous les tests tournent avec `flutter test` (aucun émulateur, aucun vrai serveur), en local comme sur la CI Linux
-(`.github/workflows/ci.yml` : `flutter analyze` puis `flutter test` complet). Aucune vraie donnée de patient ni
-vrai identifiant : uniquement des données fictives (`support/donnees_fictives.dart`).
+Tous les tests tournent avec `flutter test` (aucun émulateur, aucun vrai serveur), en local comme sur la CI Linux.
+Aucune vraie donnée de patient ni vrai identifiant : uniquement des données fictives (`support/donnees_fictives.dart`,
+`support/grandes_donnees.dart`).
 
 ```
 flutter test                      # tout
 flutter test test/e2e             # une catégorie
+flutter test -j 1 test/performance   # performance : un fichier à la fois (temps non faussés)
 flutter test --plain-name "Connexion"
 ```
+
+## CI et rapport de tests de livraison (3.9.1, même socle que Prestige Inventaire)
+
+`.github/workflows/ci.yml` : `flutter analyze` (plafond de remarques), puis **une étape par catégorie**, chacune jouée
+même si une autre échoue (rapport complet) :
+
+| Étape | Dossiers |
+|---|---|
+| Unitaires et non-régression | `test/*_test.dart`, `unitaires/`, `non_regression/` |
+| Intégration | `integration/` |
+| Bout en bout | `e2e/` |
+| Ergonomie et cohérence | `ergonomie/` |
+| Performance (`-j 1`) | `performance/` |
+| Réseau | `reseau/` |
+
+Un garde-fou fait échouer la CI si un `*_test.dart` est hors de ces dossiers. Chaque catégorie écrit ses résultats
+(`--file-reporter json:build/rapport_tests/<n>-<catégorie>.json`) ; `dart run tool/rapport_tests.dart build/rapport_tests`
+(copie adaptée de Prestige Inventaire) en tire le **rapport de tests de livraison** : tests par catégorie (réussis,
+sautés avec leur motif, échecs, durée), chaque mesure de performance et de requêtes (valeur, seuil, part du seuil),
+tests en échec. Il est écrit dans le **résumé du job GitHub** et publié en artefact **`rapport-tests`**
+(`rapport.md`, `resume.json`, résultats JSON). L'**APK n'est construit que si tout passe**.
+
+En local : `mkdir -p build/rapport_tests && flutter test --file-reporter json:build/rapport_tests/5-performance.json -j 1 test/performance && dart run tool/rapport_tests.dart build/rapport_tests`.
 
 ## Catégories
 
@@ -54,6 +78,16 @@ flutter test --plain-name "Connexion"
 | `unitaires/retours_3_9_0_test.dart`, `integration/retours_3_9_0_test.dart`, `e2e/parcours_retours_3_9_0_test.dart`, `support/cas_retours_3_9_0.dart` | Retours du pharmacien (3.9.0) | Suivi 20/80 « Tous » (`topN` absent, `limit` 9 999, aucune coupe ; défaut 50 inchangé) ; « Fiche Article » absent de la nouvelle interface (A, B, recherche, C, personnalisation ; ordre mémorisé gardé pour l'ancienne : `HomeSettingsProvider.fusionnerOrdre`) ; recherche « contient » de l'onglet Analyses (`GET /espace-produit/recherche?q=` après l'anti-rebond, 2 caractères, détail `GET /info?search=<CIP>` au CIP EXACT, repli `/info` sur 404 avec avertissement, 500, CIP introuvable, anti double appui) ; Pointage BL (aucune requête sans critère, explication, dernier grossiste ou groupe repris, grossiste disparu oublié sans requête) ; « Menus de l'accueil » 0 / 1 (A et B par pages : balayage, boutons, indicateur ; recherche à plat ; admin sans code, autres avec code) ; « Style des icônes » (Actuel par défaut, P1 / P2 / P3, contrastes ≥ 4,5:1, barre du bas, caché aux autres comptes). Ergonomie et cohérence : états de `cas_retours_3_9_0.dart` (3 styles × A, B, Analyses, Tous les menus ; pages ; recherche ; Pointage ; 20/80 ; Réglages) aux 5 tailles × 2 échelles, sans écart. |
 | `propositions_couleurs_captures_test.dart` | Captures 3.9.0 (à la demande) | `CAPTURES_COULEURS=1 flutter test test/propositions_couleurs_captures_test.dart --update-goldens` → `docs/maquettes/propositions_couleurs/` (page `index.html`) et `docs/maquettes/captures_3_9_0/`. |
 | `non_regression/version_sunmi_test.dart` | Non-régression (versions) | `pubspec.yaml` au format `X.Y.Z+N`, aucun `versionCode` / `versionName` en dur dans Gradle ; dès qu'une version est publiée (`docs/VERSIONS_SUNMI.md`, `minimum_sunmi:`), X.Y.Z ≥ publiée et +N strictement supérieur. |
+| `performance/demarrage_test.dart` | Performance (démarrage) | Lancement → écran de connexion, nouvelle et ancienne interface (temps à froid, images rendues, requêtes : licence + nom de l'officine) ; connexion → accueil A, B, C et menus « par pages » (A, B), accueil d'origine. |
+| `performance/listes_longues_test.dart` | Performance (longues listes) | Suivi Crédit 1 000 lignes, Suggestions 500 lignes (un champ par ligne), Visualisation BL 1 000 bons (pages de 20), Fichier Journal 500 actions (pages de 50), Prévisions 1 000 produits (pages de 25), CA emplacement 60 tranches × 40 lignes (téléphone, et tablette : tableau défilant en largeur) : ouverture, pire « Afficher plus », pire image et image courante (p90) d'un défilement complet (1er passage à froid, 2e mesuré). |
+| `performance/graphiques_test.dart` | Performance (graphiques) | Tableau : Analyses sur 3 ans (1 096 jours : ouverture, changement de vue Comparée / Achats / Ventes, toucher de la courbe, défilement du jour par jour) ; Évolution du stock sur 3 ans (ouverture, toucher, « Afficher tous les jours », défilement). |
+| `performance/requetes_test.dart` | Performance (nombre de requêtes) | Plafonds EXACTS : connexion + accueil A (4), B (2), C (2), d'origine (2) ; ouverture de chaque module du lot 1 (Rapport d'Activité 4, Détail CA 1, Analyse Article 0, Suivi Péremption 1, Suivi Crédit 1) et changement de période (4 / 1 / 1) ; retour sans requête ; recherche tapée vite (10 lettres, 120 ms) = 1 ; accueil A ouvert 10 min = 0 appel des alertes ; ⟳ des alertes (double appui) = 1. |
+| `performance/pdf_test.dart` | Performance (PDF) | Ticket Z (40 caissiers × 8 modes), Stat TVA, Marge (1 000 produits), CA Crédit (1 000 ventes) par le vrai menu « Exporter » (aucune requête, toutes les lignes), Suivi Péremption (1 000 lots, hors ligne) : de l'appui au PDF prêt, plafond de temps. |
+| `reseau/serveur_lent_test.dart` | Réseau (serveur lent) | Serveur qui répond en 2, 5, 8 s : connexion (deux interfaces), accueil A (« … » pendant l'attente), 10 modules (Rapport d'Activité, Détail CA, Suivi Crédit, Suivi Péremption, Visualisation BL, Suggestions, Tableau : Analyses, Récap de caisse, Fichier Journal, Prévisions), quantité d'une suggestion, pointage d'un BL, annulation d'une vente : attente visible à chaque pas de 250 ms, AUCUN message d'erreur avant le délai de l'application, retour possible pendant l'attente, appuis répétés = UN envoi, réponse affichée. Routes lourdes à 25 s : `/info` (Analyse Article), CA emplacement 3 ans, demande 36 mois. |
+| `reseau/reponses_tronquees_test.dart` | Réseau (réponses tronquées) | Vrai serveur HTTP : corps coupé pendant le transfert → « Serveur injoignable » ; JSON partiel → « Réponse inattendue » ; jamais une liste vide ni « aucune licence » ; connexion coupée ou illisible ; quantité jamais « enregistrée » ; annulation vérifiée par relecture, jamais « refusée » (3.9.1). Écrans : message + « Réessayer » puis données, chiffres de l'accueil « Indisponible ». |
+| `reseau/coupures_reprise_test.dart` | Réseau (coupure puis retour) | Lancement serveur coupé → « injoignable » → retour → réessai automatique → connexion ; connexion coupée ×3 puis retour ; Suivi Crédit : trois cycles (ouverture, période, Réessayer) ; accueil A (⟳) ; quantité et pointage pendant la coupure (non enregistrés, annulés à l'écran) puis UN envoi au retour. |
+| `reseau/adresse_serveur_test.dart` | Réseau (local ↔ distant) | Deux faux serveurs (local / distant) : local injoignable → « Passer en Distant » → tout sur le distant, rien vers le local ; pastille distant → local : requêtes vers le local, session du distant refusée → « Session expirée » → connexion sur le local ; adresse changée → nouvelle adresse utilisée. |
+| `reseau/https_test.dart` | Réseau (HTTPS réel) | Faux serveur en VRAI HTTPS, certificat auto-signé généré par openssl au lancement (jamais versionné), approuvé SEULEMENT dans le test : licence, connexion (cookie), liste, écriture. Certificat refusé (client de l'application) : message dédié, distinct de « injoignable » (licence, connexion, liste, écriture) ; serveur arrêté : « injoignable ». Écrans : connexion (deux interfaces), lancement (titre « Certificat du serveur refusé »), module, alertes (3.9.1). Sans openssl : tests sautés avec motif. |
 | `version_affichee_test.dart` | Version affichée | « Version X.Y.Z+N » lue à l'exécution, en bas de la connexion et dans les Réglages, dans les deux interfaces. |
 | `vague1_captures_test.dart` | Captures (à la demande) | `CAPTURES_VAGUE1=1 flutter test test/vague1_captures_test.dart --update-goldens` : PNG dans `docs/maquettes/captures_vague1/`. |
 | `refonte_captures_test.dart` | Captures (à la demande) | `CAPTURES_REFONTE=1 flutter test test/refonte_captures_test.dart --update-goldens` : PNG de la nouvelle interface dans `docs/maquettes/captures_refonte/` (sauté sinon). |
@@ -76,6 +110,16 @@ flutter test --plain-name "Connexion"
 - `ecarts_connus.dart` : écarts d'ergonomie connus (communs aux deux interfaces ; la liste ne fait que diminuer).
 - `catalogue_ecrans.dart` : modules de l'accueil (tuile, titre de la barre, constructeur) et états supplémentaires.
 - `cas_affichage.dart`, `ergonomie.dart` : écrans rendus, appareils, échelles, guides d'accessibilité.
+- `performance.dart` : seuils (`Seuils`), `mesurer()` (ligne « PRESTIGE_MESURE {json} » relevée par le rapport, échec
+  au-delà du seuil), `ChronoImages` (chaque `pump` chronométré en temps réel), `deuxPassages()` (défilement complet à
+  froid puis mesuré), `ouvrirEcran()`, `brancherEnMemoire()`, `compter()` / `detailRequetes()` (requêtes d'un parcours).
+- `grandes_donnees.dart` : grandes données fictives (1 000 crédits, 500 lignes de suggestion, bons paginés, prévisions,
+  60 tranches de CA, 3 ans d'achats / ventes et de valorisation, ticket Z, marges, CA crédit, lots périmés).
+- `reseau.dart` : `ouvrirDepuisAccueil()` (écran poussé depuis un accueil d'essai : retour possible),
+  `attendreServeurLent()` (attente visible et aucune erreur à chaque pas de 250 ms), `erreursAffichees()`.
+- Faux serveur : `ReponseFausse.tronquee(corps)` (longueur annoncée non atteinte, connexion fermée), `ReponseFausse.coupee()`
+  (connexion fermée sans réponse), `.apres(délai)` (en temps simulé avec `clientMemoire()`), `demarrerSecurise(contexte)`
+  (HTTPS réel).
 - `polices.dart` : polices réelles (Roboto du SDK, sous les noms Lato de google_fonts) ; sans elles, flutter_test
   dessine des carrés de 1 em et les tests de débordement donneraient de fausses alertes.
 - `outils/` (plus ancien) : `monterAvecProviders`, serveur simulé du module Présences.
@@ -107,3 +151,44 @@ Module refait dans la nouvelle interface (lots de la refonte) : le déclarer dan
 données dans `lib/donnees/` (partagée par les deux écrans), ajouter sa comparaison dans `lot1_non_regression_test.dart`
 / `lot2_non_regression_test.dart` / `lot3_non_regression_test.dart` / `lot4_non_regression_test.dart` et ses états dans `casLot1`
 (`support/cas_affichage_nouvelle.dart`) / `casLot2` (`support/cas_lot2.dart`) / `casLot3` (`support/cas_lot3.dart`) / `casLot4` (`support/cas_lot4.dart`) : ils sont alors rendus sans aucun écart toléré.
+
+## Seuils de performance (3.9.1)
+
+Tous les seuils sont dans `test/support/performance.dart` (classe `Seuils`) ou écrits dans le test (plafonds de
+requêtes, exacts). Une mesure au-dessus de son seuil **fait échouer le test** (en local comme sur la CI) ; chaque
+mesure figure dans le rapport de livraison avec la part du seuil utilisée. Les temps sont mesurés en **mode test**
+(JIT, assertions actives : bien plus lent qu'un APK « release » sur le terminal), contre le faux serveur « en mémoire »
+(temps simulé : seul le travail de l'application est chronométré) : ce sont des seuils de **non-régression**, pas des
+temps d'appareil. Mesure d'une image : chaque `tester.pump()` chronométré en temps réel (`Stopwatch`) ; défilement par
+pas de 120 dp, 1er passage à froid (code compilé à la volée) puis 2e passage mesuré. CI : `flutter test -j 1`.
+
+SEUILS_MESURES
+
+Un seuil ne se relève **jamais** pour faire passer un test : seulement après une analyse écrite ici (nouvelle fonction
+plus lourde voulue, machine de CI changée), en gardant une marge d'environ ×3 sur la plus lente des mesures observées.
+
+## Ajouter des tests de performance et réseau à un nouvel écran
+
+1. **Longue liste** (`performance/listes_longues_test.dart`) : données en grand nombre dans `support/grandes_donnees.dart`
+   (format réel de la route), `serveur.quand(route, ReponseFausse.json(...))`, puis
+   `final ms = await ouvrirEcran(tester, serveur, const MonEcran(), pret: find.byKey(const Key('chiffre_…')))` →
+   `mesurer('Mon écran — ouverture', ms, seuil: Seuils.ouvertureListeMs, unite: 'ms')` ; liste par pages :
+   `toutAfficher(tester, 'defilement_module', route, pages)` (une requête par appui, pire page mesurée) ; enfin
+   `deuxPassages(tester, 'Mon écran', cle: 'defilement_module')` (pire image à froid, pire image et p90 au 2e passage).
+2. **Graphique** (`performance/graphiques_test.dart`) : longue période de points, ouverture, changement de vue et
+   toucher de la courbe (`toucherCourbe`) contre `Seuils.ouvertureGraphiqueMs` / `imageGraphiqueMs`.
+3. **Requêtes** (`performance/requetes_test.dart`) : entourer le parcours de `compter(serveur, () async { … })` puis
+   `mesurer('Requêtes — …', rs.length, seuil: <plafond>, unite: 'requêtes', detail: detailRequetes(rs))`. Le plafond
+   est le nombre **voulu**, sans marge, avec sa composition en commentaire.
+4. **PDF** (`performance/pdf_test.dart`) : capturer la sortie (`AnalysesPdf.sortie`, `RecapCaissePdf.sortie`), toucher
+   « Exporter », puis `fabriquer(tester, () => …octets(contenu))` contre `Seuils.pdfMs`, avec beaucoup de lignes
+   (plus de 20 pages).
+5. **Réseau** : dans `reseau/serveur_lent_test.dart`, ajouter l'écran à `modules` (`ModuleLent(nom, écran, route, réponse,
+   signe affiché)`) : il est joué à 2, 5 et 8 s (attente visible, aucune erreur avant le délai, retour possible, une
+   seule lecture) ; une écriture : appuis répétés pendant `attendreServeurLent(..., pendant: …)` puis
+   `serveur.recues(route)` de longueur 1 ; route lourde : 25 s. Dans `reseau/reponses_tronquees_test.dart` :
+   `ReponseFausse.tronquee('{"data":[{"id":1,"lib')` et `ReponseFausse.json('{…partiel')` → message + « Réessayer »,
+   jamais une liste vide ; dans `reseau/coupures_reprise_test.dart` : `serveur.coupe = true / false` sur plusieurs cycles.
+   Délai d'essai toujours inférieur au délai de l'application pour cette route (`ApiService.delaiGet` 45 s,
+   `delaiPost` 20 s, `ApiVague2.delaiLong` 2 min).
+6. Les mesures apparaissent seules dans le rapport de livraison (aucune autre déclaration).

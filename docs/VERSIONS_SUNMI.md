@@ -14,9 +14,12 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.9.0+39** (`pubspec.yaml`) : retours du pharmacien sur la nouvelle
-interface (Suivi 20/80 « Tous », Fiche Article retirée, recherche « contient » de l'onglet Analyses, Pointage BL,
-menus par pages, propositions de couleurs) (`docs/NOTE_VERSION_3.9.0.md`). Précédentes livraisons :
+Version en préparation (pas encore publiée) : **3.9.1+40** (`pubspec.yaml`) : tests de performance et réseau,
+rapport de tests de livraison, corrections des défauts qu'ils ont révélés (PDF de plus de 20 pages, PDF péremption hors
+ligne, certificat HTTPS refusé, annulation sur réponse illisible, requête en double à la connexion)
+(`docs/NOTE_VERSION_3.9.1.md`). Précédentes livraisons :
+3.9.0+39 (retours du pharmacien sur la nouvelle interface : Suivi 20/80 « Tous », Fiche Article retirée, recherche
+« contient » de l'onglet Analyses, Pointage BL, menus par pages, propositions de couleurs, `docs/NOTE_VERSION_3.9.0.md`),
 3.8.1+38 (Suivi 20/80 « Nombre d'articles » appliqué, `docs/NOTE_VERSION_3.8.1.md`),
 3.8.0+37 (réponses aux questions des notes 3.3.0, 3.4.0, 3.5.0 et 3.7.0, `docs/NOTE_VERSION_3.8.0.md`),
 3.7.0+36 (réglage « Taille de l'écran », `docs/TAILLE_ECRAN.md`, `docs/NOTE_VERSION_3.7.0.md`),

@@ -62,6 +62,12 @@ class ApiLoadException implements Exception {
   static const messageCertificat = 'Connexion sécurisée (HTTPS) impossible : certificat du serveur refusé.';
   static const messageAdresse = 'Adresse du serveur incorrecte. Vérifiez la configuration.';
 
+  /// Titre des écrans quand le certificat HTTPS du serveur est refusé (≠ « Serveur injoignable », 3.9.1).
+  static const titreCertificat = 'Certificat du serveur refusé';
+
+  /// Le serveur a répondu, mais son certificat HTTPS n'est pas reconnu (poignée de main refusée).
+  bool get certificatRefuse => message == messageCertificat;
+
   /// Même échec, précisé par ce qui n'a pas pu être chargé (« … (rayons non chargés) »).
   ApiLoadException pour(String quoi) {
     switch (nature) {
