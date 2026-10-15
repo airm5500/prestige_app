@@ -25,7 +25,7 @@ import 'package:prestige_app/services/api_service.dart';
 import 'application.dart';
 import 'faux_serveur_prestige.dart';
 
-/// Seuils de performance. Calibrés sur la CI GitHub (ubuntu-latest, `flutter test -j 1`) avec une marge d'environ
+/// Seuils de performance. Calibrés sur la CI GitHub (ubuntu-latest, run 38683989348, `flutter test -j 1`) avec une marge d'environ
 /// ×3 sur la mesure la plus lente (temps) et une marge NULLE sur les requêtes (plafond = nombre attendu par le
 /// fonctionnement voulu, écrit dans le test). Sur un PC chargé : `flutter test -j 1 test/performance`.
 /// Valeurs mesurées et marge : test/README.md (« Seuils de performance »). Un seuil ne se relève qu'avec une
@@ -36,10 +36,10 @@ class Seuils {
   // --- Démarrage ---
   /// Lancement de l'application (racine de main.dart, licence lue sur le faux serveur, écran de démarrage gardé
   /// 2,5 s simulées par AuthProvider) jusqu'à l'écran de connexion affiché et immobile, à froid.
-  static const demarrageMs = 10000;
+  static const demarrageMs = 2500;
 
   /// Images rendues pendant ce démarrage (16 ms simulées par image : l'écran de démarrage anime son indicateur
-  /// pendant 2,5 s, soit ~160 images).
+  /// pendant 2,5 s, soit ~160 images ; nombre fixé par le temps simulé, d'où une marge de ×1,5 seulement).
   static const demarrageImages = 240;
 
   /// Requêtes au démarrage (avant connexion) : la licence et le nom de l'officine (affiché sur l'écran de
@@ -47,34 +47,34 @@ class Seuils {
   static const demarrageRequetes = 2;
 
   /// Connexion → accueil de la nouvelle interface affiché (A, B, C, menus par pages), images comprises.
-  static const accueilMs = 6000;
+  static const accueilMs = 600;
 
   // --- Longues listes : temps de construction d'UNE image (ms, mode test) ---
   /// Ouverture d'un écran sur une longue liste (réponse du faux serveur lue, toutes les cartes construites), à froid.
-  static const ouvertureListeMs = 30000;
+  static const ouvertureListeMs = 8000;
 
   /// Pire image (première apparition, défilement à froid).
-  static const imageFroideMs = 5000;
+  static const imageFroideMs = 1600;
 
   /// PIRE image pendant le défilement d'une longue liste, après un premier passage (code déjà compilé).
-  static const imageDefilementMs = 400;
+  static const imageDefilementMs = 600;
 
   /// 90 % des images de défilement en dessous (image « courante »).
-  static const imageCouranteMs = 150;
+  static const imageCouranteMs = 64;
 
   /// « Afficher plus » sur une liste déjà longue (page suivante ajoutée, liste reconstruite) : pire image.
-  static const pageSuivanteMs = 20000;
+  static const pageSuivanteMs = 3000;
 
   // --- Graphiques ---
   /// Ouverture d'un écran à graphique sur une longue période (3 ans de points) jusqu'à l'image immobile.
-  static const ouvertureGraphiqueMs = 30000;
+  static const ouvertureGraphiqueMs = 6000;
 
   /// Changement de vue d'un graphique (Comparée / Achats / Ventes) : pire image.
-  static const imageGraphiqueMs = 3000;
+  static const imageGraphiqueMs = 1500;
 
   // --- PDF ---
   /// Fabrication des octets d'un PDF (ticket Z, TVA, Marge, CA Crédit, péremption) avec beaucoup de lignes.
-  static const pdfMs = 30000;
+  static const pdfMs = 7000;
 }
 
 /// Mesure enregistrée (pour le rapport) et comparée à son seuil.

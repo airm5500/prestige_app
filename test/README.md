@@ -162,7 +162,26 @@ mesure figure dans le rapport de livraison avec la part du seuil utilisée. Les 
 temps d'appareil. Mesure d'une image : chaque `tester.pump()` chronométré en temps réel (`Stopwatch`) ; défilement par
 pas de 120 dp, 1er passage à froid (code compilé à la volée) puis 2e passage mesuré. CI : `flutter test -j 1`.
 
-SEUILS_MESURES
+| Mesure | Seuil | Mesuré sur la CI GitHub (ubuntu-latest, `-j 1`, run 38683989348) | Marge |
+|---|---:|---:|---:|
+| Démarrage → connexion, à froid (nouvelle interface ; ancienne) | 2 500 ms | 840 ms ; 239 ms | ×3,0 |
+| Démarrage → connexion — images rendues / requêtes (licence + officine) | 240 / 2 | 139–156 / 2 | ×1,5 / — |
+| Connexion → accueil A, B, C, par pages (A, B), d'origine | 600 ms | 37–181 ms | ×3,3 |
+| Ouverture d'un écran sur longue liste, à froid (Suivi Crédit 1 000, Suggestions 500, 1re page BL / Journal / Prévisions, CA 60 tranches) | 8 000 ms | 50–2 635 ms (Suggestions 500 : 2 635) | ×3,0 |
+| « Afficher plus » sur une liste déjà longue (BL 1 000, Journal 500, Prévisions 1 000, Évolution « tous les jours » 1 096) | 3 000 ms | 262–931 ms | ×3,2 |
+| Pire image d'un 1er défilement (à froid) | 1 600 ms | 6–544 ms (CA tablette : 544) | ×2,9 |
+| Pire image d'un défilement (2e passage) | 600 ms | 10–188 ms (CA tablette : 188) | ×3,2 |
+| Image courante (p90) d'un défilement | 64 ms | 1–21 ms | ×3,0 |
+| Ouverture d'un graphique sur 3 ans (Tableau : Analyses ; Évolution du stock) | 6 000 ms | 1 910 ; 100 ms | ×3,1 |
+| Changement de vue / toucher d'une courbe sur 3 ans (pire image) | 1 500 ms | 490 / 3–159 ms | ×3,1 |
+| PDF : Exporter → PDF prêt (ticket Z 40 caissiers, TVA, Marge 1 000, CA Crédit 1 000, Péremption 1 000) | 7 000 ms | 11–2 213 ms (Péremption : 2 213) | ×3,2 |
+| Requêtes : démarrage / connexion + accueil A ; B ; C ; d'origine | 2 / 4 ; 2 ; 2 ; 2 | identiques | aucune |
+| Requêtes : ouverture Rapport d'Activité / Détail CA / Analyse Article / Suivi Péremption / Suivi Crédit | 4 / 1 / 0 / 1 / 1 | identiques | aucune |
+| Requêtes : changement de période (Rapport d'Activité / Détail CA / Suivi Crédit) | 4 / 1 / 1 | identiques | aucune |
+| Requêtes : recherche tapée vite (10 lettres) ; accueil A 10 min sans ⟳ ; ⟳ des alertes (double appui) | 1 ; 0 ; 1 | identiques | aucune |
+
+La machine de la CI est environ 3 fois plus rapide que certains postes : en local, lancer
+`flutter test -j 1 test/performance` sur un poste peu chargé (les seuils restent ceux de la CI).
 
 Un seuil ne se relève **jamais** pour faire passer un test : seulement après une analyse écrite ici (nouvelle fonction
 plus lourde voulue, machine de CI changée), en gardant une marge d'environ ×3 sur la plus lente des mesures observées.

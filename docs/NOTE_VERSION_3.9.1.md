@@ -26,9 +26,9 @@ l'application). Tous les tests existants passent sans modification.
 ## Constats de performance (non corrigés : non « petits et évidents »)
 
 - Les listes des modules refaits sont construites **en entier** (`ListeOuTableau` : une colonne de toutes les cartes
-  dans la liste défilante). Avec 1 000 lignes, l'ouverture coûte quelques secondes en mode test et chaque
-  « Afficher plus » reconstruit toute la liste (Prévisions, 1 000 produits : jusqu'à ~5 s en mode test, bien moins
-  dans l'APK « release »). Changer de vue du Tableau : Analyses sur 3 ans reconstruit aussi les 1 096 cartes du
+  dans la liste défilante). Avec 1 000 lignes, l'ouverture coûte jusqu'à 2,6 s en mode test sur la CI (Suggestions, 500
+  lignes) et chaque « Afficher plus » reconstruit toute la liste (Prévisions ou BL à 1 000 lignes : ~0,65 s en mode
+  test sur la CI ; jusqu'à ~5 s sur un poste lent ; bien moins dans l'APK « release »). Changer de vue du Tableau : Analyses sur 3 ans reconstruit aussi les 1 096 cartes du
   « jour par jour ». Piste : liste construite à la demande (`SliverList`). Les seuils actuels empêchent toute
   aggravation.
 - Le défilement reste fluide une fois la liste construite (voir les mesures du rapport).
