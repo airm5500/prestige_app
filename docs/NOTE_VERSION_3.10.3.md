@@ -44,6 +44,21 @@ certificat HTTPS refusé, 404 MÉTIER d'un module (élément introuvable).
   de temps à répondre » (le serveur est joignable, le calcul est long).
 - **Alertes de l'accueil A** : mêmes messages.
 
+## Défaut de performance corrigé (révélé par la CI)
+
+La CI du commit `fa083cf` a échoué à l'étape « Tests de performance » : **CA emplacement / famille (téléphone), 60
+tranches × 40 lignes — pire image du 2e défilement : 621 ms pour un seuil de 600 ms** (`listes_longues_test.dart`). Sans
+lien avec les changements de la 3.10.3 : aucune requête en plus (la vérification `/officine` n'a lieu que sur un 404 ; ce
+test n'en reçoit aucun), et la 3.9.1 montre le même pic en local (409 à 599 ms). Les valeurs relevées sur la CI pour cette
+mesure étaient de 188 à 537 ms, déjà proches du seuil.
+
+**Cause** (mesurée image par image) : toujours la même image (8e pas de défilement) ; sur téléphone, les 40 cartes étaient
+construites dans UNE seule colonne, élément unique de la liste défilante : à son arrivée à l'écran, les 40 cartes (et
+leurs tranches) étaient construites et mises en page en une seule image. **Correction** (`ca_zone_vague2.dart`) : une
+carte par élément de la liste, construite à la demande. Mesure locale après correction : pire image 25 ms (au lieu de
+357 à 646 ms), p90 9 ms. Le seuil n'a pas été touché. Tablette (tableau de 40 × 60 colonnes, construit d'un bloc car
+défilant horizontalement) : 346 à 460 ms en local, 237 à 343 ms sur la CI, sous le seuil ; non modifié.
+
 ## Tests
 
 - Mis à jour et complétés : `unitaires/serveur_indisponible_test.dart` (messages exacts, quels échecs relèvent du cas 2),

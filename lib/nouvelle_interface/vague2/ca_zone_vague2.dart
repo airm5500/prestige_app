@@ -260,12 +260,14 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
         for (final t in d.tranches) _LigneTranche(t, d.totauxTranches[t.cle] ?? 0, d.evolutionsTranches[t.cle]),
       ]),
       TitreSection('Par ${f.regroupement.libelle.toLowerCase()} (${grouperMilliers(d.lignes.length)})'),
-      LayoutBuilder(builder: (context, c) {
-        if (c.maxWidth >= largeurTableau) return _tableau(d, f, c.maxWidth);
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          for (var i = 0; i < d.lignes.length; i++) _carte(d, f, d.lignes[i], i),
-        ]);
-      }),
+      // Largeur utile = largeur de l'écran − marges de la liste (16 + 16), comme le LayoutBuilder d'origine.
+      if (MediaQuery.sizeOf(context).width - 32 >= largeurTableau)
+        LayoutBuilder(builder: (context, c) => _tableau(d, f, c.maxWidth))
+      else
+        // 3.10.3 : une carte par élément de la liste défilante (construite à la demande), et non une seule colonne de
+        // toutes les cartes : sur téléphone, l'arrivée de la colonne entière à l'écran coûtait une image de 0,4 à
+        // 0,7 s (relevé par test/performance/listes_longues_test.dart, 60 tranches × 40 lignes).
+        for (var i = 0; i < d.lignes.length; i++) _carte(d, f, d.lignes[i], i),
     ];
   }
 
