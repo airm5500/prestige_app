@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | « P4 convient » | P4 « icônes illustrées » gardé tel quel |
 | 2 | « Je veux les 3 [dispositions] mais paramétrables, avec par défaut l'affichage P4_1_accueil » | **Par défaut : style P4 + « tout sur une page »** (comme `propositions_couleurs/p4_1_accueil_A.png`) ; les trois dispositions et les autres styles (Actuel, P1, P2, P3) restent au choix ; le réglage « Style des icônes » n'est **plus caché** |
-| 3 | Demande « grossiste sur chaque pièce / montant par grossiste d'un groupe » à transmettre | `docs/serveur/DEMANDES_SERVEUR_2026-10-15.md` § 1 complétée et marquée **à transmettre** |
+| 3 | Demande « grossiste sur chaque pièce / montant par grossiste d'un groupe » à transmettre | Demande complétée, marquée **à transmettre**, regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3) |
 
 ## 1 — P4 par défaut, migration
 
@@ -31,7 +31,7 @@ Réglages › Apparence › **Style des icônes** : visible pour tous les compte
 
 ## 3 — Demande au serveur à transmettre
 
-`docs/serveur/DEMANDES_SERVEUR_2026-10-15.md` § 1 (priorité P2) : `grossisteId` et `grossiste` sur chaque pièce de
+Demande (regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3), priorité P2) : `grossisteId` et `grossiste` sur chaque pièce de
 `GET /pointage-bl` ; pour une recherche par groupe, tableau `parGrossiste` (BL, avoirs, net, pièces, pointées, à
 pointer) calculé sur toutes les pièces quel que soit `etat`, sommes égales aux totaux ; endroit du code serveur à
 modifier, règles, compatibilité (application déjà prête), quatre vérifications `curl`.

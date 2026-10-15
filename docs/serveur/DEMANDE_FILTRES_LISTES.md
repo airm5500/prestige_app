@@ -46,7 +46,7 @@ décision du pharmacien (3.8.0).
 
 Ce paragraphe a été retiré : décision du pharmacien (3.10.0), le pointage des BL se lit **par grossiste ou par groupe
 de grossistes** ; rien n'est demandé au serveur pour une recherche sur l'ensemble des grossistes. Il ne figurait pas
-dans la demande consolidée du 14/10/2026. Voir `docs/serveur/DEMANDES_SERVEUR_2026-10-15.md`.
+dans la demande consolidée du 14/10/2026. Demandes et réponses de l'application : regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3).
 
 ## 3. Pour information : pas de demande pour les autres points de la 3.8.0
 

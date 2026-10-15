@@ -244,7 +244,7 @@ class PieceBl {
   final int controleEcarts;
 
   /// Grossiste de la pièce (identifiant et libellé) : rendu par le serveur seulement s'il le fournit (demande
-  /// docs/serveur/DEMANDES_SERVEUR_2026-10-15.md § 1) ; vide sinon.
+  /// regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3)) ; vide sinon.
   final String grossisteId;
   final String grossiste;
 
@@ -392,7 +392,7 @@ class PointageBl {
   ///  - sinon calculé sur les pièces, SEULEMENT si toutes portent leur grossiste et si [toutesLesPieces] (état
   ///    « Toutes » : les totaux du serveur portent sur toutes les pièces, le détail doit en faire autant) ;
   ///  - sinon null : le serveur actuel ne dit pas à quel grossiste appartient chaque pièce (le total du groupe reste
-  ///    affiché ; demande au serveur : docs/serveur/DEMANDES_SERVEUR_2026-10-15.md § 1).
+  ///    affiché ; demande au serveur : regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3)).
   (List<MontantGrossiste>, SourceDetailGroupe)? detailGroupe({required bool toutesLesPieces}) {
     final s = parGrossisteServeur;
     if (s != null && s.isNotEmpty) return (s, SourceDetailGroupe.serveur);

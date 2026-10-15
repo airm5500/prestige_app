@@ -19,7 +19,7 @@
 // grossistes ») : choix explicite « Par grossiste » / « Par groupe de grossistes » (une seule liste à la fois ; un
 // groupe envoie `groupe=<id>`, lu par PointageBLRessource.criteres → grossistes du groupe) ; montant du grossiste ou
 // du groupe mis en avant ; pour un groupe, montant de chaque grossiste du groupe quand le serveur le permet
-// (PointageBl.detailGroupe ; demande : docs/serveur/DEMANDES_SERVEUR_2026-10-15.md § 1). Aucune requête « tous les
+// (PointageBl.detailGroupe ; demande : regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3)). Aucune requête « tous les
 // grossistes » (FiltresPointage.complet refuse aussi l'identifiant « ALL »).
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

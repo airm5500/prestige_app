@@ -78,8 +78,8 @@ retirée par l'application).
 - l'application ne demande **jamais** « tous les grossistes » (`ALL` refusé comme choix, rien n'est envoyé sans
   grossiste ni groupe) ; l'explication de l'écran ne parle plus d'une demande « tous ».
 
-Serveur : **`docs/serveur/DEMANDES_SERVEUR_2026-10-15.md`** — § 1 grossiste sur chaque pièce et `parGrossiste` ; § 2
-annulation de la demande « tous les grossistes ». Celle-ci n'avait pas été transmise (absente de la demande consolidée
+Serveur : demande (grossiste sur chaque pièce et `parGrossiste`) et annulation de la demande « tous les
+grossistes » : **regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3)**. Celle-ci n'avait pas été transmise (absente de la demande consolidée
 du 14/10) : elle est retirée de `docs/serveur/DEMANDE_FILTRES_LISTES.md`.
 
 ## 5 — Réponse du serveur, intégrée avec repli
@@ -97,7 +97,7 @@ livré sur la même branche) ; sinon, comportement 3.9.1.
 | 29 | routes `/nombre` | **non utilisées** : aucun écran ne charge une liste pour compter (un seul `GET /tableau-bord/alertes` à la demande) | — |
 
 Réponses aux questions du serveur (n° 2 `POST pharma/reponses` : non utilisé par l'application ; n° 26 `checked` :
-valeurs envoyées, filtre attendu = `statutControle`) : **`docs/serveur/REPONSES_APP_PHARMACIEN_2026-10-15.md`**.
+valeurs envoyées, filtre attendu = `statutControle`) : **regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_2026-10-15.md (§ 3)**.
 
 ## Tests
 
