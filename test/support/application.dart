@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:prestige_app/interface_version.dart';
 import 'package:prestige_app/main.dart';
 import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
+import 'package:prestige_app/nouvelle_interface/apparence_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/services/journal_app.dart';
@@ -45,7 +46,11 @@ TailleEcran tailleEcranPreparee = TailleEcran.automatique;
 /// [nouvelle] : version de l'interface (les tests écrits pour l'interface d'origine la demandent explicitement :
 /// la nouvelle interface est celle par défaut) ; [presentation] : présentation A / B / C de la nouvelle interface.
 void preparerTelephone(FauxServeurPrestige serveur,
-    {Map<String, Object> autres = const {}, bool nouvelle = false, Presentation presentation = Presentation.automatique}) {
+    {Map<String, Object> autres = const {},
+    bool nouvelle = false,
+    Presentation presentation = Presentation.automatique,
+    AffichageMenus affichageMenus = AffichageMenus.unePage,
+    StyleIcones styleIcones = StyleIcones.actuel}) {
   InterfaceVersion.useNew.value = nouvelle;
   // Taille de l'écran : [tailleEcranPreparee] (Automatique par défaut : Compact d'office sur les petits écrans),
   // enregistrée et appliquée comme après un lancement (main() la lit avant runApp).
@@ -53,6 +58,10 @@ void preparerTelephone(FauxServeurPrestige serveur,
   TailleEcranReglage.enregistree = tailleEcranPreparee;
   TailleEcranReglage.appliquerMaintenant();
   PresentationPrefs.choix.value = presentation;
+  // Réglages d'apparence de l'accueil (3.9.0) : valeurs par défaut, sauf demande du test (ils sont lus au lancement).
+  ApparenceAccueilPrefs.reinitialiser();
+  ApparenceAccueilPrefs.affichage.value = affichageMenus;
+  ApparenceAccueilPrefs.style.value = styleIcones;
   // Nombres des alertes de l'accueil A : rien de compté ni de mémorisé d'un test à l'autre.
   AlertesAccueil.instance.oublier();
   AlertesAccueil.maintenant = DateTime.now;
@@ -61,6 +70,8 @@ void preparerTelephone(FauxServeurPrestige serveur,
     InterfaceVersion.cle: nouvelle,
     if (tailleEcranPreparee != TailleEcran.automatique) TailleEcranReglage.cle: tailleEcranPreparee.name,
     PresentationPrefs.cle: presentation.name,
+    if (affichageMenus != AffichageMenus.unePage) ApparenceAccueilPrefs.cleAffichage: affichageMenus.valeur,
+    if (styleIcones != StyleIcones.actuel) ApparenceAccueilPrefs.cleStyle: styleIcones.name,
     ...autres,
   }));
   FlutterSecureStorage.setMockInitialValues({});

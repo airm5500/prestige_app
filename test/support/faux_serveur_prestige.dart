@@ -127,7 +127,7 @@ class FauxServeurPrestige {
   bool controlerSession = true;
 
   /// Routes accessibles sans session (préfixes).
-  final routesPubliques = <String>{'/licence/', '/user/auth', '/officine'};
+  final routesPubliques = <String>{'/licence/', '/user/auth', '/officine', '/espace-produit/'};
 
   /// Réponse d'une route privée sans session valide.
   RouteFausse reponseSansSession = (_) => ReponseFausse.sessionExpiree();
@@ -226,6 +226,8 @@ class FauxServeurPrestige {
     // Liste des fournisseurs : tableau JSON (l'écran Fournisseurs refuse tout autre format).
     quand('/fournisseurs', ReponseFausse.json(const <Object>[]), methode: 'GET');
     route('/info', (r) => ReponseFausse.json(_filtrer(DonneesFictives.articlesAnalyse(), 'libelle', r.parametres['search'])), methode: 'GET');
+    // Recherche « contient » (EspaceProduitRessource.rechercher : route publique, 2 caractères, 50 au plus), 3.9.0.
+    route('/espace-produit/recherche', (r) => ReponseFausse.json(DonneesFictives.rechercheProduit(r.parametres['q'])), methode: 'GET');
     route('/checkproduit', (r) => ReponseFausse.json(_filtrer(DonneesFictives.produitsFiche(), 'familleLibelle', r.parametres['nompdt'])),
         methode: 'GET');
     route('/rh/presence', (r) => ReponseFausse.json(DonneesFictives.presenceDuJour(r.parametres['jour'] ?? '2026-10-13')), methode: 'GET');

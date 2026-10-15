@@ -11,7 +11,11 @@
 // Fichier Journal, Annulation Ventes ; seule Présences garde son écran, déjà refait). Nouveaux menus réservés à l'administrateur et au
 // pharmacien : vague 1 (vague1/), vague 2 (vague2/), vague 3 (vague3/ : Pointage BL, Avis, Rappels traitement).
 // « Fournisseurs » (liste des fournisseurs) n'est plus proposé dans la nouvelle interface (demande du
-// pharmacien) ; il reste dans l'ancienne.
+// pharmacien) ; il reste dans l'ancienne. De même « Fiche Article » (3.9.0, demande du pharmacien : sa recherche
+// est lente, Analyse Article donne les mêmes informations rapidement et l'onglet « Analyses » cherche un produit
+// en mode « contient ») : retiré des accueils A / B / C, de la recherche de menu et de « Personnaliser l'accueil » ;
+// l'ancienne interface garde le sien. L'ordre et les menus masqués mémorisés (communs aux deux interfaces) ne sont
+// pas modifiés : « Fiche Article » y garde sa place pour l'ancienne interface (menusRetiresNouvelle, HomeSettingsProvider.fusionnerOrdre).
 import 'package:flutter/material.dart';
 
 import '../presences/presences_screen.dart';
@@ -119,6 +123,10 @@ class MenuModule {
   Map<String, dynamic> get pourPersonnalisation => {'title': titre, 'icon': icone, 'color': Charte.navy};
 }
 
+/// Menus de l'ancien accueil volontairement absents de la nouvelle interface (demandes du pharmacien). Leur place
+/// dans l'ordre mémorisé et leur état masqué restent intacts pour l'ancienne interface.
+const menusRetiresNouvelle = {'Fournisseurs', 'Fiche Article'};
+
 final menusModules = <MenuModule>[
   MenuModule('Détail CA', 'Comptant, crédit, modes de paiement', Icons.payments_outlined, Famille.ventes, Question.vendu,
       () => const DetailCaNouveau()),
@@ -148,8 +156,6 @@ final menusModules = <MenuModule>[
       () => const StatTvaNouveau()),
   MenuModule('Analyse Article', 'Ventes, stock et réserve d\'un article', Icons.query_stats, Famille.analyses,
       Question.commander, () => const AnalyseArticleNouveau()),
-  MenuModule('Fiche Article', 'Prix, stock, emplacement', Icons.article_outlined, Famille.analyses, Question.commander,
-      () => const FicheArticleNouveau()),
   MenuModule('Suivi 20/80', 'Articles qui font le chiffre', Icons.star_border, Famille.analyses, Question.commander,
       () => const Suivi2080Nouveau()),
   MenuModule('Suivi Péremption', 'Produits bientôt périmés', Icons.warning_amber_rounded, Famille.stock, Question.commander,

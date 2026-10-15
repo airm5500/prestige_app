@@ -9,6 +9,9 @@
 //    tablette, menu latéral bleu et menus sur deux colonnes ;
 //  - C · Guidé : « Que voulez-vous savoir ? », cinq questions métier, puis les menus de la question.
 // Les menus ouvrent les écrans d'origine des modules (mêmes données, mêmes routes serveur).
+// 3.9.0 : réglages « Menus de l'accueil » (sur une page / par pages : A et B sur téléphone) et « Style des icônes »
+// (propositions P1 / P2 / P3, « Actuel » par défaut), apparence_accueil.dart ; « Fiche Article » retiré (menus.dart) ;
+// recherche de produit « contient » en haut de l'onglet Analyses (recherche_produit_analyses.dart).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,12 +23,14 @@ import '../providers/ip_config_provider.dart';
 import '../providers/licence_provider.dart';
 import '../utils/constants.dart';
 import 'alertes_accueil.dart';
+import 'apparence_accueil.dart';
 import 'charte.dart';
 import 'chiffres_du_jour.dart';
 import 'composants.dart';
 import 'menus.dart';
 import 'modules/fichier_journal_nouveau.dart';
 import 'presentation.dart';
+import 'recherche_produit_analyses.dart';
 import 'reglages_nouveaux.dart';
 import 'vague1/alertes_vague1.dart';
 import 'vague1/donnees_vague1.dart' show ReglageAlerte, ReglagesAlertes, TypeAlerte, ValeursAlertes;
@@ -78,6 +83,57 @@ enum OngletAccueil {
   /// Rubrique du menu latéral (tablette).
   final String rubrique;
   const OngletAccueil(this.icone, this.iconeChoisie, this.libelle, this.rubrique);
+}
+
+/// Couleur de l'onglet actif (styles d'icônes P1 / P2 / P3) : Accueil bleu nuit, Analyses indigo, Équipe framboise,
+/// Pilotage ambre.
+Teinte teinteOnglet(OngletAccueil o) => switch (o) {
+      OngletAccueil.accueil => const Teinte(Charte.navy, Charte.bleuClair, Charte.blanc),
+      OngletAccueil.analyses => teinteFamille(Famille.analyses),
+      OngletAccueil.equipe => teinteFamille(Famille.equipe),
+      OngletAccueil.pilotage => teinteFamille(Famille.credits),
+    };
+
+/// Barre du bas (téléphone). Style « Actuel » : celle d'origine (thème). P1 / P2 / P3 : icône et libellé de
+/// l'onglet actif dans sa couleur, sur un indicateur (pastille) de la même famille.
+class BarreOnglets extends StatelessWidget {
+  final List<OngletAccueil> onglets;
+  final int onglet;
+  final ValueChanged<int> choisir;
+  final StyleIcones style;
+  const BarreOnglets({super.key, required this.onglets, required this.onglet, required this.choisir, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    final colore = style != StyleIcones.actuel;
+    final t = teinteOnglet(onglets[onglet.clamp(0, onglets.length - 1)]);
+    final barre = NavigationBar(
+      key: const Key('barre_accueil'),
+      selectedIndex: onglet,
+      height: 66,
+      onDestinationSelected: choisir,
+      indicatorColor: colore ? t.pastille : null,
+      destinations: [
+        for (final o in onglets)
+          NavigationDestination(
+            icon: Icon(o.icone),
+            selectedIcon: Icon(o.iconeChoisie, color: colore ? teinteOnglet(o).icone : null),
+            label: o.libelle,
+          ),
+      ],
+    );
+    if (!colore) return barre;
+    final theme = NavigationBarTheme.of(context);
+    return NavigationBarTheme(
+      data: theme.copyWith(
+        labelTextStyle: WidgetStateProperty.resolveWith((s) {
+          final base = theme.labelTextStyle?.resolve(s) ?? const TextStyle(fontSize: 12);
+          return s.contains(WidgetState.selected) ? base.copyWith(color: t.icone, fontWeight: FontWeight.w800) : base;
+        }),
+      ),
+      child: barre,
+    );
+  }
 }
 
 /// Onglets affichés : Accueil · Analyses · Équipe, plus Pilotage pour l'administrateur et le pharmacien.
@@ -149,7 +205,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
         valueListenable: ProfilAcces.utilisateur,
-        builder: (context, _, __) => _construire(context),
+        builder: (context, _, __) => ListenableBuilder(listenable: ApparenceAccueilPrefs.ecoute, builder: (context, _) => _construire(context)),
       );
 
   Widget _construire(BuildContext context) {
@@ -191,15 +247,8 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
                 )
               : Scaffold(
                   body: KeyedSubtree(key: ValueKey('onglet$_onglet'), child: contenu),
-                  bottomNavigationBar: NavigationBar(
-                    key: const Key('barre_accueil'),
-                    selectedIndex: _onglet,
-                    height: 66,
-                    onDestinationSelected: _choisirOnglet,
-                    destinations: [
-                      for (final o in onglets) NavigationDestination(icon: Icon(o.icone), selectedIcon: Icon(o.iconeChoisie), label: o.libelle),
-                    ],
-                  ),
+                  bottomNavigationBar:
+                      BarreOnglets(onglets: onglets, onglet: _onglet, choisir: _choisirOnglet, style: ApparenceAccueilPrefs.style.value),
                 ),
         );
       },
@@ -330,96 +379,145 @@ class _AccueilTableauDeBord extends StatelessWidget {
     final ruptures = menus.isNotEmpty;
     final toutesAlertes = ProfilAcces.responsable && menu('Alertes') != null;
 
+    final style = ApparenceAccueilPrefs.style.value;
+    final parPages = ApparenceAccueilPrefs.affichage.value == AffichageMenus.parPages && !estTabletteNouvelle(context);
+
+    final entete = EnTeteNavy(
+      titre: auth.officine?.nomComplet ?? 'Prestige Pharmacien',
+      sousTitre: '${auth.user?.fullName ?? 'Utilisateur'} · ${dateLisible(DateTime.now())}',
+      retour: false,
+      actions: [
+        IconButton(
+          tooltip: 'Actualiser les chiffres',
+          onPressed: chargement ? null : actualiser,
+          icon: const Icon(Icons.refresh, color: Charte.blanc),
+        ),
+        const BoutonDeconnexion(),
+        const BoutonReglages(),
+      ],
+      enfants: [
+        Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          PastilleServeur(apres: actualiser),
+          const PastilleEntete('Aujourd\'hui', icone: Icons.today_outlined),
+        ]),
+        GrilleKpi(_kpis()),
+      ],
+    );
+
+    // « À surveiller » : licence, alertes.
+    final surveiller = <Widget>[
+      if (joursLicence < 365)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CarteBande(
+            bande: joursLicence < 30 ? Charte.rouge : Charte.vert,
+            child: Row(children: [
+              Icon(Icons.verified_user, color: joursLicence < 30 ? Charte.rougeTexte : Charte.vertTexte),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('Licence valide : $joursLicence jours restants',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: joursLicence < 30 ? Charte.rougeTexte : Charte.vertTexte)),
+              ),
+            ]),
+          ),
+        ),
+      if (peremption != null || ruptures || toutesAlertes) ...[
+        if (!parPages) const TitreSection('À surveiller') else const SizedBox(height: 8),
+        // Nombres comptés à la demande seulement, par UN appel (GET /tableau-bord/alertes) : le ⟳ de n'importe
+        // quelle alerte actualise tout le bloc ; jamais automatiquement.
+        ValueListenableBuilder<ValeursAlertes>(
+          valueListenable: ReglagesAlertes.valeurs,
+          builder: (context, reglages, _) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (peremption != null)
+              AlerteComptee(
+                key: const Key('alerte_peremption'),
+                alerte: AlerteAccueil.peremption,
+                bande: Charte.rouge,
+                titre: 'Produits proches de la péremption',
+                // Lots qui périment dans les N prochains mois (réglage), hors lots déjà périmés.
+                detail: 'Périment dans ${reglages.de(ReglageAlerte.per)} mois (hors lots déjà périmés)',
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.peremptions))),
+              ),
+            if (peremption != null && ruptures) const SizedBox(height: 8),
+            if (ruptures)
+              AlerteComptee(
+                key: const Key('alerte_ruptures'),
+                alerte: AlerteAccueil.ruptures,
+                bande: Charte.ambre,
+                titre: 'Ruptures de stock',
+                detail: 'Produits actifs à stock nul',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.ruptures))),
+              ),
+          ]),
+        ),
+        // Vague 1 : toutes les alertes du tableau de bord (administrateur et pharmacien).
+        if (toutesAlertes) ...[
+          if (peremption != null || ruptures) const SizedBox(height: 8),
+          const CarteToutesAlertes(),
+        ],
+      ],
+    ];
+
+    Widget grille(Famille f) => GrilleTuiles([
+          for (final m in deLaFamille(menus, f))
+            Builder(builder: (context) {
+              final a = ApparenceIcone.pourMenu(style, m);
+              return TuileMenu(
+                  icone: m.icone, titre: m.titre, couleurIcone: a.icone, fondIcone: a.pastille, fond: a.fond, onTap: () => ouvrirModule(context, m));
+            }),
+        ]);
+    const aucunMenu = Padding(
+      padding: EdgeInsets.all(24),
+      child: Text('Aucune fonctionnalité activée.\nOuvrez Réglages › Personnaliser l\'accueil pour en activer.',
+          textAlign: TextAlign.center, style: TextStyle(color: Charte.gris)),
+    );
+    final familles = [for (final f in Famille.values) if (deLaFamille(menus, f).isNotEmpty) f];
+
+    // Menus par pages (réglage « Menus de l'accueil », téléphone) : « À surveiller » puis une famille par page.
+    if (parPages) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // En-tête borné (60 % de la hauteur) et défilant : les pages gardent toujours de la place, même en grand texte.
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.6),
+          child: SingleChildScrollView(key: const Key('defilement_entete_pages'), child: entete),
+        ),
+        Expanded(
+          child: menus.isEmpty && surveiller.isEmpty
+              ? const SingleChildScrollView(child: aucunMenu)
+              : PagesMenus(pages: [
+                  if (surveiller.isNotEmpty)
+                    PageMenus(
+                      'À surveiller',
+                      ListView(key: const Key('page_menus_surveiller'), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+                        ...surveiller,
+                        if (menus.isEmpty) aucunMenu,
+                      ]),
+                    ),
+                  for (final f in familles)
+                    PageMenus(
+                      f.libelle,
+                      ListView(key: Key('page_menus_${f.name}'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [grille(f)]),
+                      couleur: couleurEnTeteFamille(style, f),
+                    ),
+                ]),
+        ),
+      ]);
+    }
+
     return RefreshIndicator(
       onRefresh: actualiser,
       child: ListView(key: const Key('defilement_accueil'), padding: EdgeInsets.zero, children: [
-        EnTeteNavy(
-          titre: auth.officine?.nomComplet ?? 'Prestige Pharmacien',
-          sousTitre: '${auth.user?.fullName ?? 'Utilisateur'} · ${dateLisible(DateTime.now())}',
-          retour: false,
-          actions: [
-            IconButton(
-              tooltip: 'Actualiser les chiffres',
-              onPressed: chargement ? null : actualiser,
-              icon: const Icon(Icons.refresh, color: Charte.blanc),
-            ),
-            const BoutonDeconnexion(),
-            const BoutonReglages(),
-          ],
-          enfants: [
-            Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              PastilleServeur(apres: actualiser),
-              const PastilleEntete('Aujourd\'hui', icone: Icons.today_outlined),
-            ]),
-            GrilleKpi(_kpis()),
-          ],
-        ),
+        entete,
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (joursLicence < 365)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: CarteBande(
-                  bande: joursLicence < 30 ? Charte.rouge : Charte.vert,
-                  child: Row(children: [
-                    Icon(Icons.verified_user, color: joursLicence < 30 ? Charte.rougeTexte : Charte.vertTexte),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text('Licence valide : $joursLicence jours restants',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: joursLicence < 30 ? Charte.rougeTexte : Charte.vertTexte)),
-                    ),
-                  ]),
-                ),
-              ),
-            if (peremption != null || ruptures || toutesAlertes) const TitreSection('À surveiller'),
-            // Nombres comptés à la demande seulement, par UN appel (GET /tableau-bord/alertes) : le ⟳ de n'importe
-            // quelle alerte actualise tout le bloc ; jamais automatiquement.
-            ValueListenableBuilder<ValeursAlertes>(
-              valueListenable: ReglagesAlertes.valeurs,
-              builder: (context, reglages, _) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                if (peremption != null)
-                  AlerteComptee(
-                    key: const Key('alerte_peremption'),
-                    alerte: AlerteAccueil.peremption,
-                    bande: Charte.rouge,
-                    titre: 'Produits proches de la péremption',
-                    // Lots qui périment dans les N prochains mois (réglage), hors lots déjà périmés.
-                    detail: 'Périment dans ${reglages.de(ReglageAlerte.per)} mois (hors lots déjà périmés)',
-                    onTap: () => Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.peremptions))),
-                  ),
-                if (peremption != null && ruptures) const SizedBox(height: 8),
-                if (ruptures)
-                  AlerteComptee(
-                    key: const Key('alerte_ruptures'),
-                    alerte: AlerteAccueil.ruptures,
-                    bande: Charte.ambre,
-                    titre: 'Ruptures de stock',
-                    detail: 'Produits actifs à stock nul',
-                    onTap: () => Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.ruptures))),
-                  ),
-              ]),
-            ),
-            // Vague 1 : toutes les alertes du tableau de bord (administrateur et pharmacien).
-            if (toutesAlertes) ...[
-              if (peremption != null || ruptures) const SizedBox(height: 8),
-              const CarteToutesAlertes(),
+            ...surveiller,
+            if (menus.isEmpty) aucunMenu,
+            for (final f in familles) ...[
+              TitreSection(f.libelle, couleur: couleurEnTeteFamille(style, f)),
+              grille(f),
             ],
-            if (menus.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Aucune fonctionnalité activée.\nOuvrez Réglages › Personnaliser l\'accueil pour en activer.',
-                    textAlign: TextAlign.center, style: TextStyle(color: Charte.gris)),
-              ),
-            for (final f in Famille.values)
-              if (deLaFamille(menus, f).isNotEmpty) ...[
-                TitreSection(f.libelle),
-                GrilleTuiles([
-                  for (final m in deLaFamille(menus, f)) TuileMenu(icone: m.icone, titre: m.titre, onTap: () => ouvrirModule(context, m)),
-                ]),
-              ],
           ]),
         ),
       ]),
@@ -504,30 +602,76 @@ class _AccueilCompactState extends State<_AccueilCompact> {
               )
             : widget.tablette
                 ? _DeuxColonnes(menus: trouves)
-                : ListeMenusParFamille(menus: trouves),
+                // Menus par pages (réglage, téléphone) ; pendant une recherche, les résultats restent sur une page.
+                : (q.isEmpty && ApparenceAccueilPrefs.affichage.value == AffichageMenus.parPages
+                    ? PagesMenusParFamille(menus: trouves)
+                    : ListeMenusParFamille(menus: trouves)),
       ),
     ]);
   }
 }
 
-/// Liste plate par familles (présentation B, « Tous les menus » de C).
+/// Ligne de menu dans le style d'icônes choisi.
+LigneMenu ligneMenuModule(BuildContext context, MenuModule m, StyleIcones style) {
+  final a = ApparenceIcone.pourMenu(style, m);
+  return LigneMenu(
+    icone: m.icone,
+    titre: m.titre,
+    sousTitre: m.sousTitre,
+    couleurIcone: a.icone,
+    fondIcone: a.pastille,
+    fond: a.fond,
+    onTap: () => ouvrirModule(context, m),
+  );
+}
+
+/// Liste plate par familles (présentation B, « Tous les menus » de C, onglet Analyses).
 class ListeMenusParFamille extends StatelessWidget {
   final List<MenuModule> menus;
   final List<Famille> familles;
   const ListeMenusParFamille({super.key, required this.menus, this.familles = Famille.values});
 
   @override
-  Widget build(BuildContext context) => ListView(key: const Key('defilement_menus'), padding: const EdgeInsets.only(bottom: 16), children: [
-        for (final f in familles)
-          if (deLaFamille(menus, f).isNotEmpty) ...[
-            Container(
-              color: Charte.page,
-              child: TitreSection(f.libelle, marge: const EdgeInsets.fromLTRB(16, 14, 16, 6)),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: ApparenceAccueilPrefs.style,
+        builder: (context, _) {
+          final style = ApparenceAccueilPrefs.style.value;
+          return ListView(key: const Key('defilement_menus'), padding: const EdgeInsets.only(bottom: 16), children: [
+            for (final f in familles)
+              if (deLaFamille(menus, f).isNotEmpty) ...[
+                Container(
+                  color: Charte.page,
+                  child: TitreSection(f.libelle, marge: const EdgeInsets.fromLTRB(16, 14, 16, 6), couleur: couleurEnTeteFamille(style, f)),
+                ),
+                for (final m in deLaFamille(menus, f)) ligneMenuModule(context, m, style),
+              ],
+          ]);
+        },
+      );
+}
+
+/// Menus par pages, une famille par page (présentation B sur téléphone, réglage « Menus de l'accueil »).
+class PagesMenusParFamille extends StatelessWidget {
+  final List<MenuModule> menus;
+  const PagesMenusParFamille({super.key, required this.menus});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = ApparenceAccueilPrefs.style.value;
+    return PagesMenus(pages: [
+      for (final f in Famille.values)
+        if (deLaFamille(menus, f).isNotEmpty)
+          PageMenus(
+            f.libelle,
+            ListView(
+              key: Key('page_menus_${f.name}'),
+              padding: const EdgeInsets.only(bottom: 16),
+              children: [for (final m in deLaFamille(menus, f)) ligneMenuModule(context, m, style)],
             ),
-            for (final m in deLaFamille(menus, f))
-              LigneMenu(icone: m.icone, titre: m.titre, sousTitre: m.sousTitre, onTap: () => ouvrirModule(context, m)),
-          ],
-      ]);
+            couleur: couleurEnTeteFamille(style, f),
+          ),
+    ]);
+  }
 }
 
 /// Menus sur deux colonnes (tablette, présentation B).
@@ -538,13 +682,11 @@ class _DeuxColonnes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final familles = [for (final f in Famille.values) if (deLaFamille(menus, f).isNotEmpty) f];
+    final style = ApparenceAccueilPrefs.style.value;
     Widget carte(Famille f) => CarteSection(
           titre: f.libelle,
           padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
-          enfants: [
-            for (final m in deLaFamille(menus, f))
-              LigneMenu(icone: m.icone, titre: m.titre, sousTitre: m.sousTitre, onTap: () => ouvrirModule(context, m)),
-          ],
+          enfants: [for (final m in deLaFamille(menus, f)) ligneMenuModule(context, m, style)],
         );
     // Répartition équilibrée : chaque famille va dans la colonne la moins remplie.
     final gauche = <Famille>[], droite = <Famille>[];
@@ -659,6 +801,7 @@ class TousLesMenusScreen extends StatelessWidget {
 // Onglets Analyses et Équipe
 // ---------------------------------------------------------------------------------------------------------------
 
+/// Onglet « Analyses » : recherche de produit (mode « contient », 3.9.0) en haut, puis les menus d'analyse.
 class OngletAnalyses extends StatelessWidget {
   const OngletAnalyses({super.key});
 
@@ -666,8 +809,8 @@ class OngletAnalyses extends StatelessWidget {
   Widget build(BuildContext context) {
     final menus = menusVisibles(context.watch<HomeSettingsProvider>());
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const EnTeteNavy(titre: 'Analyses', sousTitre: 'Chiffres, ventes et crédits', retour: false),
-      Expanded(child: ListeMenusParFamille(menus: menus, familles: famillesAnalyses)),
+      const EnTeteNavy(titre: 'Analyses', sousTitre: 'Produits, chiffres, ventes et crédits', retour: false),
+      Expanded(child: RechercheProduitAnalyses(menus: ListeMenusParFamille(menus: menus, familles: famillesAnalyses))),
     ]);
   }
 }

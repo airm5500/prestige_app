@@ -11,6 +11,10 @@
 //    40 caractères) — mêmes contrôles que le serveur AVANT envoi, valeur inchangée = rien d'envoyé ;
 //  - mise à jour OPTIMISTE (la pièce change tout de suite), ANNULÉE si le serveur refuse ou ne répond pas, avec la
 //    cause en message rouge ; une seule écriture à la fois par pièce (anti double envoi).
+// 3.9.0 (question du pharmacien « comment valider une recherche sans grossiste ? ») : vérifié dans le serveur
+// (PointageBLRessource.criteres), une recherche sur TOUS les grossistes est impossible (« Choisissez un grossiste ou
+// un groupe de grossistes. ») ; l'écran l'explique et reprend le DERNIER grossiste (ou groupe) utilisé
+// (DernierCriterePointage) ; demande au serveur : docs/serveur/DEMANDE_FILTRES_LISTES.md.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -46,14 +50,48 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
   /// Pièces dont une écriture est en route (clé « BL:id ») : un second appui n'envoie rien.
   final _enCours = <String>{};
 
+  /// Le grossiste (ou groupe) affiché vient du dernier choix mémorisé (3.9.0).
+  bool _repris = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      if (!_filtres.complet) {
+        // Dernier grossiste (ou groupe) utilisé, repris avant le chargement des listes.
+        final dernier = await DernierCriterePointage.lire();
+        if (!mounted) return;
+        if (dernier != null && !_filtres.complet) {
+          setState(() {
+            _filtres = _filtres.copie(grossiste: dernier.$1, groupe: dernier.$2);
+            _repris = true;
+          });
+        }
+      }
+      if (_repris) {
+        // Choix repris : listes d'abord (un grossiste disparu est oublié sans requête), puis les pièces.
+        await _chargerListes();
+        if (mounted && _filtres.complet) _charger();
+        return;
+      }
       _chargerListes();
       if (_filtres.complet) _charger();
     });
+  }
+
+  /// Le choix repris n'existe plus dans la liste (grossiste supprimé…) : il est oublié, rien n'est affiché.
+  void _verifierRepris() {
+    if (!_repris) return;
+    final inconnu = (_filtres.grossiste.isNotEmpty && _grossistes != null && !_grossistes!.any((o) => o.id == _filtres.grossiste)) ||
+        (_filtres.grossiste.isEmpty && _filtres.groupe.isNotEmpty && _groupes != null && !_groupes!.any((o) => o.id == _filtres.groupe));
+    if (!inconnu) return;
+    DernierCriterePointage.oublier();
+    setState(() {
+      _repris = false;
+      _filtres = _filtres.copie(grossiste: '', groupe: '');
+    });
+    abandonner();
   }
 
   Future<void> _chargerListes() async {
@@ -64,6 +102,7 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
     try {
       final g = await ApiPointage.grossistes(context);
       if (mounted) setState(() => _grossistes = g);
+      if (mounted) _verifierRepris();
     } catch (e) {
       if (mounted) setState(() => _erreurGrossistes = e);
     }
@@ -71,6 +110,7 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
     try {
       final g = await ApiPointage.groupes(context);
       if (mounted) setState(() => _groupes = g);
+      if (mounted) _verifierRepris();
     } catch (e) {
       if (mounted) setState(() => _erreurGroupes = e);
     }
@@ -82,11 +122,15 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
       return;
     }
     final f = _filtres;
+    DernierCriterePointage.enregistrer(f);
     charger(() => ApiPointage.liste(context, f));
   }
 
   void _changer(FiltresPointage f) {
-    setState(() => _filtres = f);
+    setState(() {
+      if (f.grossiste != _filtres.grossiste || f.groupe != _filtres.groupe) _repris = false;
+      _filtres = f;
+    });
     _charger();
   }
 
@@ -194,12 +238,7 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
         ),
         const SizedBox(height: 8),
         if (!_filtres.complet)
-          const EtatVide(
-            key: Key('pointage_choisir'),
-            titre: 'Choisissez un grossiste ou un groupe',
-            texte: 'Les BL et avoirs de la période s\'afficheront ici pour être pointés.',
-            icone: Icons.local_shipping_outlined,
-          )
+          const _PourquoiGrossiste()
         else ...[
           if (enCours) const EtatChargement(texte: 'Chargement des pièces…'),
           if (erreur != null && !enCours) EtatErreur(erreur: erreur!, reessayer: _charger),
@@ -234,6 +273,12 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
         tous: 'Aucun groupe',
         onChanged: (v) => _changer(_filtres.copie(groupe: v, grossiste: v.isEmpty ? _filtres.grossiste : '')),
       ),
+      if (_repris && _filtres.complet)
+        const Padding(
+          padding: EdgeInsets.only(top: 6, left: 4),
+          child: Text('Dernier choix utilisé, repris automatiquement.',
+              key: Key('pointage_dernier_choix'), style: TextStyle(color: Charte.gris, fontSize: 13)),
+        ),
       if (listesKo)
         Align(
           alignment: Alignment.centerLeft,
@@ -292,6 +337,30 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
           }),
         ],
       ];
+}
+
+/// Sans grossiste ni groupe : pourquoi le choix est obligatoire (3.9.0, question du pharmacien).
+class _PourquoiGrossiste extends StatelessWidget {
+  const _PourquoiGrossiste();
+
+  @override
+  Widget build(BuildContext context) => const Column(key: Key('pointage_choisir'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        EtatVide(
+          titre: 'Choisissez un grossiste ou un groupe',
+          texte: 'Les BL et avoirs de la période s\'afficheront ici pour être pointés.',
+          icone: Icons.local_shipping_outlined,
+        ),
+        Encadre(
+          key: Key('pointage_pourquoi'),
+          avertissement: true,
+          icone: Icons.info_outline,
+          titre: 'Pourquoi ce choix est obligatoire',
+          texte: 'Le serveur Prestige ne recherche les BL et avoirs que pour UN grossiste ou UN groupe de grossistes, '
+              'comme l\'écran « Pointage BL » du web : le pointage se compare au relevé envoyé par chaque grossiste. '
+              'Une recherche sur tous les grossistes à la fois n\'est pas encore possible (demande transmise). '
+              'Astuce : un groupe de grossistes en réunit plusieurs ; votre dernier choix sera repris à la prochaine ouverture.',
+        ),
+      ]);
 }
 
 /// Carte d'une pièce : informations, puis actions si la pièce est pointable.

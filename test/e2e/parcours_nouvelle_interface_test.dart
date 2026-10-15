@@ -144,6 +144,9 @@ Future<List<String>> parcourirModules(WidgetTester tester, Presentation p) async
   return problemes;
 }
 
+/// Champ de recherche de l'écran Analyse Article (l'onglet Analyses a aussi le sien depuis la 3.9.0).
+Finder get champAnalyseArticle => find.descendant(of: find.byType(AnalyseArticleNouveau), matching: find.byType(TextField));
+
 void main() {
   setUpAll(chargerPolicesReelles);
 
@@ -245,7 +248,7 @@ void main() {
     expect(find.text('Analyse Article'), findsOneWidget);
     await tester.tap(find.text('Analyse Article'));
     await attendreWidget(tester, find.widgetWithText(AppBar, 'Analyse Article'));
-    await tester.enterText(find.byType(TextField), 'parafictif');
+    await tester.enterText(champAnalyseArticle, 'parafictif');
     await attendreTexte(tester, DonneesFictives.libelleArticle1);
     await retourSysteme(tester);
     await attendreQue(tester, () => find.byType(AnalyseArticleNouveau).evaluate().isEmpty, raison: 'retour aux analyses');
@@ -455,7 +458,7 @@ void main() {
     await tester.tap(find.text('Analyse Article'));
     await attendreWidget(tester, find.widgetWithText(AppBar, 'Analyse Article'));
     serveur.expirerSessions();
-    await tester.enterText(find.byType(TextField), 'parafictif');
+    await tester.enterText(champAnalyseArticle, 'parafictif');
     await attendreWidget(tester, find.byType(LoginScreen));
     await attendreTexte(tester, AuthProvider.messageSessionExpiree);
     await attendreQue(tester, () => find.byType(AnalyseArticleNouveau).evaluate().isEmpty, raison: 'Analyse Article fermée');
@@ -473,7 +476,7 @@ void main() {
     await tester.tap(find.text('Analyse Article'));
     await attendreWidget(tester, find.widgetWithText(AppBar, 'Analyse Article'));
     await tester.runAsync(serveur.arreter);
-    await tester.enterText(find.byType(TextField), 'parafictif');
+    await tester.enterText(champAnalyseArticle, 'parafictif');
     await attendreWidget(tester, find.byType(EtatErreur));
     expect(find.byKey(const Key('erreur_reseau')), findsOneWidget);
     expect(find.textContaining('Serveur injoignable'), findsWidgets);

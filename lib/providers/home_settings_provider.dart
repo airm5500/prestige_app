@@ -24,6 +24,19 @@ class HomeSettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ordre à enregistrer quand l'écran de personnalisation ne proposait qu'une partie des menus (nouvelle
+  /// interface : sans « Fournisseurs » ni « Fiche Article », 3.9.0) : les menus de [ancien] absents de [nouveau]
+  /// reprennent leur place d'avant (même rang), au lieu de disparaître de l'ordre de l'ancienne interface.
+  static List<String> fusionnerOrdre(List<String> ancien, List<String> nouveau) {
+    final resultat = [...nouveau];
+    for (var i = 0; i < ancien.length; i++) {
+      final t = ancien[i];
+      if (resultat.contains(t)) continue;
+      resultat.insert(i.clamp(0, resultat.length), t);
+    }
+    return resultat;
+  }
+
   Future<void> saveFeatureOrder(List<String> newOrder) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_orderKey, newOrder);

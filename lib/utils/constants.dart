@@ -33,6 +33,8 @@ class AppConstants {
   static const String caAllEndpoint = '/ca-all';
   static const String checkProduitEndpoint = '/checkproduit';
   static const String infoEndpoint = '/info';
+  /// Recherche de produit en mode « contient » (CIP, nom ou EAN ; 2 caractères ; 50 résultats au plus), 3.9.0.
+  static const String rechercheProduitEndpoint = '/espace-produit/recherche';
   static const String tableauBordAchatsVentesEndpoint = '/ws/ca-achats-ventes';
   static const String valorisationAllEndpoint = '/valorisation/all';
   static const String officineEndpoint = '/officine';

@@ -44,8 +44,11 @@ class _PersonalizeHomeScreenState extends State<PersonalizeHomeScreen> {
   }
 
   Future<void> _saveOrder() async {
-    final newOrderIds = _orderedItems.map((item) => item['title'] as String).toList();
-    await Provider.of<HomeSettingsProvider>(context, listen: false).saveFeatureOrder(newOrderIds);
+    final reglages = Provider.of<HomeSettingsProvider>(context, listen: false);
+    // Menus non proposés ici (nouvelle interface : Fournisseurs, Fiche Article) : leur place d'avant est gardée.
+    final newOrderIds =
+        HomeSettingsProvider.fusionnerOrdre(reglages.featureOrder, _orderedItems.map((item) => item['title'] as String).toList());
+    await reglages.saveFeatureOrder(newOrderIds);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Configuration sauvegardée !'), backgroundColor: Colors.green),

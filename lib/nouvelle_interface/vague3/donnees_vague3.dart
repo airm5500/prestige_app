@@ -20,6 +20,7 @@
 // temps de l'écran, jamais écrites dans le journal (JournalApp ne note que le chemin, sans paramètres) ni sur le
 // disque (aucune préférence, aucun fichier, aucun cache).
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/date_formatter.dart';
@@ -370,6 +371,50 @@ class FiltresPointage {
 
   FiltresPointage copie({String? grossiste, String? groupe, DateTime? debut, DateTime? fin, EtatPointage? etat}) => FiltresPointage(
       grossiste: grossiste ?? this.grossiste, groupe: groupe ?? this.groupe, debut: debut ?? this.debut, fin: fin ?? this.fin, etat: etat ?? this.etat);
+}
+
+/// Dernier grossiste (ou groupe) utilisé pour une recherche de pointage (3.9.0) : repris à l'ouverture suivante.
+/// Le serveur exige un grossiste ou un groupe (PointageBLRessource.criteres : « Choisissez un grossiste ou un groupe
+/// de grossistes. ») : aucune recherche « tous grossistes » n'est possible (docs/serveur/DEMANDE_FILTRES_LISTES.md).
+/// Mémorisé sur l'appareil, au format « grossiste:<id> » ou « groupe:<id> ».
+class DernierCriterePointage {
+  DernierCriterePointage._();
+
+  static const cle = 'pointage_dernier_critere_v1';
+
+  /// (grossiste, groupe) mémorisés, null si rien.
+  static Future<(String, String)?> lire() async {
+    try {
+      final v = (await SharedPreferences.getInstance()).getString(cle) ?? '';
+      return decoder(v);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static (String, String)? decoder(String v) {
+    final i = v.indexOf(':');
+    if (i <= 0 || i == v.length - 1) return null;
+    final type = v.substring(0, i), id = v.substring(i + 1);
+    return switch (type) { 'grossiste' => (id, ''), 'groupe' => ('', id), _ => null };
+  }
+
+  static String? encoder(FiltresPointage f) =>
+      f.grossiste.isNotEmpty ? 'grossiste:${f.grossiste}' : (f.groupe.isNotEmpty ? 'groupe:${f.groupe}' : null);
+
+  static Future<void> enregistrer(FiltresPointage f) async {
+    final v = encoder(f);
+    if (v == null) return;
+    try {
+      await (await SharedPreferences.getInstance()).setString(cle, v);
+    } catch (_) {}
+  }
+
+  static Future<void> oublier() async {
+    try {
+      await (await SharedPreferences.getInstance()).remove(cle);
+    } catch (_) {}
+  }
 }
 
 class ApiPointage {

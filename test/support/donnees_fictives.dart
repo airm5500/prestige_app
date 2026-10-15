@@ -66,6 +66,24 @@ class DonneesFictives {
         },
       ];
 
+  /// Réponse de GET /espace-produit/recherche?q= (comme EspaceProduitRessource : « contient » dans le CIP ou le
+  /// nom, sans tenir compte de la casse, rien sous 2 caractères, 50 lignes au plus, triées par nom).
+  static Map<String, Object?> rechercheProduit(String? q, {List<Map<String, Object?>>? articles}) {
+    final t = (q ?? '').trim().toLowerCase();
+    if (t.length < 2) return {'total': 0, 'data': const <Object>[]};
+    final lignes = [
+      for (final a in articles ?? articlesAnalyse())
+        if ('${a['libelle']}'.toLowerCase().contains(t) || '${a['codeCip']}'.contains(t))
+          {
+            'cip': a['codeCip'], 'designation': a['libelle'], 'emplacement': a['emplacement'] ?? '', 'prixVente': a['prixVente'],
+            'stockRayon': a['stock'], 'stockReserve': a['stockReserve'] ?? 0,
+            'stockTotal': ((a['stock'] as num?) ?? 0) + ((a['stockReserve'] as num?) ?? 0), 'id': a['produitId'],
+          },
+    ]..sort((x, y) => '${x['designation']}'.compareTo('${y['designation']}'));
+    final data = lignes.take(50).toList();
+    return {'total': data.length, 'data': data};
+  }
+
   static List<Map<String, Object?>> produitsFiche() => [
         {
           'familleId': 'PRD-TEST-1', 'familleCip': '9990001', 'familleLibelle': libelleArticle1, 'pachat': 800, 'pvente': 1200,

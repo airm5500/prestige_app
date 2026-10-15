@@ -52,15 +52,20 @@ class Suivi2080Donnees {
   /// Nombre d'articles par défaut (champ vide ou hors bornes).
   static const limiteParDefaut = 50;
 
+  /// « Tous » (nouvelle interface, 3.9.0) : aucun « topN » envoyé (absent = tous les articles pour le serveur).
+  static const tous = 0;
+
   /// Nombre d'articles demandé : entier de 1 à 9 999, sinon 50 (comme l'écran d'origine pour un champ vide).
   static int limite(String? texte) => Saisie.entier(texte, min: 1, max: Saisie.maxLignes) ?? limiteParDefaut;
 
   /// [critere] quantité : « vingtType=QTY » en plus ; chiffre d'affaires : la requête d'origine. « topN » (3.8.1) :
   /// le paramètre que le serveur lit vraiment ; « limit » (ignoré par le serveur) est gardé tel quel.
+  /// [limite] = [tous] (3.9.0) : « topN » ABSENT (= tous pour le serveur) et « limit » à 9 999 (comme l'ancien
+  /// « tous » : inoffensif, le serveur l'ignore).
   static Map<String, String> parametres(DateTime debut, DateTime fin, int limite, {CritereVingt critere = CritereVingt.chiffreAffaires}) => {
         ..._dates(debut, fin),
-        'limit': limite.toString(),
-        'topN': limite.toString(),
+        'limit': (limite > 0 ? limite : Saisie.maxLignes).toString(),
+        if (limite > 0) 'topN': limite.toString(),
         'codeFamile': '',
         'codeRayon': '',
         'codeGrossiste': '',
@@ -93,7 +98,7 @@ class Suivi2080Donnees {
   }
 
   /// Les [limite] premiers articles (dans l'ordre du classement) : sans effet si le serveur a appliqué topN ;
-  /// protège d'un serveur plus ancien qui l'ignorerait et renverrait tous les articles.
+  /// protège d'un serveur plus ancien qui l'ignorerait et renverrait tous les articles. [tous] : liste entière.
   static List<Suivi2080> garder(List<Suivi2080> l, int limite) => limite > 0 && l.length > limite ? l.sublist(0, limite) : l;
 
   static int montantTotal(List<Suivi2080> l) => l.fold(0, (s, e) => s + e.montant);

@@ -25,7 +25,11 @@ const fond = Color(0xFFF5F7FA);
 /// Quand un fichier en perd, baisser son plafond ici.
 const plafondCouleursEnDur = <String, int>{
   'lib/main.dart': 6, // le thème lui-même
-  'lib/nouvelle_interface/charte.dart': 31, // palette de la nouvelle interface (seul fichier autorisé de lib/nouvelle_interface)
+  // Palette de la nouvelle interface (seul fichier autorisé de lib/nouvelle_interface) : 31, plus les 21 couleurs
+  // par famille des PROPOSITIONS de style des icônes (3.9.0 : 7 familles × icône / pastille / tuile, contrastes
+  // vérifiés par test/unitaires/retours_3_9_0_test.dart) ; à ramener à 31 + la proposition retenue (ou 31) après le
+  // choix du pharmacien. Aucun écran n'en contient.
+  'lib/nouvelle_interface/charte.dart': 52,
   'lib/presences/fiche_employe_screen.dart': 3,
   'lib/presences/pointage_view.dart': 7,
   'lib/presences/presence_jour_view.dart': 4,

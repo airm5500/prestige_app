@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/apparence_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/menus.dart';
 import 'package:prestige_app/nouvelle_interface/modules/articles_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
@@ -29,12 +30,18 @@ import 'nouvelle_interface.dart';
 import 'cas_lot2.dart';
 import 'cas_lot3.dart';
 import 'cas_lot4.dart';
+import 'cas_retours_3_9_0.dart';
 
 /// [ouvrir] dans la nouvelle interface, présentation [p] (données de l'accueil A fournies par le serveur).
 Future<void> Function(WidgetTester, FauxServeurPrestige) enNouvelle(Future<void> Function(WidgetTester, FauxServeurPrestige) ouvrir,
-        {Presentation p = Presentation.automatique, Future<void> Function(WidgetTester)? ensuite, void Function(FauxServeurPrestige)? donnees}) =>
+        {Presentation p = Presentation.automatique,
+        Future<void> Function(WidgetTester)? ensuite,
+        void Function(FauxServeurPrestige)? donnees,
+        AffichageMenus affichage = AffichageMenus.unePage,
+        StyleIcones style = StyleIcones.actuel,
+        Map<String, Object> prefs = const {}}) =>
     (tester, serveur) async {
-      preparerNouvelle(serveur, p: p);
+      preparerNouvelle(serveur, p: p, affichage: affichage, style: style, prefs: prefs);
       donneesAccueil(serveur);
       donnees?.call(serveur);
       await ouvrir(tester, serveur);
@@ -106,6 +113,7 @@ final casAffichageNouvelle = <CasAffichage>[
   ...casLot2,
   ...casLot3,
   ...casLot4,
+  ...casRetours390,
 ];
 
 /// États supplémentaires des modules d'origine encore ouverts dans la nouvelle interface (ceux d'Analyse et de Fiche

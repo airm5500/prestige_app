@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/apparence_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/utils/constants.dart';
@@ -45,8 +46,12 @@ void donneesLot1(FauxServeurPrestige serveur) {
 }
 
 /// Téléphone configuré, nouvelle interface dans la présentation [p].
-void preparerNouvelle(FauxServeurPrestige serveur, {Presentation p = Presentation.automatique}) =>
-    preparerTelephone(serveur, nouvelle: true, presentation: p);
+void preparerNouvelle(FauxServeurPrestige serveur,
+        {Presentation p = Presentation.automatique,
+        AffichageMenus affichage = AffichageMenus.unePage,
+        StyleIcones style = StyleIcones.actuel,
+        Map<String, Object> prefs = const {}}) =>
+    preparerTelephone(serveur, nouvelle: true, presentation: p, affichageMenus: affichage, styleIcones: style, autres: prefs);
 
 /// Connexion depuis l'écran de connexion de la nouvelle interface (bouton « Se connecter »).
 Future<void> seConnecterNouvelle(WidgetTester tester,

@@ -4,6 +4,8 @@
 //    l'appareil, valable pour tous les comptes ; seul l'administrateur la change : compte « admin », ou code
 //    administrateur demandé) ; taille de l'écran (Automatique / Compact / Très compact, docs/TAILLE_ECRAN.md ; même
 //    règle que la présentation depuis la 3.8.0 : sans code pour le compte « admin », code pour les autres) ;
+//    « Menus de l'accueil » sur une page / par pages (3.9.0, même règle) ; « Style des icônes » (propositions
+//    visuelles 3.9.0, réglage caché : montré au seul compte « admin ») ;
 //  - Serveur : mode local / distant, configuration du serveur ;
 //  - Accueil : personnaliser (ordre et menus masqués, communs aux deux interfaces) ;
 //  - Compte : utilisateur, officine, licence, déconnexion.
@@ -17,6 +19,7 @@ import '../providers/licence_provider.dart';
 import '../screens/personalize_home_screen.dart';
 import '../screens/settings_screen.dart';
 import 'accueil_nouveau.dart';
+import 'apparence_accueil.dart';
 import 'charte.dart';
 import 'composants.dart';
 import 'menus.dart';
@@ -74,6 +77,20 @@ class OngletReglages extends StatelessWidget {
                   effective: PresentationPrefs.effective(choix, tablette: tablette),
                 ),
               ),
+              const Divider(height: 1),
+              // Menus de l'accueil : sur une page (0, défaut) ou par pages (1), 3.9.0.
+              ValueListenableBuilder<AffichageMenus>(
+                valueListenable: ApparenceAccueilPrefs.affichage,
+                builder: (context, choix, _) => ChoixAffichageMenus(choix: choix, verrouille: !admin),
+              ),
+              if (admin) ...[
+                const Divider(height: 1),
+                // Propositions visuelles (3.9.0) : réglage caché, compte « admin » seulement.
+                ValueListenableBuilder<StyleIcones>(
+                  valueListenable: ApparenceAccueilPrefs.style,
+                  builder: (context, choix, _) => ChoixStyleIcones(choix: choix),
+                ),
+              ],
               const Divider(height: 1),
               // Affichage : taille de l'écran (appliquée au prochain lancement) ; compte « admin » : sans code (3.8.0).
               TailleEcranSetting(couleurAide: Charte.gris, administrateur: admin),
@@ -167,6 +184,55 @@ class RadioGroupPresentation extends StatelessWidget {
             trailing: verrouille && p != choix ? const Icon(Icons.lock_outline, color: Charte.gris, semanticLabel: 'Réservé à l\'administrateur') : null,
             selected: p == choix,
             onTap: () => PresentationPrefs.changer(context, p),
+          ),
+      ]);
+}
+
+/// Choix « Menus de l'accueil » : sur une page (défaut) / par pages.
+class ChoixAffichageMenus extends StatelessWidget {
+  final AffichageMenus choix;
+  final bool verrouille;
+  const ChoixAffichageMenus({super.key, required this.choix, required this.verrouille});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text('Menus de l\'accueil (présentations A et B sur téléphone)', style: TextStyle(color: Charte.gris, fontSize: 13)),
+        ),
+        for (final a in AffichageMenus.values)
+          ListTile(
+            key: Key('affichage_menus_${a.name}'),
+            leading: Icon(a == choix ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: a == choix ? Charte.navy : Charte.gris),
+            title: Text(a == AffichageMenus.unePage ? '${a.libelle} (par défaut)' : a.libelle),
+            subtitle: Text(a.description),
+            trailing: verrouille && a != choix ? const Icon(Icons.lock_outline, color: Charte.gris, semanticLabel: 'Réservé à l\'administrateur') : null,
+            selected: a == choix,
+            onTap: () => ApparenceAccueilPrefs.changerAffichage(context, a),
+          ),
+      ]);
+}
+
+/// Choix « Style des icônes » (propositions, compte « admin » seulement).
+class ChoixStyleIcones extends StatelessWidget {
+  final StyleIcones choix;
+  const ChoixStyleIcones({super.key, required this.choix});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text('Style des icônes (propositions à essayer ; réglage visible du seul compte « admin »)',
+              style: TextStyle(color: Charte.gris, fontSize: 13)),
+        ),
+        for (final s in StyleIcones.values)
+          ListTile(
+            key: Key('style_icones_${s.name}'),
+            leading: Icon(s == choix ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: s == choix ? Charte.navy : Charte.gris),
+            title: Text(s.libelle),
+            subtitle: Text(s.description),
+            selected: s == choix,
+            onTap: () => ApparenceAccueilPrefs.changerStyle(context, s),
           ),
       ]);
 }

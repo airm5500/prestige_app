@@ -60,6 +60,31 @@ class Charte {
   static const grisClair = Color(0xFFEEF1F5);
   static const grisTexte = Color(0xFF475569);
   static const vertHeure = Color(0xFF86EFAC);
+
+  // --- Couleurs par famille de menus (PROPOSITIONS de style des icônes P1 / P2 / P3, 3.9.0 ; le style « Actuel »,
+  //     par défaut, ne les utilise pas). Pour chaque famille : icône (foncée), pastille (douce), fond de tuile (très
+  //     clair). Icône sur pastille, sur fond de tuile et sur blanc : contraste ≥ 4,5:1 (vérifié par les tests). ---
+  static const familleVentes = Color(0xFF0B6B4A);
+  static const familleVentesPastille = Color(0xFFDDF3E8);
+  static const familleVentesTuile = Color(0xFFF1FAF5);
+  static const familleCredits = Color(0xFF9A3412);
+  static const familleCreditsPastille = Color(0xFFFFEDD5);
+  static const familleCreditsTuile = Color(0xFFFFF8F0);
+  static const familleAnalyses = Color(0xFF4338CA);
+  static const familleAnalysesPastille = Color(0xFFE0E7FF);
+  static const familleAnalysesTuile = Color(0xFFF3F5FF);
+  static const familleStock = Color(0xFF0B6A63);
+  static const familleStockPastille = Color(0xFFD5F2EE);
+  static const familleStockTuile = Color(0xFFF0FAF8);
+  static const familleFournisseurs = Color(0xFF1D4ED8);
+  static const familleFournisseursPastille = Color(0xFFDBEAFE);
+  static const familleFournisseursTuile = Color(0xFFF1F6FF);
+  static const familleEquipe = Color(0xFFB42350);
+  static const familleEquipePastille = Color(0xFFFDE7EC);
+  static const familleEquipeTuile = Color(0xFFFEF4F6);
+  static const familleAlertes = Color(0xFFB91C1C);
+  static const familleAlertesPastille = Color(0xFFFEE2E2);
+  static const familleAlertesTuile = Color(0xFFFFF4F4);
 }
 
 /// Thème complet de la nouvelle interface.

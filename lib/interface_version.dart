@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'nouvelle_interface/accueil_nouveau.dart';
+import 'nouvelle_interface/apparence_accueil.dart';
 import 'nouvelle_interface/presentation.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
@@ -36,6 +37,7 @@ class InterfaceVersion {
       useNew.value = prefs.getBool(cle) ?? parDefaut;
     } catch (_) {}
     await PresentationPrefs.charger();
+    await ApparenceAccueilPrefs.charger();
   }
 
   static Future<void> setNew(bool value) async {

@@ -171,7 +171,8 @@ class TuileKpi extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = enAvant ? Charte.surAmbre : Charte.blanc;
     final secondaire = enAvant ? Charte.surAmbre : Charte.enteteGris;
-    return Container(
+    // Une tuile = une annonce (libellé, valeur, détail) pour le lecteur d'écran.
+    return MergeSemantics(child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(color: enAvant ? Charte.ambre : Charte.enteteVoile, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -190,7 +191,7 @@ class TuileKpi extends StatelessWidget {
                   fontSize: 11.5,
                   fontWeight: detailPositif ? FontWeight.bold : FontWeight.normal)),
       ]),
-    );
+    ));
   }
 }
 
@@ -208,20 +209,31 @@ class GrilleKpi extends StatelessWidget {
 }
 
 /// Titre de section en petites capitales grises (« À SURVEILLER », « VENTES »).
+/// [couleur] (style d'icônes P3, 3.9.0) : titre de cette couleur précédé d'une barre de la même couleur.
 class TitreSection extends StatelessWidget {
   final String texte;
   final EdgeInsets marge;
-  const TitreSection(this.texte, {super.key, this.marge = const EdgeInsets.fromLTRB(4, 14, 4, 6)});
+  final Color? couleur;
+  const TitreSection(this.texte, {super.key, this.marge = const EdgeInsets.fromLTRB(4, 14, 4, 6), this.couleur});
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: marge,
-        child: Semantics(
-          header: true,
-          child: Text(texte.toUpperCase(),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Charte.gris)),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final titre = Semantics(
+      header: true,
+      child: Text(texte.toUpperCase(),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: couleur ?? Charte.gris)),
+    );
+    return Padding(
+      padding: marge,
+      child: couleur == null
+          ? titre
+          : Row(children: [
+              Container(width: 4, height: 16, decoration: BoxDecoration(color: couleur, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 8),
+              Expanded(child: titre),
+            ]),
+    );
+  }
 }
 
 /// Carte blanche arrondie, avec bande de couleur à gauche (gravité, ancienneté) et action facultative.
@@ -299,17 +311,28 @@ class IconeMenu extends StatelessWidget {
       );
 }
 
-/// Tuile de menu (présentation A) : icône et titre sur carte blanche.
+/// Tuile de menu (présentation A) : icône et titre sur carte blanche. [couleurIcone], [fondIcone], [fond] : style
+/// des icônes choisi (apparence_accueil.dart ; par défaut, l'apparence d'origine).
 class TuileMenu extends StatelessWidget {
   final IconData icone;
   final String titre;
   final VoidCallback onTap;
-  const TuileMenu({super.key, required this.icone, required this.titre, required this.onTap});
+  final Color couleurIcone;
+  final Color fondIcone;
+  final Color fond;
+  const TuileMenu(
+      {super.key,
+      required this.icone,
+      required this.titre,
+      required this.onTap,
+      this.couleurIcone = Charte.navy,
+      this.fondIcone = Charte.bleuClair,
+      this.fond = Charte.blanc});
 
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: Charte.blanc,
+          color: fond,
           borderRadius: BorderRadius.circular(14),
           boxShadow: const [BoxShadow(color: Charte.ombre, blurRadius: 4, offset: Offset(0, 1))],
         ),
@@ -323,7 +346,7 @@ class TuileMenu extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  IconeMenu(icone),
+                  IconeMenu(icone, fond: fondIcone, couleur: couleurIcone),
                   const SizedBox(height: 6),
                   Text(titre,
                       textAlign: TextAlign.center,
@@ -358,11 +381,25 @@ class LigneMenu extends StatelessWidget {
   final String? sousTitre;
   final VoidCallback onTap;
   final Widget? fin;
-  const LigneMenu({super.key, required this.icone, required this.titre, this.sousTitre, required this.onTap, this.fin});
+
+  /// Style des icônes choisi (apparence_accueil.dart ; par défaut, l'apparence d'origine).
+  final Color couleurIcone;
+  final Color fondIcone;
+  final Color fond;
+  const LigneMenu(
+      {super.key,
+      required this.icone,
+      required this.titre,
+      this.sousTitre,
+      required this.onTap,
+      this.fin,
+      this.couleurIcone = Charte.navy,
+      this.fondIcone = Charte.bleuClair,
+      this.fond = Charte.blanc});
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Charte.blanc,
+        color: fond,
         child: InkWell(
           onTap: onTap,
           child: Container(
@@ -370,7 +407,7 @@ class LigneMenu extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Charte.grisClair))),
             child: Row(children: [
-              IconeMenu(icone, taille: 34),
+              IconeMenu(icone, taille: 34, fond: fondIcone, couleur: couleurIcone),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

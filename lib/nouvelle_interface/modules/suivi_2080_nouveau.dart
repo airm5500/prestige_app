@@ -8,6 +8,8 @@
 // 3.8.0 (choix du pharmacien) : puces « Classer par : Chiffre d'affaires | Quantité » sur la vue (défaut : chiffre
 // d'affaires, requête identique à avant) ; quantité : vingtType=QTY (lu par le serveur) et tri par quantité vendue,
 // part de la quantité affichée.
+// 3.9.0 (demande du pharmacien) : choix « Tous » dans la feuille des filtres (interrupteur « Tous les articles ») :
+// « topN » n'est alors pas envoyé (absent = tous pour le serveur) ; défaut toujours 50.
 import 'package:flutter/material.dart';
 
 import '../../donnees/analyses_ventes_donnees.dart';
@@ -64,8 +66,14 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
   static String? _erreurLimite(String t) =>
       t.trim().isEmpty || Saisie.entier(t, min: 1, max: Saisie.maxLignes) != null ? null : 'Entre 1 et ${formaterNombre(Saisie.maxLignes)}';
 
+  bool get _tous => _limite == Suivi2080Donnees.tous;
+
+  /// Libellé du nombre d'articles choisi (étiquette de filtre, chiffre clé).
+  String get _libelleLimite => _tous ? 'Tous les articles' : '${formaterNombre(_limite)} articles au plus';
+
   Future<void> _filtres() async {
-    _champLimite.text = '$_limite';
+    var tous = _tous;
+    _champLimite.text = tous ? '${Suivi2080Donnees.limiteParDefaut}' : '$_limite';
     String? erreurChamp;
     final applique = await ouvrirFeuilleFiltres(
       context,
@@ -73,28 +81,42 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
       effacer: () {
         _champLimite.text = '${Suivi2080Donnees.limiteParDefaut}';
         erreurChamp = null;
+        tous = false;
       },
-      valider: () => _erreurLimite(_champLimite.text) == null,
+      valider: () => tous || _erreurLimite(_champLimite.text) == null,
       contenu: (ctx, setState) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // « Tous » (3.9.0) : aucun nombre envoyé au serveur (topN absent = tous les articles).
+        SwitchListTile(
+          key: const Key('filtre_tous'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Tous les articles'),
+          subtitle: const Text('Aucune limite : peut être long sur une grande période'),
+          value: tous,
+          onChanged: (v) => setState(() => tous = v),
+        ),
         TextField(
           key: const Key('filtre_limite'),
           controller: _champLimite,
+          enabled: !tous,
           keyboardType: TextInputType.number,
           inputFormatters: Saisie.entierFormatters(4), // 1 à 9 999
           onChanged: (t) => setState(() => erreurChamp = _erreurLimite(t)),
           decoration: InputDecoration(
             labelText: 'Nombre d\'articles à afficher',
-            errorText: erreurChamp,
+            errorText: tous ? null : erreurChamp,
             prefixIcon: const Icon(Icons.format_list_numbered),
           ),
         ),
         const SizedBox(height: 6),
-        Text('De 1 à ${formaterNombre(Saisie.maxLignes)} ; vide = ${Suivi2080Donnees.limiteParDefaut}.',
+        Text(
+            tous
+                ? 'Tous les articles de la période.'
+                : 'De 1 à ${formaterNombre(Saisie.maxLignes)} ; vide = ${Suivi2080Donnees.limiteParDefaut}.',
             style: const TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
       ]),
     );
     if (!applique || !mounted) return;
-    setState(() => _limite = Suivi2080Donnees.limite(_champLimite.text));
+    setState(() => _limite = tous ? Suivi2080Donnees.tous : Suivi2080Donnees.limite(_champLimite.text));
     _charger();
   }
 
@@ -137,7 +159,7 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
               ),
             ]),
             EtiquettesFiltres(
-              etiquettes: [if (_limite != Suivi2080Donnees.limiteParDefaut) '${formaterNombre(_limite)} articles au plus'],
+              etiquettes: [if (_limite != Suivi2080Donnees.limiteParDefaut) _libelleLimite],
               onRetirer: () {
                 setState(() => _limite = Suivi2080Donnees.limiteParDefaut);
                 _charger();
@@ -166,7 +188,7 @@ class _Suivi2080NouveauState extends State<Suivi2080Nouveau> with ChargementSuiv
     return [
       GrilleKpi([
         ChiffreCle(libelle: 'Montant', valeur: formaterMontant(total), id: 'montant', enAvant: !q),
-        ChiffreCle(libelle: 'Articles', valeur: formaterNombre(l.length), id: 'articles', detail: '${formaterNombre(_limite)} demandés au plus'),
+        ChiffreCle(libelle: 'Articles', valeur: formaterNombre(l.length), id: 'articles', detail: _tous ? 'Tous demandés' : '${formaterNombre(_limite)} demandés au plus'),
         ChiffreCle(libelle: 'Quantité vendue', valeur: formaterNombre(quantite), id: 'quantite', enAvant: q),
       ]),
       TitreSection(q ? 'Articles (par quantité vendue)' : 'Articles'),

@@ -246,9 +246,10 @@ void main() {
     await terminer(tester);
   });
 
+  // « Fiche Article » n'est plus un menu de la nouvelle interface (3.9.0, demande du pharmacien) : son écran n'y est
+  // plus ouvert (test ci-dessous) ; l'ancienne interface garde le sien (parcours_application_test.dart).
   for (final (tuile, route, parametre) in [
     ('Analyse Article', AppConstants.infoEndpoint, 'search'),
-    ('Fiche Article', AppConstants.checkProduitEndpoint, 'nompdt'),
   ]) {
     testWidgets('$tuile : recherche (anti-rebond, caractères filtrés), fiche détaillée, retour', (tester) async {
       telephone(tester);
@@ -274,6 +275,16 @@ void main() {
       await terminer(tester);
     });
   }
+
+  testWidgets('Fiche Article (3.9.0) : plus proposé par la recherche de menu de la nouvelle interface', (tester) async {
+    telephone(tester);
+    await jusquAccueilNouveau(tester);
+    await tester.enterText(find.byKey(const Key('recherche_menu')), 'Fiche Article');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Aucun menu ne correspond.'), findsOneWidget);
+    expect(serveur.recues(AppConstants.checkProduitEndpoint), isEmpty);
+    await terminer(tester);
+  });
 
   testWidgets('recherche : la réponse d\'une recherche remplacée est ignorée (requête précédente annulée)', (tester) async {
     telephone(tester);

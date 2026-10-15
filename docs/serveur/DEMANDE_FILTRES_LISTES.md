@@ -42,7 +42,49 @@ souhaite un jour séparer « Non traité » et « En cours », il faudrait deux 
 dans `FiltresControleAchat.Statut`. **Pas demandé pour l'instant** : « Contrôlés / Non contrôlés » suffit à la
 décision du pharmacien (3.8.0).
 
-## 2. Pour information : pas de demande pour les autres points de la 3.8.0
+## 2. Pointage BL : `GET /pointage-bl` — recherche sur **tous les grossistes** (3.9.0)
+
+Demandeur : Prestige Pharmacien 3.9.0+39. Vérifié sur la branche serveur `claude/new-session-xm8ptu` la plus récente
+(`origin/claude/new-session-xm8ptu`, commit `d1c9b11`, 13/10/2026).
+
+### Constat
+
+Question du pharmacien : « comment on valide une recherche sans sélectionner de grossiste ? ».
+
+`PointageBLRessource.liste` (et `pdf`) passent par `criteres(grossiste, groupe, du, au)` :
+
+- `grossiste` renseigné → ce grossiste ;
+- sinon `groupe` renseigné → les grossistes du groupe (`PointageBLService.grossistesDuGroupe`), refus « Ce groupe n'a
+  aucun grossiste. » si vide ;
+- **sinon refus `{"success": false, "msg": "Choisissez un grossiste ou un groupe de grossistes."}`** : paramètres
+  vides, absents ou `ALL` ne donnent jamais « tous les grossistes » (`ALL` serait pris pour un identifiant et ne
+  trouverait rien) ;
+- la période est limitée à un an (`debut.plusYears(1).isBefore(fin)` → « Période trop longue : un an au plus. »).
+
+`PointageBLService.pieces` filtre chaque requête (BL, retours, manquants à la réception) par
+`o.lg_GROSSISTE_ID = ?1` ou `rf.lg_GROSSISTE_ID = ?1` ; la variante « liste de grossistes » (groupe) existe déjà.
+
+**Dans l'application 3.9.0** : aucune recherche « tous grossistes » ; l'écran explique pourquoi le choix est
+obligatoire (règle du serveur et du web : pointage comparé au relevé de chaque grossiste), propose le groupe de
+grossistes comme alternative et **reprend le dernier grossiste (ou groupe) utilisé** à l'ouverture suivante.
+
+### Demande
+
+Accepter dans `GET /pointage-bl` (et `GET /pointage-bl/pdf`) une recherche **tous grossistes** :
+
+- nouveau paramètre explicite **`tous=true`** (préférable à « paramètres vides », pour qu'un oubli côté client reste
+  refusé comme aujourd'hui) : toutes les pièces de l'emplacement de l'opérateur, tous grossistes confondus ;
+- chaque pièce rendue porte alors son grossiste (**`grossiste`** : libellé, **`grossisteId`**) pour que l'écran
+  l'affiche sur chaque ligne ;
+- période plus courte pour ce mode (proposition : **31 jours au plus**, refus clair au-delà, « Période trop longue
+  pour tous les grossistes : un mois au plus. ») : la recherche porte sur toute l'activité de l'officine ;
+- totaux (`totalBl`, `totalAvoirs`, `net`, `pointes`, `nonPointes`) inchangés dans leur forme ;
+- les écritures (`pointer`, `sequence`, `avoir`) ne changent pas (elles portent sur une pièce).
+
+L'application proposera alors « Tous les grossistes » en tête de la liste, sur « Ce mois » par défaut, avec un
+avertissement au-delà d'une semaine, et affichera le grossiste sur chaque pièce.
+
+## 3. Pour information : pas de demande pour les autres points de la 3.8.0
 
 - **Suivi Ajustements** (`GET /ajustement`) : la route pagine déjà (`start` / `limit`, `total`) — utilisé par
   « Afficher plus ».
