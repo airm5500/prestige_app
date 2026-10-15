@@ -78,17 +78,17 @@ final casRetours390 = <CasAffichage>[
   ],
   // Menus par pages.
   CasAffichage('3.9.0 · Accueil A par pages',
-      enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauDeBord, affichage: AffichageMenus.parPages)),
+      enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauDeBord, affichage: AffichageMenus.parRubrique)),
   CasAffichage(
       '3.9.0 · Accueil A par pages · famille (P3)',
       enNouvelle(ecranConnecte(() => const AccueilNouveau()),
-          p: Presentation.tableauDeBord, affichage: AffichageMenus.parPages, style: StyleIcones.p3, ensuite: pageSuivante(4))),
+          p: Presentation.tableauDeBord, affichage: AffichageMenus.parRubrique, style: StyleIcones.p3, ensuite: pageSuivante(4))),
   CasAffichage('3.9.0 · Accueil B par pages',
-      enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.compact, affichage: AffichageMenus.parPages)),
+      enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.compact, affichage: AffichageMenus.parRubrique)),
   CasAffichage(
       '3.9.0 · Accueil B par pages · page suivante (P2)',
       enNouvelle(ecranConnecte(() => const AccueilNouveau()),
-          p: Presentation.compact, affichage: AffichageMenus.parPages, style: StyleIcones.p2, ensuite: pageSuivante(2))),
+          p: Presentation.compact, affichage: AffichageMenus.parRubrique, style: StyleIcones.p2, ensuite: pageSuivante(2))),
   // Recherche de produit de l'onglet Analyses.
   CasAffichage('3.9.0 · Onglet Analyses · recherche « contient »',
       enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauDeBord, ensuite: rechercherProduit('fictif'))),
@@ -120,7 +120,7 @@ final casRetours390 = <CasAffichage>[
       enNouvelle(ecranConnecte(() => Scaffold(
             appBar: AppBar(title: const Text('Réglages')),
             body: ListView(children: const [
-              ChoixAffichageMenus(choix: AffichageMenus.parPages, verrouille: false),
+              ChoixAffichageMenus(choix: AffichageMenus.parRubrique, verrouille: false),
               ChoixStyleIcones(choix: StyleIcones.p1),
             ]),
           )))),

@@ -30,15 +30,16 @@ jobs:
         run: flutter pub get
 
       # Les ERREURS bloquent. Les avertissements et remarques hérités sont listés sans bloquer, mais leur
-      # nombre ne doit pas augmenter : plafond 57 (relevé le 13/10/2026) — le baisser quand on en corrige.
+      # nombre ne doit pas augmenter : plafond 44 (relevé le 15/10/2026, 3.10.0 ; 57 auparavant) — le baisser quand
+      # on en corrige.
       - name: Analyse
         id: analyse
         run: |
           set -o pipefail
           flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyse.txt
           n=$(grep -cE '^ *(info|warning|error) •' analyse.txt || true)
-          echo "Remarques de l'analyse : $n (plafond 57)"
-          test "$n" -le 57
+          echo "Remarques de l'analyse : $n (plafond 44)"
+          test "$n" -le 44
 
       # Socle de tests (voir test/README.md), par catégorie pour des journaux lisibles. Aucun émulateur ni vrai
       # serveur : l'application entière tourne dans `flutter test`, contre le faux serveur Prestige.

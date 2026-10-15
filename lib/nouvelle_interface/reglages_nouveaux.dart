@@ -4,8 +4,10 @@
 //    l'appareil, valable pour tous les comptes ; seul l'administrateur la change : compte « admin », ou code
 //    administrateur demandé) ; taille de l'écran (Automatique / Compact / Très compact, docs/TAILLE_ECRAN.md ; même
 //    règle que la présentation depuis la 3.8.0 : sans code pour le compte « admin », code pour les autres) ;
-//    « Menus de l'accueil » sur une page / par pages (3.9.0, même règle) ; « Style des icônes » (propositions
-//    visuelles 3.9.0, réglage caché : montré au seul compte « admin ») ;
+//    « Menus de l'accueil » (3.10.0 : tout sur une page / une rubrique par page / 6 tuiles par page ; modifiable par
+//    l'administrateur ou le pharmacien SEULEMENT, verrouillé avec explication pour les autres comptes) ; « Style des
+//    icônes » (propositions visuelles 3.9.0, P4 « icônes illustrées » en 3.10.0, réglage caché : montré au seul
+//    compte « admin ») ;
 //  - Serveur : mode local / distant, configuration du serveur ;
 //  - Accueil : personnaliser (ordre et menus masqués, communs aux deux interfaces) ;
 //  - Compte : utilisateur, officine, licence, déconnexion.
@@ -78,10 +80,12 @@ class OngletReglages extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
-              // Menus de l'accueil : sur une page (0, défaut) ou par pages (1), 3.9.0.
+              // Menus de l'accueil : tout sur une page (0, défaut), une rubrique par page (1), 6 tuiles par page (2) ;
+              // administrateur ou pharmacien seulement (3.10.0).
               ValueListenableBuilder<AffichageMenus>(
                 valueListenable: ApparenceAccueilPrefs.affichage,
-                builder: (context, choix, _) => ChoixAffichageMenus(choix: choix, verrouille: !admin),
+                builder: (context, choix, _) =>
+                    ChoixAffichageMenus(choix: choix, verrouille: !ApparenceAccueilPrefs.peutChangerAffichage(context)),
               ),
               if (admin) ...[
                 const Divider(height: 1),
@@ -141,6 +145,9 @@ class OngletReglages extends StatelessWidget {
               Text(auth.user?.fullName ?? 'Utilisateur', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               if ((auth.user?.login ?? '').isNotEmpty)
                 Text('Identifiant : ${auth.user!.login}${admin ? ' (administrateur)' : ''}', style: const TextStyle(color: Charte.gris)),
+              // Rôle donné par les serveurs récents à la connexion (3.10.0) ; rien sur un serveur plus ancien.
+              if ((auth.user?.roleLibelle ?? '').isNotEmpty)
+                Text('Rôle : ${auth.user!.roleLibelle}', key: const Key('reglages_role'), style: const TextStyle(color: Charte.gris)),
               if (auth.officine != null) Text(auth.officine!.nomComplet, style: const TextStyle(color: Charte.gris)),
               if (jours != null) ...[
                 const SizedBox(height: 8),
@@ -188,11 +195,18 @@ class RadioGroupPresentation extends StatelessWidget {
       ]);
 }
 
-/// Choix « Menus de l'accueil » : sur une page (défaut) / par pages.
+/// Choix « Menus de l'accueil » : tout sur une page (défaut) / une rubrique par page / 6 tuiles par page.
+/// [verrouille] : compte ni administrateur ni pharmacien — choix visible, non modifiable, avec l'explication.
 class ChoixAffichageMenus extends StatelessWidget {
   final AffichageMenus choix;
   final bool verrouille;
   const ChoixAffichageMenus({super.key, required this.choix, required this.verrouille});
+
+  void _refuser(BuildContext context) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(key: Key('affichage_menus_refus'), content: Text(ApparenceAccueilPrefs.explicationAffichageVerrouille)));
+  }
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -200,15 +214,36 @@ class ChoixAffichageMenus extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text('Menus de l\'accueil (présentations A et B sur téléphone)', style: TextStyle(color: Charte.gris, fontSize: 13)),
         ),
+        if (verrouille)
+          const Padding(
+            key: Key('affichage_menus_verrouille'),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.lock_outline, size: 18, color: Charte.grisTexte),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(ApparenceAccueilPrefs.explicationAffichageVerrouille, style: TextStyle(color: Charte.grisTexte, fontSize: 13)),
+              ),
+            ]),
+          ),
         for (final a in AffichageMenus.values)
           ListTile(
             key: Key('affichage_menus_${a.name}'),
             leading: Icon(a == choix ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: a == choix ? Charte.navy : Charte.gris),
             title: Text(a == AffichageMenus.unePage ? '${a.libelle} (par défaut)' : a.libelle),
             subtitle: Text(a.description),
-            trailing: verrouille && a != choix ? const Icon(Icons.lock_outline, color: Charte.gris, semanticLabel: 'Réservé à l\'administrateur') : null,
+            trailing: verrouille && a != choix
+                ? const Icon(Icons.lock_outline, color: Charte.gris, semanticLabel: 'Réservé à l\'administrateur ou au pharmacien')
+                : null,
             selected: a == choix,
-            onTap: () => ApparenceAccueilPrefs.changerAffichage(context, a),
+            onTap: () {
+              if (a == choix) return;
+              if (verrouille) {
+                _refuser(context);
+                return;
+              }
+              ApparenceAccueilPrefs.changerAffichage(context, a);
+            },
           ),
       ]);
 }

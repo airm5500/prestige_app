@@ -72,6 +72,14 @@ class Seuils {
   /// Changement de vue d'un graphique (Comparée / Achats / Ventes) : pire image.
   static const imageGraphiqueMs = 1500;
 
+  // --- Icônes illustrées (P4, 3.10.0) ---
+  /// Décodage RÉEL des 38 icônes embarquées à la taille affichée (36 dp × 2,625), à froid, toutes à la suite.
+  static const iconesDecodageMs = 600;
+
+  /// Mémoire des 38 icônes décodées à la taille affichée (calcul exact : 38 × 95 × 95 × 4 octets ≈ 1 340 Ko) ; à
+  /// 144 px elles prendraient 3 078 Ko : le seuil vérifie qu'elles ne sont jamais décodées en pleine taille.
+  static const iconesMemoireKo = 1500;
+
   // --- PDF ---
   /// Fabrication des octets d'un PDF (ticket Z, TVA, Marge, CA Crédit, péremption) avec beaucoup de lignes.
   static const pdfMs = 7000;

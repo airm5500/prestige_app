@@ -5,8 +5,8 @@
 //    interface le garde ;
 //  - Suivi 20/80 ouvert depuis l'accueil : « Tous » → topN absent ;
 //  - Pointage BL : explication sans grossiste, dernier grossiste repris à l'ouverture suivante ;
-//  - Réglages : « Menus de l'accueil » par pages (compte « admin » sans code ; autre compte : code demandé, Annuler
-//    = rien de changé) → accueil A en pages (balayage, boutons, indicateur), module ouvert depuis une page, choix
+//  - Réglages : « Menus de l'accueil » par pages (compte « admin » sans code ; 3.10.0 : profil pharmacien sans code,
+//    compte simple verrouillé avec explication, aucun code demandé) → accueil A en pages (balayage, boutons, indicateur), module ouvert depuis une page, choix
 //    mémorisé ; B par pages, recherche à plat ; « Style des icônes » visible du seul compte « admin », P1 appliqué à
 //    la barre du bas et mémorisé.
 import 'package:flutter/material.dart';
@@ -181,7 +181,7 @@ void main() {
     await jusquAccueilNouveau(tester);
     expect(cle('pages_menus'), findsNothing, reason: 'défaut : sur une page');
     await toucherReglages(tester);
-    await reglage(tester, 'affichage_menus_parPages');
+    await reglage(tester, 'affichage_menus_parRubrique');
     expect(find.byKey(const Key('pin_admin_saisie')), findsNothing, reason: 'administrateur : aucun code');
     expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), 1);
     // Style des icônes : réglage caché, visible ici (compte « admin »).
@@ -214,7 +214,7 @@ void main() {
     // Relance (lecture des préférences comme main()) : les deux choix sont repris.
     ApparenceAccueilPrefs.reinitialiser();
     await tester.runAsync(InterfaceVersion.load);
-    expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parPages);
+    expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parRubrique);
     utiliserReseauReel();
     await jusquAccueilNouveau(tester);
     expect(cle('pages_menus'), findsOneWidget);
@@ -222,30 +222,46 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('autre compte : code demandé pour « par pages » (Annuler = rien), style des icônes caché', (tester) async {
+  testWidgets('3.10.0 · profil pharmacien (pas « admin ») : « Menus de l\'accueil » changé sans code ; style des icônes caché',
+      (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
-    expect(await tester.runAsync(() => CodeAdmin.instance.definir(_code)), isNull);
+    expect(ProfilAcces.responsable, isTrue, reason: 'compte fictif : profil « dashboard » (pharmacien)');
     await toucherReglages(tester);
-    expect(cle('style_icones_p1'), findsNothing, reason: 'réglage caché aux autres comptes');
-    await reglage(tester, 'affichage_menus_parPages');
-    expect(cle('pin_admin_saisie'), findsOneWidget);
-    await tester.tap(find.text('Annuler'));
-    await stabiliser(tester, tours: 6);
+    expect(cle('style_icones_p1'), findsNothing, reason: 'réglage caché aux autres comptes que « admin »');
+    expect(cle('affichage_menus_verrouille'), findsNothing);
+    await reglage(tester, 'affichage_menus_parRubrique');
+    expect(cle('pin_admin_saisie'), findsNothing, reason: 'pharmacien : aucun code');
+    expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parRubrique);
+    expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), 1);
+    await reglage(tester, 'affichage_menus_parSix');
+    expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), 2);
+    await terminer(tester);
+  });
+
+  testWidgets('3.10.0 · compte simple (ni administrateur ni pharmacien) : « Menus de l\'accueil » verrouillé, explication, aucun code',
+      (tester) async {
+    telephone(tester);
+    serveur.quand('/user/auth', ReponseFausse.json({...DonneesFictives.utilisateur(), 'xtypeuser': 'mainmenumanager'},
+        entetes: {'set-cookie': 'JSESSIONID=fictif-caisse; Path=/prestige; HttpOnly'}), methode: 'POST');
+    serveur.controlerSession = false;
+    expect(await tester.runAsync(() => CodeAdmin.instance.definir(_code)), isNull);
+    await jusquAccueilNouveau(tester);
+    expect(ProfilAcces.responsable, isFalse);
+    await toucherReglages(tester);
+    expect(cle('affichage_menus_verrouille'), findsOneWidget);
+    expect(find.text(ApparenceAccueilPrefs.explicationAffichageVerrouille), findsWidgets);
+    await reglage(tester, 'affichage_menus_parRubrique');
+    expect(cle('pin_admin_saisie'), findsNothing, reason: 'plus de code administrateur pour ce réglage');
+    expect(cle('affichage_menus_refus'), findsOneWidget, reason: 'explication au toucher');
     expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.unePage);
     expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), isNull);
-    await reglage(tester, 'affichage_menus_parPages');
-    await tester.enterText(cle('pin_admin_saisie'), _code);
-    await tester.tap(find.text('Valider'));
-    await attendreQue(tester, () => ApparenceAccueilPrefs.affichage.value == AffichageMenus.parPages, raison: 'code accepté');
-    await stabiliser(tester);
-    expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), 1);
     await terminer(tester);
   });
 
   testWidgets('présentation B par pages : une famille par page, la recherche de menu revient à plat', (tester) async {
     telephone(tester);
-    preparerNouvelle(serveur, p: Presentation.compact, affichage: AffichageMenus.parPages);
+    preparerNouvelle(serveur, p: Presentation.compact, affichage: AffichageMenus.parRubrique);
     utiliserReseauReel();
     await jusquAccueilNouveau(tester);
     expect(cle('pages_menus'), findsOneWidget);

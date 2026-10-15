@@ -1,6 +1,7 @@
 // lib/models/ca_global_model.dart
 
 import '../utils/date_formatter.dart';
+import 'ca_comptant_model.dart' show OperateurMobile;
 
 // Ce modèle est très similaire à CaComptant, on pourrait envisager une classe de base
 // ou un mixin si les champs étaient exactement les mêmes et nombreux.
@@ -16,6 +17,10 @@ class CaGlobal {
   final double totTVA;
   final double totVirement;
 
+  /// Détail du Mobile Money par opérateur (champ « detailMobile » de /ca-all, serveurs récents, demande 25) ; null si
+  /// le champ est absent (serveur plus ancien).
+  final List<OperateurMobile>? detailMobile;
+
   CaGlobal({
     required this.montantCredit,
     this.mvtDate,
@@ -26,6 +31,7 @@ class CaGlobal {
     required this.totMobile,
     required this.totTVA,
     required this.totVirement,
+    this.detailMobile,
   });
 
   factory CaGlobal.fromJson(Map<String, dynamic> json) {
@@ -39,6 +45,7 @@ class CaGlobal {
       totMobile: (json['totMobile'] as num?)?.toDouble() ?? 0.0,
       totTVA: (json['totTVA'] as num?)?.toDouble() ?? 0.0,
       totVirement: (json['totVirement'] as num?)?.toDouble() ?? 0.0,
+      detailMobile: OperateurMobile.lireListe(json['detailMobile']),
     );
   }
 

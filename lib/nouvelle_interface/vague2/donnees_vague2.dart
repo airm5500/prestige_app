@@ -258,6 +258,10 @@ class FiltresPrevisions {
 class TableauPrevisions {
   final bool calcule;
   final String dernierCalcul;
+
+  /// Heure (« jj/mm/aaaa hh:mm ») de la dernière mise à jour des quantités « en cours de commande » par le serveur
+  /// (champ « enCoursAJour », serveurs récents, demande 23) ; vide si absent.
+  final String enCoursAJour;
   final int produits;
   final int produitsVendus;
   final double tauxRupture;
@@ -276,6 +280,7 @@ class TableauPrevisions {
   const TableauPrevisions({
     required this.calcule,
     this.dernierCalcul = '',
+    this.enCoursAJour = '',
     this.produits = 0,
     this.produitsVendus = 0,
     this.tauxRupture = 0,
@@ -296,6 +301,7 @@ class TableauPrevisions {
         // « calcule » absent : on regarde s'il y a des chiffres.
         calcule: booleenTolerant(j['calcule'], defaut: j.containsKey('produits')),
         dernierCalcul: texteTolerant(j['dernierCalcul']),
+        enCoursAJour: texteTolerant(j['enCoursAJour']),
         produits: entierTolerant(j['produits']),
         produitsVendus: entierTolerant(j['produitsVendus']),
         tauxRupture: decimalTolerant(j['tauxRupture']),

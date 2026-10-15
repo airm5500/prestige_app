@@ -4,7 +4,11 @@
 // Fichiers produits :
 //  - docs/maquettes/propositions_couleurs/<style>_1_accueil_A.png, _2_accueil_B.png, _3_liste_menus.png (onglet
 //    Analyses, barre du bas comprise), _4_barre_du_bas.png (la barre avec chaque onglet actif), pour les styles
-//    actuel, p1, p2, p3 (téléphone 1080 × 2400 px, 411 × 914 dp) ; page de comparaison : index.html ;
+//    actuel, p1, p2, p3 et p4 (3.10.0, icônes illustrées) (téléphone 1080 × 2400 px, 411 × 914 dp) ; petit écran
+//    Sunmi 720 × 1440 px (360 × 720 dp) : <style>_5_sunmi_accueil_A.png, _6_sunmi_accueil_B.png ; page de
+//    comparaison : index.html ;
+//  - docs/maquettes/captures_3_10_0/ (3.10.0) : « Menus de l'accueil » dans les trois dispositions (tout sur une page,
+//    une rubrique par page, 6 tuiles par page), accueils A et B, téléphone et Sunmi ; Pointage BL par groupe ;
 //  - docs/maquettes/captures_3_9_0/ : menus par pages (A, B), recherche « contient » de l'onglet Analyses,
 //    Pointage BL sans grossiste, Suivi 20/80 « Tous ».
 import 'dart:io';
@@ -18,6 +22,7 @@ import 'package:prestige_app/nouvelle_interface/charte.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/services/api_service.dart';
 
+import 'support/donnees_fictives.dart';
 import 'support/donnees_lot3.dart';
 import 'support/donnees_vague1.dart';
 import 'support/faux_serveur_prestige.dart';
@@ -31,6 +36,9 @@ Future<void> _chargerIcones() async {
   await (FontLoader('MaterialIcons')..addFont(Future.value(ByteData.sublistView(File('$dossier/MaterialIcons-Regular.otf').readAsBytesSync()))))
       .load();
 }
+
+/// Connexion avec le compte « admin » (réglages cachés visibles).
+bool serveurAdmin = false;
 
 void main() {
   final serveur = FauxServeurPrestige();
@@ -46,7 +54,11 @@ void main() {
   Future<void> preparer(Presentation p, {StyleIcones style = StyleIcones.actuel, AffichageMenus affichage = AffichageMenus.unePage}) async {
     serveur
       ..installerRoutesParDefaut()
-      ..controlerSession = true;
+      ..controlerSession = !serveurAdmin;
+    if (serveurAdmin) {
+      serveur.quand('/user/auth', ReponseFausse.json({...DonneesFictives.utilisateur(), 'str_LOGIN': 'admin'},
+          entetes: {'set-cookie': 'JSESSIONID=fictif-admin; Path=/prestige; HttpOnly'}), methode: 'POST');
+    }
     donneesAccueil(serveur);
     listesCommunesVague1(serveur);
     donneesLot3(serveur);
@@ -60,6 +72,25 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
+  /// Petit écran Sunmi (V2s : 720 × 1440 px, 360 × 720 dp).
+  void sunmi(WidgetTester tester) {
+    tester.view.devicePixelRatio = 2.0;
+    tester.view.physicalSize = const Size(720, 1440);
+    addTearDown(tester.view.reset);
+  }
+
+  /// Décode pour de vrai les images affichées (icônes illustrées) : en temps simulé, elles ne le seraient jamais.
+  Future<void> decoderImages(WidgetTester tester) async {
+    final images = [for (final e in find.byType(Image).evaluate()) (e, (e.widget as Image).image)];
+    if (images.isEmpty) return;
+    await tester.runAsync(() async {
+      for (final (e, i) in images) {
+        await precacheImage(i, e);
+      }
+    });
+    await tester.pump();
+  }
+
   Future<void> pomper(WidgetTester tester, [int fois = 8]) async {
     for (var i = 0; i < fois; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -68,6 +99,8 @@ void main() {
 
   Future<void> photo(WidgetTester tester, String chemin, {Finder? cible}) async {
     await pomper(tester, 6);
+    await decoderImages(tester);
+    await pomper(tester, 2);
     await expectLater(cible ?? find.byType(MaterialApp), matchesGoldenFile('../docs/maquettes/$chemin.png'));
   }
 
@@ -138,11 +171,105 @@ void main() {
     debugDisableShadows = true;
   }, skip: !_actif);
 
+  testWidgets('propositions de style des icônes sur petit écran Sunmi 720 × 1440 : accueil A, accueil B', (tester) async {
+    debugDisableShadows = false;
+    sunmi(tester);
+    for (final s in StyleIcones.values) {
+      final d = 'propositions_couleurs/${s.name}';
+      await preparer(Presentation.tableauDeBord, style: s);
+      await connecterEnMemoire(tester);
+      await pomperJusqua(tester, () => find.text('…').evaluate().isEmpty, raison: 'chiffres du jour');
+      await defiler(tester, const Key('defilement_accueil'), 420);
+      await photo(tester, '${d}_5_sunmi_accueil_A');
+      await fin(tester);
+      await preparer(Presentation.compact, style: s);
+      await connecterEnMemoire(tester);
+      await photo(tester, '${d}_6_sunmi_accueil_B');
+      await fin(tester);
+    }
+    debugDisableShadows = true;
+  }, skip: !_actif);
+
+  testWidgets('3.10.0 · « Menus de l\'accueil » : trois dispositions, A et B, téléphone et Sunmi', (tester) async {
+    debugDisableShadows = false;
+    for (final (nomAppareil, regler) in [('telephone', telephone), ('sunmi', sunmi)]) {
+      regler(tester);
+      for (final a in AffichageMenus.values) {
+        final n = '${a.valeur + 1}_${a.name}';
+        // Accueil A : première page, puis (en pages) la page suivante.
+        await preparer(Presentation.tableauDeBord, affichage: a);
+        await connecterEnMemoire(tester);
+        await pomperJusqua(tester, () => find.text('…').evaluate().isEmpty, raison: 'chiffres du jour');
+        if (a == AffichageMenus.unePage) await defiler(tester, const Key('defilement_accueil'), nomAppareil == 'sunmi' ? 420 : 470);
+        await photo(tester, 'captures_3_10_0/${nomAppareil}_A_${n}_page1');
+        if (a.parPages) {
+          await tester.tap(find.byKey(const Key('page_menus_suivante')));
+          await pomper(tester);
+          await photo(tester, 'captures_3_10_0/${nomAppareil}_A_${n}_page2');
+        }
+        await fin(tester);
+        // Accueil B.
+        await preparer(Presentation.compact, affichage: a);
+        await connecterEnMemoire(tester);
+        await photo(tester, 'captures_3_10_0/${nomAppareil}_B_${n}_page1');
+        if (a.parPages) {
+          await tester.tap(find.byKey(const Key('page_menus_suivante')));
+          await pomper(tester);
+          await photo(tester, 'captures_3_10_0/${nomAppareil}_B_${n}_page2');
+        }
+        await fin(tester);
+      }
+    }
+    // Réglage verrouillé pour un compte simple, et P4 sur « 6 tuiles par page ».
+    telephone(tester);
+    await preparer(Presentation.tableauDeBord, affichage: AffichageMenus.parSix, style: StyleIcones.p4);
+    await connecterEnMemoire(tester);
+    await pomperJusqua(tester, () => find.text('…').evaluate().isEmpty, raison: 'chiffres du jour');
+    await tester.tap(find.byKey(const Key('page_menus_suivante')));
+    await pomper(tester);
+    await photo(tester, 'captures_3_10_0/telephone_A_3_parSix_p4');
+    await fin(tester);
+    debugDisableShadows = true;
+  }, skip: !_actif);
+
+  testWidgets('3.10.0 · Pointage BL par groupe de grossistes, réglages', (tester) async {
+    debugDisableShadows = false;
+    telephone(tester);
+    await preparer(Presentation.compact);
+    await connecterEnMemoire(tester);
+    await tester.enterText(find.byKey(const Key('recherche_menu')), 'Pointage');
+    await pomper(tester, 4);
+    await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text('Pointage BL')).first);
+    await pomper(tester, 15);
+    await tester.tap(find.byKey(const Key('pointage_mode_groupe')));
+    await pomper(tester, 4);
+    await tester.tap(find.byKey(const Key('pointage_groupe')));
+    await pomper(tester, 4);
+    await tester.tap(find.text('GROUPE FICTIF').last);
+    await pomper(tester, 15);
+    await photo(tester, 'captures_3_10_0/pointage_par_groupe');
+    await tester.binding.handlePopRoute();
+    await pomper(tester);
+    await fin(tester);
+    // Réglages (compte « admin » : trois dispositions et P4).
+    serveurAdmin = true;
+    await preparer(Presentation.tableauDeBord);
+    await connecterEnMemoire(tester);
+    await tester.tap(find.byKey(const Key('bouton_reglages')));
+    await pomper(tester, 6);
+    await tester.drag(find.byType(Scrollable).hitTestable().first, const Offset(0, -520));
+    await pomper(tester, 6);
+    await photo(tester, 'captures_3_10_0/reglages_menus_et_style');
+    serveurAdmin = false;
+    await fin(tester);
+    debugDisableShadows = true;
+  }, skip: !_actif);
+
   testWidgets('autres retours 3.9.0 : menus par pages, recherche « contient », Pointage BL, Suivi 20/80 « Tous »', (tester) async {
     debugDisableShadows = false;
     telephone(tester);
     // Menus par pages : A (page « À surveiller » puis une famille), B.
-    await preparer(Presentation.tableauDeBord, affichage: AffichageMenus.parPages);
+    await preparer(Presentation.tableauDeBord, affichage: AffichageMenus.parRubrique);
     await connecterEnMemoire(tester);
     await pomperJusqua(tester, () => find.text('…').evaluate().isEmpty, raison: 'chiffres du jour');
     await photo(tester, 'captures_3_9_0/1_accueil_A_par_pages');
@@ -164,7 +291,7 @@ void main() {
     await pomper(tester);
     await fin(tester);
 
-    await preparer(Presentation.compact, affichage: AffichageMenus.parPages);
+    await preparer(Presentation.compact, affichage: AffichageMenus.parRubrique);
     await connecterEnMemoire(tester);
     await photo(tester, 'captures_3_9_0/3_accueil_B_par_pages');
 

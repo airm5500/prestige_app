@@ -5,6 +5,8 @@
 // Mise en page refaite : période commune chargée dès l'ouverture (« Aujourd'hui », dates par défaut d'origine),
 // chiffres clés (brut, net, remise, TVA), répartition par mode de paiement avec la part du CA brut, jour par jour
 // (cartes sur téléphone, tableau avec total sur tablette), détail d'un jour en feuille.
+// 3.10.0 : sous « Total Mobile Money », le montant de chaque opérateur (Orange Money, Wave, MTN…) quand le serveur
+// le donne dans /ca-all (« detailMobile », serveurs récents, demande 25) ; rien de plus sinon (aucun appel en plus).
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -80,6 +82,7 @@ class _CaGlobalNouveauState extends State<CaGlobalNouveau> with ChargementSuivi<
       return const [EtatVide(titre: 'Aucune donnée pour cette période', texte: 'Choisissez une autre période.', icone: Icons.receipt_long_outlined)];
     }
     final c = CaGlobalDonnees.cumul(l);
+    final operateurs = CaGlobalDonnees.detailMobile(l);
     return [
       GrilleKpi([
         ChiffreCle(libelle: 'CA brut', valeur: formaterMontant(c.totalCa), id: 'brut', enAvant: true, detail: '${l.length} jour${l.length > 1 ? 's' : ''}'),
@@ -104,6 +107,15 @@ class _CaGlobalNouveauState extends State<CaGlobalNouveau> with ChargementSuivi<
                   const SizedBox(width: 8),
                   Text(_part(v, c.totalCa), style: const TextStyle(color: Charte.grisTexte, fontSize: 12.5, fontWeight: FontWeight.w600)),
                 ]),
+                // Opérateurs Mobile Money (« dont Orange Money … »), si le serveur les donne.
+                if (libelle == 'Total Mobile Money' && operateurs != null && operateurs.isNotEmpty)
+                  Padding(
+                    key: const Key('ca_global_mobile_detail'),
+                    padding: const EdgeInsets.only(left: 12, top: 4),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      for (final o in operateurs) LigneDetail('dont ${o.libelle}', formaterMontant(o.montant)),
+                    ]),
+                  ),
               ]),
             ),
         const Divider(height: 16),

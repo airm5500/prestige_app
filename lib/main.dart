@@ -19,10 +19,13 @@ import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'interface_version.dart';
 import 'nouvelle_interface/charte.dart';
+import 'nouvelle_interface/icones_illustrees.dart';
 import 'ui/taille_ecran.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Licence MIT des icônes illustrées (P4) dans les licences de l'application (lue seulement si la page s'ouvre).
+  enregistrerLicenceIcones();
   await InterfaceVersion.load();
   // Taille de l'écran (3.7.0, docs/TAILLE_ECRAN.md) : lue une fois, appliquée par RacineTailleEcran.
   await TailleEcranReglage.charger();

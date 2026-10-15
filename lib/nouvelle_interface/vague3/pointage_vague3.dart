@@ -14,7 +14,13 @@
 // 3.9.0 (question du pharmacien « comment valider une recherche sans grossiste ? ») : vérifié dans le serveur
 // (PointageBLRessource.criteres), une recherche sur TOUS les grossistes est impossible (« Choisissez un grossiste ou
 // un groupe de grossistes. ») ; l'écran l'explique et reprend le DERNIER grossiste (ou groupe) utilisé
-// (DernierCriterePointage) ; demande au serveur : docs/serveur/DEMANDE_FILTRES_LISTES.md.
+// (DernierCriterePointage).
+// 3.10.0 (décision du pharmacien : « le montant par grossiste ou par groupe de grossistes », jamais « tous les
+// grossistes ») : choix explicite « Par grossiste » / « Par groupe de grossistes » (une seule liste à la fois ; un
+// groupe envoie `groupe=<id>`, lu par PointageBLRessource.criteres → grossistes du groupe) ; montant du grossiste ou
+// du groupe mis en avant ; pour un groupe, montant de chaque grossiste du groupe quand le serveur le permet
+// (PointageBl.detailGroupe ; demande : docs/serveur/DEMANDES_SERVEUR_2026-10-15.md § 1). Aucune requête « tous les
+// grossistes » (FiltresPointage.complet refuse aussi l'identifiant « ALL »).
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -53,6 +59,9 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
   /// Le grossiste (ou groupe) affiché vient du dernier choix mémorisé (3.9.0).
   bool _repris = false;
 
+  /// Recherche par groupe de grossistes (3.10.0) ; sinon par grossiste.
+  bool _parGroupe = false;
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +74,7 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
         if (dernier != null && !_filtres.complet) {
           setState(() {
             _filtres = _filtres.copie(grossiste: dernier.$1, groupe: dernier.$2);
+            _parGroupe = _filtres.parGroupe;
             _repris = true;
           });
         }
@@ -124,6 +134,18 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
     final f = _filtres;
     DernierCriterePointage.enregistrer(f);
     charger(() => ApiPointage.liste(context, f));
+  }
+
+  /// « Par grossiste » / « Par groupe de grossistes » : l'autre choix est effacé, rien n'est demandé tant que la liste
+  /// n'a pas de valeur.
+  void _changerMode(bool parGroupe) {
+    if (parGroupe == _parGroupe) return;
+    setState(() {
+      _parGroupe = parGroupe;
+      _repris = false;
+      _filtres = _filtres.copie(grossiste: '', groupe: '');
+    });
+    abandonner();
   }
 
   void _changer(FiltresPointage f) {
@@ -250,29 +272,39 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
 
   Widget _criteres() {
     final listesKo = _erreurGrossistes != null || _erreurGroupes != null;
-    return CarteSection(titre: 'Grossiste', icone: Icons.local_shipping_outlined, enfants: [
-      ChoixListe(
-        key: const Key('pointage_grossiste'),
-        libelle: 'Grossiste',
-        icone: Icons.store_outlined,
-        options: _grossistes,
-        erreur: _erreurGrossistes,
-        valeur: _filtres.grossiste,
-        tous: 'Choisir un grossiste',
-        // Un grossiste choisi remplace le groupe (comme le web).
-        onChanged: (v) => _changer(_filtres.copie(grossiste: v, groupe: v.isEmpty ? _filtres.groupe : '')),
+    return CarteSection(titre: 'Grossiste ou groupe', icone: Icons.local_shipping_outlined, enfants: [
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: PucesChoix<bool>(
+          choix: const [(false, 'Par grossiste'), (true, 'Par groupe de grossistes')],
+          valeur: _parGroupe,
+          cle: (v, _) => Key(v ? 'pointage_mode_groupe' : 'pointage_mode_grossiste'),
+          onChanged: _changerMode,
+        ),
       ),
       const SizedBox(height: 10),
-      ChoixListe(
-        key: const Key('pointage_groupe'),
-        libelle: 'ou un groupe de grossistes',
-        icone: Icons.groups_2_outlined,
-        options: _groupes,
-        erreur: _erreurGroupes,
-        valeur: _filtres.groupe,
-        tous: 'Aucun groupe',
-        onChanged: (v) => _changer(_filtres.copie(groupe: v, grossiste: v.isEmpty ? _filtres.grossiste : '')),
-      ),
+      if (!_parGroupe)
+        ChoixListe(
+          key: const Key('pointage_grossiste'),
+          libelle: 'Grossiste',
+          icone: Icons.store_outlined,
+          options: _grossistes,
+          erreur: _erreurGrossistes,
+          valeur: _filtres.grossiste,
+          tous: 'Choisir un grossiste',
+          onChanged: (v) => _changer(_filtres.copie(grossiste: v, groupe: '')),
+        )
+      else
+        ChoixListe(
+          key: const Key('pointage_groupe'),
+          libelle: 'Groupe de grossistes',
+          icone: Icons.groups_2_outlined,
+          options: _groupes,
+          erreur: _erreurGroupes,
+          valeur: _filtres.groupe,
+          tous: 'Choisir un groupe',
+          onChanged: (v) => _changer(_filtres.copie(groupe: v, grossiste: '')),
+        ),
       if (_repris && _filtres.complet)
         const Padding(
           padding: EdgeInsets.only(top: 6, left: 4),
@@ -292,7 +324,62 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
     ]);
   }
 
+  /// Libellé du grossiste ou du groupe choisi (identifiant à défaut).
+  String _libelleChoix() {
+    final groupe = _filtres.parGroupe;
+    final id = groupe ? _filtres.groupe : _filtres.grossiste;
+    final options = groupe ? _groupes : _grossistes;
+    final o = options?.where((o) => o.id == id).firstOrNull;
+    return o == null || o.libelle.isEmpty ? id : o.libelle;
+  }
+
+  /// Montant du grossiste ou du groupe (mis en avant), et pour un groupe le montant de chacun de ses grossistes.
+  Widget _montant(PointageBl d) {
+    final groupe = _filtres.parGroupe;
+    final detail = groupe ? d.detailGroupe(toutesLesPieces: _filtres.etat == EtatPointage.tous) : null;
+    return CarteSection(
+      key: const Key('pointage_montant'),
+      titre: groupe ? 'Montant du groupe' : 'Montant du grossiste',
+      icone: Icons.payments_outlined,
+      enfants: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Text(_libelleChoix(),
+                key: const Key('pointage_montant_libelle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Charte.encre)),
+          ),
+          const SizedBox(width: 8),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            const Text('Net HT', style: TextStyle(fontSize: 12, color: Charte.gris)),
+            Text(formaterMontant(d.net),
+                key: const Key('pointage_montant_net'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Charte.navy)),
+          ]),
+        ]),
+        Text('BL ${formaterMontant(d.totalBl)} · avoirs ${formaterMontant(d.totalAvoirs)} · période choisie, toutes pièces',
+            style: const TextStyle(fontSize: 13, color: Charte.gris)),
+        if (groupe && detail != null) ...[
+          const SizedBox(height: 8),
+          const Text('Par grossiste du groupe', style: TextStyle(fontSize: 13, color: Charte.gris, fontWeight: FontWeight.w700)),
+          for (final m in detail.$1)
+            Padding(
+              key: Key('pointage_grossiste_du_groupe_${m.grossisteId}'),
+              padding: const EdgeInsets.only(top: 4),
+              child: LigneDetail(m.libelle, formaterMontant(m.net)),
+            ),
+        ] else if (groupe)
+          const Padding(
+            key: Key('pointage_detail_groupe_absent'),
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Montant de chaque grossiste du groupe : pas encore fourni par ce serveur Prestige '
+                '(choisissez « Par grossiste » pour le voir grossiste par grossiste).',
+                style: TextStyle(fontSize: 13, color: Charte.grisTexte)),
+          ),
+      ],
+    );
+  }
+
   List<Widget> _resultats(PointageBl d) => [
+        _montant(d),
+        const SizedBox(height: 8),
         GrilleChiffres([
           ChiffreCle(libelle: 'Total BL', valeur: formaterMontant(d.totalBl), id: 'total_bl'),
           ChiffreCle(libelle: 'Avoirs', valeur: formaterMontant(d.totalAvoirs), id: 'total_avoirs'),
@@ -355,10 +442,10 @@ class _PourquoiGrossiste extends StatelessWidget {
           avertissement: true,
           icone: Icons.info_outline,
           titre: 'Pourquoi ce choix est obligatoire',
-          texte: 'Le serveur Prestige ne recherche les BL et avoirs que pour UN grossiste ou UN groupe de grossistes, '
-              'comme l\'écran « Pointage BL » du web : le pointage se compare au relevé envoyé par chaque grossiste. '
-              'Une recherche sur tous les grossistes à la fois n\'est pas encore possible (demande transmise). '
-              'Astuce : un groupe de grossistes en réunit plusieurs ; votre dernier choix sera repris à la prochaine ouverture.',
+          texte: 'Le pointage se fait par grossiste ou par groupe de grossistes, comme l\'écran « Pointage BL » du web : '
+              'il se compare au relevé envoyé par chaque grossiste, et le montant se lit grossiste par grossiste ou '
+              'groupe par groupe. Choisissez « Par groupe de grossistes » pour réunir plusieurs grossistes. '
+              'Votre dernier choix sera repris à la prochaine ouverture.',
         ),
       ]);
 }

@@ -21,6 +21,7 @@
 // Aucun de ces écrans n'a d'export.
 import 'package:flutter/widgets.dart';
 
+import '../models/ca_comptant_model.dart' show OperateurMobile;
 import '../models/ca_credit_model.dart';
 import '../models/ca_global_model.dart';
 import '../models/marge_produit_vendu_model.dart';
@@ -30,6 +31,7 @@ import '../services/api_service.dart';
 import '../utils/constants.dart';
 import '../utils/date_formatter.dart';
 import '../utils/saisie.dart';
+import 'detail_ca_donnees.dart' show DetailCa;
 
 Map<String, String> _dates(DateTime debut, DateTime fin) => {'dtStart': DateFormatter.toApiFormat(debut), 'dtEnd': DateFormatter.toApiFormat(fin)};
 
@@ -274,6 +276,15 @@ class CaGlobalDonnees {
 
   /// CA net : CA brut − remise.
   static double net(CaGlobal c) => c.totalCa - c.remiseSurCA;
+
+  /// Mobile Money par opérateur sur la période (3.10.0) : champ « detailMobile » de /ca-all (serveurs récents,
+  /// demande 25), cumulé ; null si le serveur ne le fournit pas, ou s'il manque sur un jour qui a du Mobile Money
+  /// (détail incomplet : rien plutôt qu'un détail faux). Aucun appel de plus (même règle que le Détail CA).
+  static List<OperateurMobile>? detailMobile(List<CaGlobal> l) {
+    if (l.isEmpty || l.every((c) => c.detailMobile == null)) return null;
+    if (l.any((c) => c.detailMobile == null && c.totMobile != 0)) return null;
+    return DetailCa.cumulerOperateurs([for (final c in l) ...?c.detailMobile]);
+  }
 
   /// Modes de paiement (libellé de l'écran d'origine, montant), dans l'ordre d'origine.
   static List<(String, double)> modes(CaGlobal c) => [

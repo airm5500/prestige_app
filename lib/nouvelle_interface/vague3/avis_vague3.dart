@@ -7,7 +7,9 @@
 //    dans la feuille du bas ;
 //  - détail d'un avis : ATTENTION, GET /avis-clients/avis/{id} passe un avis NOUVEAU à LU (écriture). Il n'est appelé
 //    QUE lorsque l'utilisateur touche l'avis — jamais en préchargement, ni au retour dans la liste (la liste est mise
-//    à jour avec le statut renvoyé, sans relecture) ;
+//    à jour avec le statut renvoyé, sans relecture) ; 3.10.0 : bouton « Actualiser » du détail, sur un serveur récent
+//    seulement (ProfilAcces.serveurRecent) : relecture avec `marquerLu=false` (demande serveur 22), qui ne remet pas
+//    « lu » un avis que l'on vient de remettre en « Nouveau » ;
 //  - « Traiter » : statut Nouveau / Lu / Traité et note interne (1500 caractères, nettoyée comme le serveur), POST
 //    /avis-clients/avis/{id}/traiter, un envoi par appui ;
 //  - « Remettre en Nouveau » (3.8.0, demande du pharmacien) : bouton visible dans le détail d'un avis Lu ou Traité,
@@ -28,6 +30,7 @@ import '../composants.dart';
 import '../modules/commun.dart';
 import '../modules/commun_lot2.dart';
 import '../modules/periode.dart';
+import '../vague1/profil_acces.dart';
 import '../vague2/commun_vague2.dart' show BarresHorizontales, GrilleChiffres, ongletsBlancs;
 import 'donnees_vague3.dart';
 
@@ -637,8 +640,9 @@ class _AvisDetailScreenState extends State<AvisDetailScreen> with ChargementSuiv
     super.dispose();
   }
 
-  Future<void> _charger() async {
-    await charger(() => ApiAvis.ouvrir(context, widget.id));
+  /// [relecture] : « Actualiser » (serveur récent) — l'avis est relu SANS être marqué « lu ».
+  Future<void> _charger({bool relecture = false}) async {
+    await charger(() => ApiAvis.ouvrir(context, widget.id, marquerLu: !relecture));
     final a = donnees;
     if (a == null || !mounted) return;
     setState(() {
@@ -716,7 +720,16 @@ class _AvisDetailScreenState extends State<AvisDetailScreen> with ChargementSuiv
   Widget build(BuildContext context) {
     final a = donnees;
     return Scaffold(
-      appBar: AppBar(title: const Text('Avis')),
+      appBar: AppBar(title: const Text('Avis'), actions: [
+        // Relecture sans marquer « lu » : seulement si le serveur connaît marquerLu=false (sinon il marquerait l'avis).
+        if (ProfilAcces.serveurRecent && a != null)
+          IconButton(
+            key: const Key('avis_detail_actualiser'),
+            tooltip: 'Actualiser (sans marquer l\'avis comme lu)',
+            icon: const Icon(Icons.refresh),
+            onPressed: enCours || _envoi ? null : () => _charger(relecture: true),
+          ),
+      ]),
       body: ListView(key: const Key('defilement_detail_avis'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
         if (enCours) const EtatChargement(texte: 'Ouverture de l\'avis…'),
         if (erreur != null && !enCours) EtatErreur(erreur: erreur!, reessayer: _charger),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'charte.dart';
+import 'icones_illustrees.dart';
 
 /// En-tête bleu nuit aux coins inférieurs arrondis (NavyHeader de vente_app), sous la barre d'état.
 class EnTeteNavy extends StatelessWidget {
@@ -300,15 +301,23 @@ class IconeMenu extends StatelessWidget {
   final double taille;
   final Color fond;
   final Color couleur;
-  const IconeMenu(this.icone, {super.key, this.taille = 36, this.fond = Charte.bleuClair, this.couleur = Charte.navy});
+
+  /// Icône illustrée (style P4, chemin de l'image) : montrée à la place de l'icône, sans pastille ; [icone] sert de
+  /// repli si l'image manque.
+  final String? illustration;
+  const IconeMenu(this.icone, {super.key, this.taille = 36, this.fond = Charte.bleuClair, this.couleur = Charte.navy, this.illustration});
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: taille,
-        height: taille,
-        decoration: BoxDecoration(color: fond, borderRadius: BorderRadius.circular(taille * 0.3)),
-        child: Icon(icone, color: couleur, size: taille * 0.55),
-      );
+  Widget build(BuildContext context) {
+    final image = illustration;
+    if (image != null) return IconeIllustree(image, taille: taille, repli: icone, couleurRepli: couleur);
+    return Container(
+      width: taille,
+      height: taille,
+      decoration: BoxDecoration(color: fond, borderRadius: BorderRadius.circular(taille * 0.3)),
+      child: Icon(icone, color: couleur, size: taille * 0.55),
+    );
+  }
 }
 
 /// Tuile de menu (présentation A) : icône et titre sur carte blanche. [couleurIcone], [fondIcone], [fond] : style
@@ -320,6 +329,9 @@ class TuileMenu extends StatelessWidget {
   final Color couleurIcone;
   final Color fondIcone;
   final Color fond;
+
+  /// Icône illustrée (style P4) ; null : icône Material.
+  final String? illustration;
   const TuileMenu(
       {super.key,
       required this.icone,
@@ -327,7 +339,8 @@ class TuileMenu extends StatelessWidget {
       required this.onTap,
       this.couleurIcone = Charte.navy,
       this.fondIcone = Charte.bleuClair,
-      this.fond = Charte.blanc});
+      this.fond = Charte.blanc,
+      this.illustration});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -346,7 +359,7 @@ class TuileMenu extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  IconeMenu(icone, fond: fondIcone, couleur: couleurIcone),
+                  IconeMenu(icone, fond: fondIcone, couleur: couleurIcone, illustration: illustration),
                   const SizedBox(height: 6),
                   Text(titre,
                       textAlign: TextAlign.center,
@@ -386,6 +399,9 @@ class LigneMenu extends StatelessWidget {
   final Color couleurIcone;
   final Color fondIcone;
   final Color fond;
+
+  /// Icône illustrée (style P4) ; null : icône Material.
+  final String? illustration;
   const LigneMenu(
       {super.key,
       required this.icone,
@@ -395,7 +411,8 @@ class LigneMenu extends StatelessWidget {
       this.fin,
       this.couleurIcone = Charte.navy,
       this.fondIcone = Charte.bleuClair,
-      this.fond = Charte.blanc});
+      this.fond = Charte.blanc,
+      this.illustration});
 
   @override
   Widget build(BuildContext context) => Material(
@@ -407,7 +424,7 @@ class LigneMenu extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Charte.grisClair))),
             child: Row(children: [
-              IconeMenu(icone, taille: 34, fond: fondIcone, couleur: couleurIcone),
+              IconeMenu(icone, taille: 34, fond: fondIcone, couleur: couleurIcone, illustration: illustration),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

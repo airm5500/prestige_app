@@ -162,6 +162,7 @@ class AuthProvider with ChangeNotifier {
     final userData = {
       'str_USER_ID': user.userId, 'str_FIRST_NAME': user.firstName, 'str_LAST_NAME': user.lastName,
       'str_LOGIN': user.login, 'OFFICINE': user.officineName, 'str_PIC': user.profilePicUrl, 'xtypeuser': user.typeUser,
+      if (user.roleCode.isNotEmpty) 'role': {'code': user.roleCode, 'libelle': user.roleLibelle},
     };
     await prefs.setString(AppConstants.userDataKey, jsonEncode(userData));
   }

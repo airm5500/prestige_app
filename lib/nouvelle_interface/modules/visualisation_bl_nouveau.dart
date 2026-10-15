@@ -8,6 +8,10 @@
 // 3.8.0 (réponse du pharmacien) : le statut est envoyé dans « statutControle » (Contrôlés / Non contrôlés), le
 // paramètre que le serveur lit, au lieu de « checked » qu'il ignore ; le filtre utilisateur, ignoré par le serveur,
 // n'est plus proposé (mention discrète dans la feuille ; userId reste envoyé vide, comme avant sans choix).
+// 3.10.0 (réponse du serveur, demande 26 : `userId` lu par etat-control-bon/list, pagination et total justes) : le
+// filtre « Utilisateur » revient, SEULEMENT sur un serveur récent (ProfilAcces.serveurRecent : rôle donné à la
+// connexion). Sur un serveur plus ancien, rien ne change (mention discrète, userId vide). Garde-fou : si un bon reçu
+// porte un autre utilisateur que celui choisi, l'écran le signale (« filtre non appliqué par ce serveur »).
 import 'package:flutter/material.dart';
 
 import '../../donnees/visualisation_bl_donnees.dart';
@@ -16,6 +20,7 @@ import '../../models/common_data_model.dart';
 import '../charte.dart';
 import '../composants.dart';
 import '../vague1/donnees_vague1.dart' show OptionListe;
+import '../vague1/profil_acces.dart';
 import '../vague2/commun_vague2.dart' show ChoixListe;
 import 'commun.dart';
 import 'commun_lot2.dart';
@@ -44,7 +49,10 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
 
   OptionsVisualisationBl? _options;
   Object? _erreurOptions;
-  CommonData? _grossiste, _groupe;
+  CommonData? _grossiste, _groupe, _utilisateur;
+
+  /// Le serveur a renvoyé des bons d'un autre utilisateur que celui choisi : filtre ignoré (serveur ancien).
+  bool _utilisateurIgnore = false;
 
   /// Statut du contrôle (« statutControle » : CONTROLE / NON_CONTROLE ; null = tous).
   String? _statut;
@@ -88,8 +96,8 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
         recherche: _recherche.text,
         grossisteId: _grossiste?.id ?? '',
         groupeId: _groupe?.id ?? '',
-        // Filtre utilisateur ignoré par le serveur : plus proposé, userId envoyé vide comme avant (aucun choix).
-        userId: '',
+        // Filtre utilisateur : seulement sur un serveur récent (qui lit userId) ; vide sinon, comme avant.
+        userId: ProfilAcces.serveurRecent ? (_utilisateur?.id ?? '') : '',
         statutControle: _statut,
         debut: _periode.debut,
         fin: _periode.fin,
@@ -113,6 +121,7 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
         _total = p.total;
         _page = 1;
         _enCours = false;
+        _utilisateurIgnore = _filtreUtilisateurIgnore(p.bons);
       });
     } catch (e) {
       if (!mounted || g != _generation) return;
@@ -150,20 +159,29 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
     _charger();
   }
 
-  int get _actifs => [_grossiste, _groupe, _statut].where((x) => x != null).length;
+  int get _actifs => [_grossiste, _groupe, _statut, _utilisateur].where((x) => x != null).length;
+
+  /// Un bon d'un autre utilisateur que celui choisi : le serveur n'a pas appliqué le filtre.
+  bool _filtreUtilisateurIgnore(List<BonLivraisonModel> bons) {
+    final u = _utilisateur;
+    if (u == null || !ProfilAcces.serveurRecent) return false;
+    String n(String s) => s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return bons.any((b) => b.userFullName.trim().isNotEmpty && n(b.userFullName) != n(u.libelle));
+  }
 
   List<OptionListe>? _opts(List<CommonData>? l) => l == null ? null : [for (final x in l) OptionListe(x.id, x.libelle)];
   static CommonData? _trouver(List<CommonData>? l, String id) => id.isEmpty ? null : l?.where((x) => x.id == id).firstOrNull;
 
   Future<void> _filtres() async {
     if (_options == null && _erreurOptions != null) _chargerOptions();
-    var grossiste = _grossiste?.id ?? '', groupe = _groupe?.id ?? '';
+    var grossiste = _grossiste?.id ?? '', groupe = _groupe?.id ?? '', utilisateur = _utilisateur?.id ?? '';
     String? statut = _statut;
+    final avecUtilisateur = ProfilAcces.serveurRecent;
     final applique = await ouvrirFeuilleFiltres(
       context,
       titre: 'Filtrer les bons de livraison',
       effacer: () {
-        grossiste = groupe = '';
+        grossiste = groupe = utilisateur = '';
         statut = null;
       },
       contenu: (ctx, setState) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -204,14 +222,27 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
         const Text('« Contrôlés » : contrôle terminé ; « Non contrôlés » : non traités ou en cours.',
             style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
-        const Text('Filtre par utilisateur : proposé quand le serveur Prestige le prendra en compte.',
-            key: Key('filtre_utilisateur_a_venir'), style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontStyle: FontStyle.italic)),
+        if (avecUtilisateur)
+          ChoixListe(
+            key: const Key('filtre_utilisateur'),
+            libelle: 'Utilisateur (saisie du BL)',
+            icone: Icons.person_outline,
+            options: _opts(_options?.utilisateurs),
+            erreur: _erreurOptions,
+            valeur: utilisateur,
+            tous: 'Tous les utilisateurs',
+            onChanged: (v) => setState(() => utilisateur = v),
+          )
+        else
+          const Text('Filtre par utilisateur : proposé quand le serveur Prestige le prendra en compte.',
+              key: Key('filtre_utilisateur_a_venir'), style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontStyle: FontStyle.italic)),
       ]),
     );
     if (!applique || !mounted) return;
     setState(() {
       _grossiste = _trouver(_options?.grossistes, grossiste);
       _groupe = _trouver(_options?.groupes, groupe);
+      _utilisateur = avecUtilisateur ? _trouver(_options?.utilisateurs, utilisateur) : null;
       _statut = statut;
     });
     _charger();
@@ -219,7 +250,7 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
 
   void _retirerFiltres() {
     setState(() {
-      _grossiste = _groupe = null;
+      _grossiste = _groupe = _utilisateur = null;
       _statut = null;
     });
     _charger();
@@ -240,7 +271,20 @@ class _VisualisationBlNouveauState extends State<VisualisationBlNouveau> {
               if (_grossiste != null) 'Grossiste : ${_grossiste!.libelle}',
               if (_groupe != null) 'Groupe : ${_groupe!.libelle}',
               if (_statut != null) 'Contrôle : ${VisualisationBl.statutsControle[_statut] ?? _statut}',
+              if (_utilisateur != null) 'Utilisateur : ${_utilisateur!.libelle}',
             ], onRetirer: _retirerFiltres),
+            if (_utilisateurIgnore && !_enCours)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Encadre(
+                  key: Key('filtre_utilisateur_non_applique'),
+                  avertissement: true,
+                  icone: Icons.info_outline,
+                  titre: 'Filtre « Utilisateur » non appliqué',
+                  texte: 'Ce serveur Prestige a renvoyé des bons d\'autres utilisateurs : la liste n\'est pas filtrée par '
+                      'utilisateur. Mettez le serveur à jour pour utiliser ce filtre.',
+                ),
+              ),
             const SizedBox(height: 8),
             ..._corps(),
           ]),

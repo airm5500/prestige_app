@@ -182,9 +182,10 @@ void main() {
   group('5 · « Menus de l\'accueil » : sur une page (0, défaut) / par pages (1)', () {
     test('valeurs 0 / 1, tout le reste = sur une page', () {
       expect(AffichageMenus.unePage.valeur, 0);
-      expect(AffichageMenus.parPages.valeur, 1);
-      expect(AffichageMenus.depuis(1), AffichageMenus.parPages);
-      for (final v in [0, null, 2, -1]) {
+      expect(AffichageMenus.parRubrique.valeur, 1);
+      expect(AffichageMenus.depuis(1), AffichageMenus.parRubrique);
+      expect(AffichageMenus.depuis(2), AffichageMenus.parSix);
+      for (final v in [0, null, 3, -1]) {
         expect(AffichageMenus.depuis(v), AffichageMenus.unePage, reason: '$v');
       }
     });
@@ -195,7 +196,7 @@ void main() {
       expect(ApparenceAccueilPrefs.style.value, StyleIcones.actuel);
       SharedPreferences.setMockInitialValues({ApparenceAccueilPrefs.cleAffichage: 1, ApparenceAccueilPrefs.cleStyle: 'p2'});
       await ApparenceAccueilPrefs.charger();
-      expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parPages);
+      expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parRubrique);
       expect(ApparenceAccueilPrefs.style.value, StyleIcones.p2);
       SharedPreferences.setMockInitialValues({ApparenceAccueilPrefs.cleAffichage: 7, ApparenceAccueilPrefs.cleStyle: 'inconnu'});
       await ApparenceAccueilPrefs.charger();

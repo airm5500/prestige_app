@@ -1,46 +1,65 @@
 // lib/nouvelle_interface/apparence_accueil.dart
-// Deux réglages d'apparence de l'accueil de la nouvelle interface (3.9.0), mémorisés sur l'appareil pour tous les
-// comptes, changés comme la présentation (compte « admin » directement, code administrateur pour les autres) :
-//  - « Menus de l'accueil » (demande du pharmacien, valeur 0 / 1) : 0 = sur une page (défaut, comme avant) ;
-//    1 = par pages : les menus défilent par pages, une famille par page, avec indicateur de page et balayage
-//    gauche / droite (comme l'ancienne interface) — présentations A et B sur téléphone ; B sur tablette (deux
-//    colonnes) et C (cinq questions) restent sur une page, la pagination n'y a pas de sens ;
+// Deux réglages d'apparence de l'accueil de la nouvelle interface (3.9.0, complétés en 3.10.0), mémorisés sur
+// l'appareil pour tous les comptes :
+//  - « Menus de l'accueil » (décision du pharmacien 3.10.0 : « une rubrique par page, mais présente et on valide les
+//    3 cas ») — trois dispositions, valeur mémorisée 0 / 1 / 2 :
+//      0 = tout sur une page (défaut, comme avant) ;
+//      1 = une rubrique par page (famille de menus par page ; même valeur qu'en 3.9.0 « Par pages ») ;
+//      2 = 6 tuiles par page (nombre fixe, comme l'ancienne interface) ;
+//    pages balayées à gauche / droite, indicateur de page — présentations A et B sur téléphone ; B sur tablette
+//    (deux colonnes) et C (cinq questions) restent sur une page, la pagination n'y a pas de sens.
+//    MODIFIABLE PAR L'ADMINISTRATEUR OU LE PHARMACIEN SEULEMENT (décision 3.10.0) : compte « admin », ou profil
+//    administrateur / pharmacien donné par le serveur (vague1/profil_acces.dart) ; les autres comptes voient le choix,
+//    verrouillé, avec l'explication (plus de code administrateur pour ce réglage) ;
 //  - « Style des icônes » (PROPOSITIONS visuelles, réglage caché : visible pour le compte « admin » seulement) :
 //    Actuel (défaut, inchangé) ; P1 couleur par famille (pastille douce derrière l'icône) ; P2 tuiles teintées
 //    (fond de tuile teinté par famille, icône colorée) ; P3 icônes colorées sur fond blanc et en-têtes de famille
-//    colorés. P1 à P3 colorent aussi l'onglet actif de la barre du bas (icône, libellé et indicateur par onglet).
+//    colorés ; P4 icônes illustrées (3.10.0 : vraies icônes en couleur, Fluent Emoji de Microsoft, licence MIT,
+//    icones_illustrees.dart). P1 à P4 marquent aussi l'onglet actif de la barre du bas.
 //    Captures : docs/maquettes/propositions_couleurs/. Le choix final revient au pharmacien.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../widgets/pin_code_dialog.dart';
 import 'charte.dart';
 import 'menus.dart';
 import 'presentation.dart';
+import 'vague1/profil_acces.dart';
 
-/// Disposition des menus de l'accueil (valeur mémorisée 0 / 1).
+/// Disposition des menus de l'accueil (valeur mémorisée 0 / 1 / 2 ; 1 = « Par pages » de la 3.9.0).
 enum AffichageMenus {
-  unePage(0, 'Sur une page', 'Tous les menus à la suite (comme aujourd\'hui)'),
-  parPages(1, 'Par pages', 'Une famille par page : balayez à gauche ou à droite');
+  unePage(0, 'Tout sur une page', 'Tous les menus à la suite (comme aujourd\'hui)'),
+  parRubrique(1, 'Une rubrique par page', 'Une famille de menus par page : balayez à gauche ou à droite'),
+  parSix(2, '6 tuiles par page', 'Six menus par page, comme l\'ancienne interface : balayez à gauche ou à droite');
 
   final int valeur;
   final String libelle;
   final String description;
   const AffichageMenus(this.valeur, this.libelle, this.description);
 
-  static AffichageMenus depuis(int? v) => v == 1 ? parPages : unePage;
+  /// Valeur mémorisée → disposition ; toute valeur inconnue (ou absente) → « Tout sur une page » (défaut).
+  static AffichageMenus depuis(int? v) => values.where((a) => a.valeur == v).firstOrNull ?? unePage;
+
+  /// Menus répartis en pages (rubrique ou 6 tuiles).
+  bool get parPages => this != unePage;
 }
+
+/// Nombre de menus par page en disposition « 6 tuiles par page ».
+const menusParPage = 6;
 
 /// Style des icônes (propositions visuelles ; « Actuel » par défaut).
 enum StyleIcones {
   actuel('Actuel', 'Icônes bleu nuit sur pastille bleu clair (par défaut)'),
   p1('P1 · Couleur par famille', 'Pastille de couleur douce derrière chaque icône'),
   p2('P2 · Tuiles teintées', 'Fond de tuile légèrement teinté, icône colorée'),
-  p3('P3 · Icônes colorées', 'Icônes colorées sur fond blanc, en-têtes de famille colorés');
+  p3('P3 · Icônes colorées', 'Icônes colorées sur fond blanc, en-têtes de famille colorés'),
+  p4('P4 · Icônes illustrées', 'Vraies icônes en couleur pour chaque menu (Fluent Emoji, Microsoft, licence MIT)');
 
   final String libelle;
   final String description;
   const StyleIcones(this.libelle, this.description);
+
+  /// Icônes illustrées (images) à la place des icônes Material.
+  bool get illustre => this == p4;
 }
 
 /// Couleurs d'une famille : icône (foncée), pastille (douce), fond de tuile (très clair).
@@ -81,6 +100,8 @@ class ApparenceIcone {
         StyleIcones.p1 => ApparenceIcone(icone: t.icone, pastille: t.pastille, fond: Charte.blanc),
         StyleIcones.p2 => ApparenceIcone(icone: t.icone, pastille: Charte.blanc, fond: t.tuile),
         StyleIcones.p3 => ApparenceIcone(icone: t.icone, pastille: Charte.blanc, fond: Charte.blanc),
+        // P4 : l'image illustrée remplace l'icône ; sa couleur ne sert qu'au repli (image absente).
+        StyleIcones.p4 => const ApparenceIcone(icone: Charte.navy, pastille: Charte.blanc, fond: Charte.blanc),
       };
 
   static ApparenceIcone pourMenu(StyleIcones s, MenuModule m) => de(s, teinteMenu(m));
@@ -118,13 +139,18 @@ class ApparenceAccueilPrefs {
     style.value = StyleIcones.actuel;
   }
 
-  /// Même règle que la présentation : compte « admin » directement, code administrateur pour les autres.
-  static Future<bool> _autorise(BuildContext context) async =>
-      PresentationPrefs.estAdministrateur(context) || await PinCodeDialog.show(context);
+  /// « Menus de l'accueil » : modifiable par l'administrateur (compte « admin ») ou un profil administrateur /
+  /// pharmacien (décision du pharmacien, 3.10.0). Aucun code administrateur ne le déverrouille pour les autres.
+  static bool peutChangerAffichage(BuildContext context) =>
+      PresentationPrefs.estAdministrateur(context) || ProfilAcces.responsable;
+
+  /// Explication montrée aux autres comptes.
+  static const explicationAffichageVerrouille =
+      'Réservé à l\'administrateur ou au pharmacien : ce réglage n\'est pas modifiable avec ce compte.';
 
   static Future<bool> changerAffichage(BuildContext context, AffichageMenus a) async {
     if (a == affichage.value) return true;
-    if (!await _autorise(context)) return false;
+    if (!peutChangerAffichage(context)) return false;
     affichage.value = a;
     try {
       await (await SharedPreferences.getInstance()).setInt(cleAffichage, a.valeur);

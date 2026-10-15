@@ -3,7 +3,7 @@ description: Application de gestion Prestige.
 
 publish_to: 'none'
 
-version: 3.9.1+40
+version: 3.10.0+41
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -50,6 +50,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    # Icônes illustrées (proposition P4, Fluent Emoji de Microsoft, licence MIT : LICENCE_FLUENT_EMOJI.txt)
+    - assets/icones_illustrees/
 
 flutter_launcher_icons:
   android: "launcher_icon"

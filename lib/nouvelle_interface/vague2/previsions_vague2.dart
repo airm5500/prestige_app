@@ -359,6 +359,13 @@ class _SyntheseTableau extends StatelessWidget {
           child: Text('Dernier calcul : ${t.dernierCalcul} · ${grouperMilliers(t.produits)} produits suivis',
               key: const Key('previsions_dernier_calcul'), style: const TextStyle(color: Charte.gris, fontSize: 13)),
         ),
+      // Heure de la dernière relecture des commandes en cours (serveurs récents, demande 23) ; absente sinon.
+      if (t.enCoursAJour.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+          child: Text('Commandes en cours à jour le ${t.enCoursAJour}',
+              key: const Key('previsions_en_cours_a_jour'), style: const TextStyle(color: Charte.gris, fontSize: 13)),
+        ),
     ]);
   }
 }

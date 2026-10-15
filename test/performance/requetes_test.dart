@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/apparence_accueil.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
@@ -84,14 +85,17 @@ void main() {
   // Connexion (1 : POST /user/auth) + nom de l'officine relu après connexion (1 : GET /officine), puis l'accueil :
   //  A : chiffres du jour (GET /recap/dashboard) et présence de l'équipe (GET /rh/presence) = 2 ; alertes : AUCUNE
   //  (comptées seulement sur ⟳) ; B et C : aucun chiffre chargé = 0 ; ancienne interface : 0.
-  for (final (nom, p, plafond) in [
-    ('A · Tableau de bord', Presentation.tableauDeBord, 4),
-    ('B · Compact', Presentation.compact, 2),
-    ('C · Guidé', Presentation.guide, 2),
+  //  3.10.0 : menus en pages (rubrique, 6 tuiles) et icônes illustrées (P4, embarquées) : aucune requête de plus.
+  for (final (nom, p, plafond, affichage, style) in [
+    ('A · Tableau de bord', Presentation.tableauDeBord, 4, AffichageMenus.unePage, StyleIcones.actuel),
+    ('B · Compact', Presentation.compact, 2, AffichageMenus.unePage, StyleIcones.actuel),
+    ('C · Guidé', Presentation.guide, 2, AffichageMenus.unePage, StyleIcones.actuel),
+    ('A · 6 tuiles par page, P4', Presentation.tableauDeBord, 4, AffichageMenus.parSix, StyleIcones.p4),
+    ('B · une rubrique par page, P4', Presentation.compact, 2, AffichageMenus.parRubrique, StyleIcones.p4),
   ]) {
     testWidgets('connexion + accueil $nom : plafond $plafond requêtes', (tester) async {
       telephone(tester);
-      preparerNouvelle(serveur, p: p);
+      preparerNouvelle(serveur, p: p, affichage: affichage, style: style);
       await jusquConnexion(tester);
       final rs = await compter(serveur, () => seConnecter(tester, find.byType(AccueilNouveau)));
       mesurer('Requêtes — connexion + accueil $nom', rs.length, seuil: plafond, unite: 'requêtes', detail: detailRequetes(rs));

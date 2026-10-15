@@ -12,6 +12,8 @@
 // 3.9.0 : réglages « Menus de l'accueil » (sur une page / par pages : A et B sur téléphone) et « Style des icônes »
 // (propositions P1 / P2 / P3, « Actuel » par défaut), apparence_accueil.dart ; « Fiche Article » retiré (menus.dart) ;
 // recherche de produit « contient » en haut de l'onglet Analyses (recherche_produit_analyses.dart).
+// 3.10.0 : « Menus de l'accueil » en trois dispositions (tout sur une page, une rubrique par page, 6 tuiles par
+// page) ; proposition P4 « icônes illustrées » (icones_illustrees.dart) sur les tuiles, les listes et la barre du bas.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -27,6 +29,7 @@ import 'apparence_accueil.dart';
 import 'charte.dart';
 import 'chiffres_du_jour.dart';
 import 'composants.dart';
+import 'icones_illustrees.dart';
 import 'menus.dart';
 import 'modules/fichier_journal_nouveau.dart';
 import 'presentation.dart';
@@ -95,7 +98,8 @@ Teinte teinteOnglet(OngletAccueil o) => switch (o) {
     };
 
 /// Barre du bas (téléphone). Style « Actuel » : celle d'origine (thème). P1 / P2 / P3 : icône et libellé de
-/// l'onglet actif dans sa couleur, sur un indicateur (pastille) de la même famille.
+/// l'onglet actif dans sa couleur, sur un indicateur (pastille) de la même famille. P4 : icônes illustrées (l'onglet
+/// actif en couleur sur une pastille bleu clair, les autres en gris atténué ; libellé actif en gras).
 class BarreOnglets extends StatelessWidget {
   final List<OngletAccueil> onglets;
   final int onglet;
@@ -105,19 +109,33 @@ class BarreOnglets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colore = style != StyleIcones.actuel;
+    final illustre = style.illustre;
+    final colore = style != StyleIcones.actuel && !illustre;
     final t = teinteOnglet(onglets[onglet.clamp(0, onglets.length - 1)]);
+    Widget icone(OngletAccueil o, {required bool actif}) {
+      final image = illustre ? illustrationOnglet(o.name) : null;
+      if (image != null) {
+        return IconeIllustree(image,
+            key: Key('onglet_illustre_${o.name}${actif ? '_actif' : ''}'),
+            taille: 26,
+            repli: actif ? o.iconeChoisie : o.icone,
+            couleurRepli: actif ? Charte.navy : Charte.gris,
+            attenuee: !actif);
+      }
+      return actif ? Icon(o.iconeChoisie, color: colore ? teinteOnglet(o).icone : null) : Icon(o.icone);
+    }
+
     final barre = NavigationBar(
       key: const Key('barre_accueil'),
       selectedIndex: onglet,
       height: 66,
       onDestinationSelected: choisir,
-      indicatorColor: colore ? t.pastille : null,
+      indicatorColor: colore ? t.pastille : (illustre ? Charte.bleuClair : null),
       destinations: [
         for (final o in onglets)
           NavigationDestination(
-            icon: Icon(o.icone),
-            selectedIcon: Icon(o.iconeChoisie, color: colore ? teinteOnglet(o).icone : null),
+            icon: icone(o, actif: false),
+            selectedIcon: icone(o, actif: true),
             label: o.libelle,
           ),
       ],
@@ -380,7 +398,8 @@ class _AccueilTableauDeBord extends StatelessWidget {
     final toutesAlertes = ProfilAcces.responsable && menu('Alertes') != null;
 
     final style = ApparenceAccueilPrefs.style.value;
-    final parPages = ApparenceAccueilPrefs.affichage.value == AffichageMenus.parPages && !estTabletteNouvelle(context);
+    final affichage = estTabletteNouvelle(context) ? AffichageMenus.unePage : ApparenceAccueilPrefs.affichage.value;
+    final parPages = affichage.parPages;
 
     final entete = EnTeteNavy(
       titre: auth.officine?.nomComplet ?? 'Prestige Pharmacien',
@@ -459,14 +478,21 @@ class _AccueilTableauDeBord extends StatelessWidget {
       ],
     ];
 
-    Widget grille(Famille f) => GrilleTuiles([
-          for (final m in deLaFamille(menus, f))
+    Widget tuiles(List<MenuModule> liste) => GrilleTuiles([
+          for (final m in liste)
             Builder(builder: (context) {
               final a = ApparenceIcone.pourMenu(style, m);
               return TuileMenu(
-                  icone: m.icone, titre: m.titre, couleurIcone: a.icone, fondIcone: a.pastille, fond: a.fond, onTap: () => ouvrirModule(context, m));
+                  icone: m.icone,
+                  titre: m.titre,
+                  couleurIcone: a.icone,
+                  fondIcone: a.pastille,
+                  fond: a.fond,
+                  illustration: style.illustre ? illustrationMenu(m.titre) : null,
+                  onTap: () => ouvrirModule(context, m));
             }),
         ]);
+    Widget grille(Famille f) => tuiles(deLaFamille(menus, f));
     const aucunMenu = Padding(
       padding: EdgeInsets.all(24),
       child: Text('Aucune fonctionnalité activée.\nOuvrez Réglages › Personnaliser l\'accueil pour en activer.',
@@ -474,7 +500,8 @@ class _AccueilTableauDeBord extends StatelessWidget {
     );
     final familles = [for (final f in Famille.values) if (deLaFamille(menus, f).isNotEmpty) f];
 
-    // Menus par pages (réglage « Menus de l'accueil », téléphone) : « À surveiller » puis une famille par page.
+    // Menus par pages (réglage « Menus de l'accueil », téléphone) : « À surveiller », puis une famille par page
+    // (« Une rubrique par page ») ou 6 tuiles par page, dans l'ordre des familles (« 6 tuiles par page »).
     if (parPages) {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         // En-tête borné (60 % de la hauteur) et défilant : les pages gardent toujours de la place, même en grand texte.
@@ -494,12 +521,20 @@ class _AccueilTableauDeBord extends StatelessWidget {
                         if (menus.isEmpty) aucunMenu,
                       ]),
                     ),
-                  for (final f in familles)
-                    PageMenus(
-                      f.libelle,
-                      ListView(key: Key('page_menus_${f.name}'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [grille(f)]),
-                      couleur: couleurEnTeteFamille(style, f),
-                    ),
+                  if (affichage == AffichageMenus.parRubrique)
+                    for (final f in familles)
+                      PageMenus(
+                        f.libelle,
+                        ListView(key: Key('page_menus_${f.name}'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [grille(f)]),
+                        couleur: couleurEnTeteFamille(style, f),
+                      )
+                  else
+                    for (final (i, paquet) in paquetsDeMenus(menus).indexed)
+                      PageMenus(
+                        titrePaquet(paquet),
+                        ListView(key: Key('page_menus_paquet_$i'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [tuiles(paquet)]),
+                        couleur: couleurPaquet(style, paquet),
+                      ),
                 ]),
         ),
       ]);
@@ -603,9 +638,11 @@ class _AccueilCompactState extends State<_AccueilCompact> {
             : widget.tablette
                 ? _DeuxColonnes(menus: trouves)
                 // Menus par pages (réglage, téléphone) ; pendant une recherche, les résultats restent sur une page.
-                : (q.isEmpty && ApparenceAccueilPrefs.affichage.value == AffichageMenus.parPages
-                    ? PagesMenusParFamille(menus: trouves)
-                    : ListeMenusParFamille(menus: trouves)),
+                : switch (q.isEmpty ? ApparenceAccueilPrefs.affichage.value : AffichageMenus.unePage) {
+                    AffichageMenus.parRubrique => PagesMenusParFamille(menus: trouves),
+                    AffichageMenus.parSix => PagesMenusParSix(menus: trouves),
+                    AffichageMenus.unePage => ListeMenusParFamille(menus: trouves),
+                  },
       ),
     ]);
   }
@@ -621,8 +658,25 @@ LigneMenu ligneMenuModule(BuildContext context, MenuModule m, StyleIcones style)
     couleurIcone: a.icone,
     fondIcone: a.pastille,
     fond: a.fond,
+    illustration: style.illustre ? illustrationMenu(m.titre) : null,
     onTap: () => ouvrirModule(context, m),
   );
+}
+
+/// Menus rangés par familles (même ordre que la page unique), puis coupés en paquets de [taille] (« 6 tuiles par
+/// page »).
+List<List<MenuModule>> paquetsDeMenus(List<MenuModule> menus, {int taille = menusParPage}) {
+  final ordonnes = [for (final f in Famille.values) ...deLaFamille(menus, f)];
+  return [for (var i = 0; i < ordonnes.length; i += taille) ordonnes.sublist(i, (i + taille).clamp(0, ordonnes.length))];
+}
+
+/// Titre d'une page de 6 menus : la ou les familles présentes (« Ventes & caisse · Crédits & clients »).
+String titrePaquet(List<MenuModule> paquet) => {for (final m in paquet) m.famille.libelle}.join(' · ');
+
+/// Couleur du titre d'une page de 6 menus (P3) : celle de la famille si la page n'en a qu'une.
+Color? couleurPaquet(StyleIcones style, List<MenuModule> paquet) {
+  final familles = {for (final m in paquet) m.famille};
+  return familles.length == 1 ? couleurEnTeteFamille(style, familles.first) : null;
 }
 
 /// Liste plate par familles (présentation B, « Tous les menus » de C, onglet Analyses).
@@ -670,6 +724,29 @@ class PagesMenusParFamille extends StatelessWidget {
             ),
             couleur: couleurEnTeteFamille(style, f),
           ),
+    ]);
+  }
+}
+
+/// Menus par pages de 6 lignes (présentation B sur téléphone, réglage « 6 tuiles par page »).
+class PagesMenusParSix extends StatelessWidget {
+  final List<MenuModule> menus;
+  const PagesMenusParSix({super.key, required this.menus});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = ApparenceAccueilPrefs.style.value;
+    return PagesMenus(pages: [
+      for (final (i, paquet) in paquetsDeMenus(menus).indexed)
+        PageMenus(
+          titrePaquet(paquet),
+          ListView(
+            key: Key('page_menus_paquet_$i'),
+            padding: const EdgeInsets.only(bottom: 16),
+            children: [for (final m in paquet) ligneMenuModule(context, m, style)],
+          ),
+          couleur: couleurPaquet(style, paquet),
+        ),
     ]);
   }
 }

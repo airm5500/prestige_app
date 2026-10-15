@@ -243,6 +243,11 @@ class PieceBl {
   final String controle;
   final int controleEcarts;
 
+  /// Grossiste de la pièce (identifiant et libellé) : rendu par le serveur seulement s'il le fournit (demande
+  /// docs/serveur/DEMANDES_SERVEUR_2026-10-15.md § 1) ; vide sinon.
+  final String grossisteId;
+  final String grossiste;
+
   const PieceBl({
     required this.type,
     required this.id,
@@ -258,6 +263,8 @@ class PieceBl {
     this.pointePar = '',
     this.controle = '',
     this.controleEcarts = 0,
+    this.grossisteId = '',
+    this.grossiste = '',
   });
 
   factory PieceBl.depuis(Map<String, dynamic> j) {
@@ -278,6 +285,8 @@ class PieceBl {
       pointePar: texteTolerant(j['pointePar']),
       controle: texteTolerant(j['controle']),
       controleEcarts: entierTolerant(j['controleEcarts']),
+      grossisteId: texteTolerant(j['grossisteId'] ?? j['lgGROSSISTEID']),
+      grossiste: texteTolerant(j['grossiste'] ?? j['grossisteLibelle']),
     );
   }
 
@@ -316,7 +325,39 @@ class PieceBl {
         pointePar: pointePar ?? this.pointePar,
         controle: controle,
         controleEcarts: controleEcarts,
+        grossisteId: grossisteId,
+        grossiste: grossiste,
       );
+}
+
+/// Montant d'un grossiste dans un groupe (3.10.0) : BL, avoirs (négatifs), net HT.
+class MontantGrossiste {
+  final String grossisteId;
+  final String libelle;
+  final double totalBl;
+  final double totalAvoirs;
+  final int pieces;
+  const MontantGrossiste({required this.grossisteId, required this.libelle, this.totalBl = 0, this.totalAvoirs = 0, this.pieces = 0});
+
+  double get net => totalBl + totalAvoirs;
+
+  factory MontantGrossiste.depuis(Map<String, dynamic> j) => MontantGrossiste(
+        grossisteId: texteTolerant(j['grossisteId']),
+        libelle: texteTolerant(j['libelle'] ?? j['grossiste']),
+        totalBl: decimalTolerant(j['totalBl']),
+        // Le serveur rend les avoirs en négatif (comme « totalAvoirs ») : un positif est remis en négatif.
+        totalAvoirs: -decimalTolerant(j['totalAvoirs']).abs(),
+        pieces: entierTolerant(j['pieces'] ?? j['total']),
+      );
+}
+
+/// Origine du détail par grossiste d'un groupe.
+enum SourceDetailGroupe {
+  /// Champ « parGrossiste » du serveur (tous les montants, quel que soit l'état choisi).
+  serveur,
+
+  /// Calculé par l'application sur les pièces reçues, qui portent leur grossiste (état « Toutes » seulement).
+  pieces,
 }
 
 /// Réponse de GET /pointage-bl : pièces et totaux du serveur.
@@ -327,16 +368,49 @@ class PointageBl {
   final double net;
   final int pointes;
   final int nonPointes;
-  const PointageBl({required this.pieces, this.totalBl = 0, this.totalAvoirs = 0, this.net = 0, this.pointes = 0, this.nonPointes = 0});
 
-  factory PointageBl.depuis(Map<String, dynamic> j) => PointageBl(
-        pieces: [for (final p in _donnees(j)) PieceBl.depuis(p)],
-        totalBl: decimalTolerant(j['totalBl']),
-        totalAvoirs: decimalTolerant(j['totalAvoirs']),
-        net: decimalTolerant(j['net']),
-        pointes: entierTolerant(j['pointes']),
-        nonPointes: entierTolerant(j['nonPointes']),
+  /// Montant par grossiste (champ « parGrossiste » du serveur, s'il existe) ; null : non fourni.
+  final List<MontantGrossiste>? parGrossisteServeur;
+  const PointageBl(
+      {required this.pieces, this.totalBl = 0, this.totalAvoirs = 0, this.net = 0, this.pointes = 0, this.nonPointes = 0, this.parGrossisteServeur});
+
+  factory PointageBl.depuis(Map<String, dynamic> j) {
+    final pg = j['parGrossiste'];
+    return PointageBl(
+      pieces: [for (final p in _donnees(j)) PieceBl.depuis(p)],
+      totalBl: decimalTolerant(j['totalBl']),
+      totalAvoirs: decimalTolerant(j['totalAvoirs']),
+      net: decimalTolerant(j['net']),
+      pointes: entierTolerant(j['pointes']),
+      nonPointes: entierTolerant(j['nonPointes']),
+      parGrossisteServeur: pg is List ? [for (final e in pg) if (e is Map) MontantGrossiste.depuis(Map<String, dynamic>.from(e))] : null,
+    );
+  }
+
+  /// Montant par grossiste d'un groupe (3.10.0, demande du pharmacien « le montant par grossiste ou par groupe ») :
+  ///  - le détail du serveur (« parGrossiste ») s'il le fournit ;
+  ///  - sinon calculé sur les pièces, SEULEMENT si toutes portent leur grossiste et si [toutesLesPieces] (état
+  ///    « Toutes » : les totaux du serveur portent sur toutes les pièces, le détail doit en faire autant) ;
+  ///  - sinon null : le serveur actuel ne dit pas à quel grossiste appartient chaque pièce (le total du groupe reste
+  ///    affiché ; demande au serveur : docs/serveur/DEMANDES_SERVEUR_2026-10-15.md § 1).
+  (List<MontantGrossiste>, SourceDetailGroupe)? detailGroupe({required bool toutesLesPieces}) {
+    final s = parGrossisteServeur;
+    if (s != null && s.isNotEmpty) return (s, SourceDetailGroupe.serveur);
+    if (!toutesLesPieces || pieces.isEmpty || pieces.any((p) => p.grossisteId.isEmpty)) return null;
+    final parId = <String, MontantGrossiste>{};
+    for (final p in pieces) {
+      final a = parId[p.grossisteId];
+      parId[p.grossisteId] = MontantGrossiste(
+        grossisteId: p.grossisteId,
+        libelle: (a?.libelle.isNotEmpty ?? false) ? a!.libelle : (p.grossiste.isEmpty ? p.grossisteId : p.grossiste),
+        totalBl: (a?.totalBl ?? 0) + (p.estBl ? p.montantHt : 0),
+        totalAvoirs: (a?.totalAvoirs ?? 0) + (p.estBl ? 0 : -p.montantHt.abs()),
+        pieces: (a?.pieces ?? 0) + 1,
       );
+    }
+    final l = parId.values.toList()..sort((a, b) => b.net.compareTo(a.net));
+    return (l, SourceDetailGroupe.pieces);
+  }
 
   /// Compteurs recalculés après un pointage (+1 pointée / −1 à pointer, ou l'inverse), pièces remplacées.
   PointageBl avec(List<PieceBl> pieces, {int deltaPointes = 0}) => PointageBl(
@@ -346,6 +420,7 @@ class PointageBl {
         net: net,
         pointes: (pointes + deltaPointes).clamp(0, 1 << 30),
         nonPointes: (nonPointes - deltaPointes).clamp(0, 1 << 30),
+        parGrossisteServeur: parGrossisteServeur,
       );
 }
 
@@ -358,12 +433,20 @@ class FiltresPointage {
   final EtatPointage etat;
   const FiltresPointage({this.grossiste = '', this.groupe = '', required this.debut, required this.fin, this.etat = EtatPointage.tous});
 
-  bool get complet => grossiste.isNotEmpty || groupe.isNotEmpty;
+  /// Un grossiste ou un groupe RÉEL est choisi. « ALL » (entrée « Tous » du serveur) n'en est pas un : l'application
+  /// ne demande jamais « tous les grossistes » (décision du pharmacien, 3.10.0 : le montant se lit par grossiste ou par
+  /// groupe de grossistes).
+  bool get complet => _reel(grossiste) || _reel(groupe);
+
+  static bool _reel(String id) => id.trim().isNotEmpty && id.trim().toUpperCase() != 'ALL';
+
+  /// Recherche par groupe (aucun grossiste choisi).
+  bool get parGroupe => !_reel(grossiste) && _reel(groupe);
 
   /// Paramètres envoyés (comme le web : grossiste, groupe, du, au, etat ; le groupe n'est envoyé que sans grossiste).
   Map<String, String> get parametres => {
-        'grossiste': grossiste,
-        'groupe': grossiste.isNotEmpty ? '' : groupe,
+        'grossiste': _reel(grossiste) ? grossiste.trim() : '',
+        'groupe': _reel(grossiste) || !_reel(groupe) ? '' : groupe.trim(),
         'du': DateFormatter.toApiFormat(debut),
         'au': DateFormatter.toApiFormat(fin),
         'etat': etat.code,
@@ -375,7 +458,8 @@ class FiltresPointage {
 
 /// Dernier grossiste (ou groupe) utilisé pour une recherche de pointage (3.9.0) : repris à l'ouverture suivante.
 /// Le serveur exige un grossiste ou un groupe (PointageBLRessource.criteres : « Choisissez un grossiste ou un groupe
-/// de grossistes. ») : aucune recherche « tous grossistes » n'est possible (docs/serveur/DEMANDE_FILTRES_LISTES.md).
+/// de grossistes. ») ; le pharmacien veut le montant par grossiste ou par groupe (3.10.0) : l'application ne demande
+/// jamais « tous les grossistes ».
 /// Mémorisé sur l'appareil, au format « grossiste:<id> » ou « groupe:<id> ».
 class DernierCriterePointage {
   DernierCriterePointage._();
@@ -974,8 +1058,11 @@ class ApiAvis {
 
   /// Détail d'un avis. ATTENTION : le serveur passe l'avis NOUVEAU à LU. À n'appeler que sur un appui explicite de
   /// l'utilisateur sur l'avis (jamais en préchargement ni pour rafraîchir une liste).
-  static Future<Avis> ouvrir(BuildContext context, String id) async {
-    final j = await ApiVague3.get(context, routeAvis(id), const {}, _lire);
+  /// [marquerLu] = false (3.10.0, demande serveur 22 : `?marquerLu=false`) : relecture SANS marquer l'avis « lu » —
+  /// utilisée par « Actualiser » dans le détail, et SEULEMENT sur un serveur qui connaît ce paramètre
+  /// (ProfilAcces.serveurRecent) : un serveur plus ancien l'ignorerait et marquerait l'avis.
+  static Future<Avis> ouvrir(BuildContext context, String id, {bool marquerLu = true}) async {
+    final j = await ApiVague3.get(context, routeAvis(id), marquerLu ? const {} : const {'marquerLu': 'false'}, _lire);
     return ApiVague3.lire(() {
       final d = _carte(j['data']);
       if (d.isEmpty) throw const ApiLoadException('Avis introuvable.', nature: NatureErreur.refus);

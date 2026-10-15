@@ -3,7 +3,7 @@
 //  - lancement → écran de connexion, nouvelle interface puis ancienne : temps réel mesuré, images rendues, requêtes
 //    (à froid pour la première : tous les widgets construits pour la première fois) ;
 //  - connexion → accueil A (tableau de bord), B (compact), C (guidé) et menus « par pages » (3.9.0) : temps réel
-//    jusqu'à l'accueil immobile, images rendues.
+//    jusqu'à l'accueil immobile, images rendues ; 3.10.0 : « 6 tuiles par page » et icônes illustrées (P4).
 // Seuils : test/support/performance.dart (README « Seuils de performance »).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -97,16 +97,21 @@ void main() {
     await fermerApplication(tester);
   });
 
-  for (final (nom, p, affichage) in [
-    ('A · Tableau de bord', Presentation.tableauDeBord, AffichageMenus.unePage),
-    ('B · Compact', Presentation.compact, AffichageMenus.unePage),
-    ('C · Guidé', Presentation.guide, AffichageMenus.unePage),
-    ('A · menus par pages', Presentation.tableauDeBord, AffichageMenus.parPages),
-    ('B · menus par pages', Presentation.compact, AffichageMenus.parPages),
+  for (final (nom, p, affichage, style) in [
+    ('A · Tableau de bord', Presentation.tableauDeBord, AffichageMenus.unePage, StyleIcones.actuel),
+    ('B · Compact', Presentation.compact, AffichageMenus.unePage, StyleIcones.actuel),
+    ('C · Guidé', Presentation.guide, AffichageMenus.unePage, StyleIcones.actuel),
+    ('A · menus par pages', Presentation.tableauDeBord, AffichageMenus.parRubrique, StyleIcones.actuel),
+    ('B · menus par pages', Presentation.compact, AffichageMenus.parRubrique, StyleIcones.actuel),
+    // 3.10.0 : 6 tuiles par page, icônes illustrées (P4).
+    ('A · 6 tuiles par page', Presentation.tableauDeBord, AffichageMenus.parSix, StyleIcones.actuel),
+    ('B · 6 tuiles par page', Presentation.compact, AffichageMenus.parSix, StyleIcones.actuel),
+    ('A · icônes illustrées (P4)', Presentation.tableauDeBord, AffichageMenus.unePage, StyleIcones.p4),
+    ('B · icônes illustrées (P4)', Presentation.compact, AffichageMenus.unePage, StyleIcones.p4),
   ]) {
     testWidgets('connexion → accueil $nom (temps, images)', (tester) async {
       telephone(tester);
-      preparerNouvelle(serveur, p: p, affichage: affichage);
+      preparerNouvelle(serveur, p: p, affichage: affichage, style: style);
       donneesAccueil(serveur);
       await demarrer(tester);
       final c = await connecter(tester, find.byType(AccueilNouveau));
