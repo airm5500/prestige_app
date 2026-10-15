@@ -97,7 +97,7 @@ void main() {
     await fermerApplication(tester);
   });
 
-  for (final (nom, p, affichage, style) in [
+  for (final (String nom, Presentation p, AffichageMenus affichage, StyleIcones? style) in [
     ('A · Tableau de bord', Presentation.tableauDeBord, AffichageMenus.unePage, StyleIcones.actuel),
     ('B · Compact', Presentation.compact, AffichageMenus.unePage, StyleIcones.actuel),
     ('C · Guidé', Presentation.guide, AffichageMenus.unePage, StyleIcones.actuel),
@@ -108,6 +108,8 @@ void main() {
     ('B · 6 tuiles par page', Presentation.compact, AffichageMenus.parSix, StyleIcones.actuel),
     ('A · icônes illustrées (P4)', Presentation.tableauDeBord, AffichageMenus.unePage, StyleIcones.p4),
     ('B · icônes illustrées (P4)', Presentation.compact, AffichageMenus.unePage, StyleIcones.p4),
+    // 3.10.1 : défaut (style jamais choisi → P4, tout sur une page).
+    ('A · défaut 3.10.1 (P4 jamais choisi)', Presentation.tableauDeBord, AffichageMenus.unePage, null),
   ]) {
     testWidgets('connexion → accueil $nom (temps, images)', (tester) async {
       telephone(tester);

@@ -14,7 +14,10 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.10.0+41** (`pubspec.yaml`) : décisions du pharmacien (icônes
+Version en préparation (pas encore publiée) : **3.10.1+42** (`pubspec.yaml`) : réponses du pharmacien sur la 3.10.0
+(P4 par défaut, réglage « Style des icônes » visible pour l'administrateur et le pharmacien, demande serveur du montant
+par grossiste à transmettre, `docs/NOTE_VERSION_3.10.1.md`). Précédentes livraisons : 3.10.0+41 (décisions du
+pharmacien : icônes
 illustrées P4, trois dispositions des menus de l'accueil réservées à l'administrateur ou au pharmacien, Pointage BL par
 grossiste ou par groupe) et réponse du serveur intégrée avec repli (`docs/NOTE_VERSION_3.10.0.md`). Précédentes
 livraisons : 3.9.1+40 (tests de performance et réseau, rapport de tests de livraison, corrections des défauts qu'ils

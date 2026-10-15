@@ -83,7 +83,7 @@ void main() {
     telephone(tester);
     connexion(login: 'admin');
     await jusquAccueilNouveau(tester);
-    expect(find.byType(IconeIllustree), findsNothing, reason: 'défaut : « Actuel »');
+    expect(find.byType(IconeIllustree), findsNothing, reason: '« Actuel » choisi explicitement (préparé) : gardé');
     await toucherReglages(tester);
     await reglage(tester, 'style_icones_p4');
     expect((await prefs(tester)).getString(ApparenceAccueilPrefs.cleStyle), 'p4');
@@ -214,6 +214,27 @@ void main() {
     await toucherReglages(tester);
     await tester.scrollUntilVisible(cle('reglages_version'), 200, scrollable: find.byType(Scrollable).hitTestable().first, maxScrolls: 40);
     expect(cle('reglages_role'), findsNothing);
+    await terminer(tester);
+  });
+
+  testWidgets('3.10.1 · migration : aucun style jamais choisi → P4 (icônes illustrées) ; « Actuel » choisi → gardé', (tester) async {
+    telephone(tester);
+    preparerNouvelle(serveur, p: Presentation.tableauDeBord, style: null);
+    utiliserReseauReel();
+    await tester.runAsync(InterfaceVersion.load); // lecture des préférences comme main()
+    expect(ApparenceAccueilPrefs.style.value, StyleIcones.p4);
+    await jusquAccueilNouveau(tester);
+    expect(find.byType(IconeIllustree), findsWidgets, reason: 'P4 par défaut, comme p4_1_accueil_A.png');
+    expect(cle('pages_menus'), findsNothing, reason: 'disposition par défaut : tout sur une page');
+    expect((await prefs(tester)).getString(ApparenceAccueilPrefs.cleStyle), isNull, reason: 'rien écrit tant que rien n\'est choisi');
+    await terminer(tester);
+
+    preparerNouvelle(serveur, p: Presentation.tableauDeBord, style: StyleIcones.actuel);
+    utiliserReseauReel();
+    await tester.runAsync(InterfaceVersion.load);
+    expect(ApparenceAccueilPrefs.style.value, StyleIcones.actuel);
+    await jusquAccueilNouveau(tester);
+    expect(find.byType(IconeIllustree), findsNothing);
     await terminer(tester);
   });
 }

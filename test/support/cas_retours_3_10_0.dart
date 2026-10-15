@@ -6,7 +6,8 @@
 //  - Pointage BL par groupe : montant du groupe sans détail (serveur actuel), avec le détail par grossiste ;
 //  - serveur récent : Visualisation BL (feuille avec « Utilisateur », avertissement « non appliqué »), détail d'un
 //    avis avec « Actualiser », Prévisions « commandes en cours à jour », CA Global par opérateur ;
-//  - Réglages : trois dispositions des menus (verrouillé avec explication), style P4.
+//  - Réglages : trois dispositions des menus (verrouillé avec explication), style P4 ;
+//  - 3.10.1 : défaut (style jamais choisi → P4, tout sur une page) sur A, B et C ; style des icônes verrouillé.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/models/user_model.dart';
@@ -156,5 +157,17 @@ final casRetours3100 = <CasAffichage>[
               ChoixStyleIcones(choix: StyleIcones.p4),
             ]),
           )))),
+  // 3.10.1 : P4 par défaut (style jamais choisi), style des icônes visible et verrouillé pour un compte simple.
+  CasAffichage('3.10.1 · Accueil A · défaut (P4, tout sur une page)', enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauDeBord, style: null)),
+  CasAffichage('3.10.1 · Accueil B · défaut (P4)', enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.compact, style: null)),
+  CasAffichage('3.10.1 · Tous les menus (C) · défaut (P4)', enNouvelle(ecranConnecte(() => const TousLesMenusScreen()), style: null)),
+  CasAffichage(
+      '3.10.1 · Réglages · style des icônes verrouillé (compte simple)',
+      enNouvelle(ecranConnecte(() => Scaffold(
+            appBar: AppBar(title: const Text('Réglages')),
+            body: ListView(children: const [
+              ChoixAffichageMenus(choix: AffichageMenus.unePage, verrouille: true),
+              ChoixStyleIcones(choix: StyleIcones.p4, verrouille: true),
+            ]),
+          )))),
 ];
-

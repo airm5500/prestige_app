@@ -222,20 +222,24 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('3.10.0 · profil pharmacien (pas « admin ») : « Menus de l\'accueil » changé sans code ; style des icônes caché',
+  testWidgets('3.10.0 · profil pharmacien (pas « admin ») : « Menus de l\'accueil » et (3.10.1) « Style des icônes » changés sans code',
       (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
     expect(ProfilAcces.responsable, isTrue, reason: 'compte fictif : profil « dashboard » (pharmacien)');
     await toucherReglages(tester);
-    expect(cle('style_icones_p1'), findsNothing, reason: 'réglage caché aux autres comptes que « admin »');
     expect(cle('affichage_menus_verrouille'), findsNothing);
+    expect(cle('style_icones_verrouille'), findsNothing);
     await reglage(tester, 'affichage_menus_parRubrique');
     expect(cle('pin_admin_saisie'), findsNothing, reason: 'pharmacien : aucun code');
     expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parRubrique);
     expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), 1);
     await reglage(tester, 'affichage_menus_parSix');
     expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), 2);
+    // 3.10.1 : style des icônes visible et modifiable par le pharmacien.
+    await reglage(tester, 'style_icones_p2');
+    expect(cle('pin_admin_saisie'), findsNothing);
+    expect((await prefs(tester)).getString(ApparenceAccueilPrefs.cleStyle), 'p2');
     await terminer(tester);
   });
 
@@ -256,6 +260,14 @@ void main() {
     expect(cle('affichage_menus_refus'), findsOneWidget, reason: 'explication au toucher');
     expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.unePage);
     expect((await prefs(tester)).getInt(ApparenceAccueilPrefs.cleAffichage), isNull);
+    // 3.10.1 : style des icônes visible mais verrouillé, même explication, aucun code.
+    expect(cle('style_icones_verrouille'), findsOneWidget);
+    final avant = ApparenceAccueilPrefs.style.value;
+    await reglage(tester, avant == StyleIcones.p1 ? 'style_icones_p2' : 'style_icones_p1');
+    expect(cle('pin_admin_saisie'), findsNothing);
+    await stabiliser(tester, tours: 15); // le message précédent s'efface, puis celui-ci s'affiche
+    expect(cle('style_icones_refus'), findsOneWidget);
+    expect(ApparenceAccueilPrefs.style.value, avant);
     await terminer(tester);
   });
 

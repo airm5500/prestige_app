@@ -4,7 +4,7 @@
 //    « Réessayer », jamais « aucun BL » ni un montant à 0 ; serveur coupé puis revenu → reprise ;
 //  - Avis : « Actualiser » (serveur récent) pendant une coupure → message, l'avis n'est PAS modifié ; reprise ;
 //  - CA Global : `/ca-all` partiel → message, pas de détail Mobile Money inventé ;
-//  - icônes illustrées : affichées sans aucun réseau (embarquées, jamais téléchargées).
+//  - icônes illustrées : affichées sans aucun réseau (embarquées, jamais téléchargées), y compris par défaut (3.10.1).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/models/user_model.dart';
@@ -95,7 +95,8 @@ void main() {
 
   testWidgets('Pointage BL par groupe : JSON partiel → message et « Réessayer », jamais « aucun BL » ; puis montant', (tester) async {
     telephone(tester);
-    serveur.quand(ApiPointage.route, ReponseFausse.texte('{"success":true,"data":[{"type":"BL","id":"1","montantHt":12', type: 'application/json'),
+    serveur.quand(
+        ApiPointage.route, ReponseFausse.texte('{"success":true,"data":[{"type":"BL","id":"1","montantHt":12', type: 'application/json'),
         methode: 'GET');
     await ouvrirDepuisAccueil(tester, serveur, const PointageBlScreen());
     await pomperN(tester, 15);
@@ -133,7 +134,10 @@ void main() {
 
   testWidgets('Avis (serveur récent) : « Actualiser » pendant une coupure → message, avis inchangé ; reprise', (tester) async {
     telephone(tester);
-    ProfilAcces.utilisateur.value = AppUser.fromJson({...DonneesFictives.utilisateur(), 'role': {'code': 'PHARMACIEN', 'libelle': 'Pharmacien'}});
+    ProfilAcces.utilisateur.value = AppUser.fromJson({
+      ...DonneesFictives.utilisateur(),
+      'role': {'code': 'PHARMACIEN', 'libelle': 'Pharmacien'}
+    });
     await ouvrirDepuisAccueil(tester, serveur, const AvisDetailScreen(id: 'AVIS-TEST-2', droits: DroitsAvis(repondre: true)));
     await pomperN(tester, 15);
     final statut = etatVague3.avis.firstWhere((a) => a['id'] == 'AVIS-TEST-2')['statut'];
@@ -152,8 +156,10 @@ void main() {
   testWidgets('CA Global : /ca-all partiel → message, aucun détail Mobile Money ; reprise avec le détail', (tester) async {
     telephone(tester);
     donneesLot3(serveur);
-    serveur.quand(AppConstants.caAllEndpoint,
-        ReponseFausse.texte('[{"mvtDate":"20261013","totMobile":98200,"detailMobile":[{"modeId":"7","libelle":"Ora', type: 'application/json'),
+    serveur.quand(
+        AppConstants.caAllEndpoint,
+        ReponseFausse.texte('[{"mvtDate":"20261013","totMobile":98200,"detailMobile":[{"modeId":"7","libelle":"Ora',
+            type: 'application/json'),
         methode: 'GET');
     await ouvrirDepuisAccueil(tester, serveur, const CaGlobalNouveau());
     await pomperN(tester, 15);
@@ -166,21 +172,22 @@ void main() {
     await fermerApplication(tester);
   });
 
-  testWidgets('icônes illustrées : affichées SANS réseau (serveur coupé), jamais téléchargées', (tester) async {
-    telephone(tester);
-    preparerNouvelle(serveur, p: Presentation.compact, style: StyleIcones.p4);
-    serveur.coupe = true;
-    await ecranConnecte(() => const AccueilNouveau())(tester, serveur);
-    await pomperN(tester, 10);
-    expect(find.byType(IconeIllustree), findsWidgets);
-    // Images bien lues dans l'application (bundle), pas une icône de repli.
-    final image = tester.widget<Image>(find.descendant(of: find.byType(IconeIllustree).first, matching: find.byType(Image)));
-    final fournisseur = image.image;
-    expect(fournisseur, isA<ResizeImage>());
-    expect((fournisseur as ResizeImage).imageProvider, isA<AssetImage>());
-    expect(serveur.requetes.where((r) => r.chemin.contains('icones') || r.chemin.endsWith('.png')), isEmpty);
-    serveur.coupe = false;
-    await fermerApplication(tester);
-  });
+  for (final (nom, style) in [('P4 choisi', StyleIcones.p4), ('défaut 3.10.1, jamais choisi', null)]) {
+    testWidgets('icônes illustrées ($nom) : affichées SANS réseau (serveur coupé), jamais téléchargées', (tester) async {
+      telephone(tester);
+      preparerNouvelle(serveur, p: Presentation.compact, style: style);
+      serveur.coupe = true;
+      await ecranConnecte(() => const AccueilNouveau())(tester, serveur);
+      await pomperN(tester, 10);
+      expect(find.byType(IconeIllustree), findsWidgets);
+      // Images bien lues dans l'application (bundle), pas une icône de repli.
+      final image = tester.widget<Image>(find.descendant(of: find.byType(IconeIllustree).first, matching: find.byType(Image)));
+      final fournisseur = image.image;
+      expect(fournisseur, isA<ResizeImage>());
+      expect((fournisseur as ResizeImage).imageProvider, isA<AssetImage>());
+      expect(serveur.requetes.where((r) => r.chemin.contains('icones') || r.chemin.endsWith('.png')), isEmpty);
+      serveur.coupe = false;
+      await fermerApplication(tester);
+    });
+  }
 }
-

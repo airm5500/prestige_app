@@ -86,12 +86,13 @@ void main() {
   //  A : chiffres du jour (GET /recap/dashboard) et présence de l'équipe (GET /rh/presence) = 2 ; alertes : AUCUNE
   //  (comptées seulement sur ⟳) ; B et C : aucun chiffre chargé = 0 ; ancienne interface : 0.
   //  3.10.0 : menus en pages (rubrique, 6 tuiles) et icônes illustrées (P4, embarquées) : aucune requête de plus.
-  for (final (nom, p, plafond, affichage, style) in [
+  for (final (String nom, Presentation p, int plafond, AffichageMenus affichage, StyleIcones? style) in [
     ('A · Tableau de bord', Presentation.tableauDeBord, 4, AffichageMenus.unePage, StyleIcones.actuel),
     ('B · Compact', Presentation.compact, 2, AffichageMenus.unePage, StyleIcones.actuel),
     ('C · Guidé', Presentation.guide, 2, AffichageMenus.unePage, StyleIcones.actuel),
     ('A · 6 tuiles par page, P4', Presentation.tableauDeBord, 4, AffichageMenus.parSix, StyleIcones.p4),
     ('B · une rubrique par page, P4', Presentation.compact, 2, AffichageMenus.parRubrique, StyleIcones.p4),
+    ('A · défaut 3.10.1 (P4 jamais choisi)', Presentation.tableauDeBord, 4, AffichageMenus.unePage, null),
   ]) {
     testWidgets('connexion + accueil $nom : plafond $plafond requêtes', (tester) async {
       telephone(tester);

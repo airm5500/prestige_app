@@ -11,12 +11,13 @@
 //    MODIFIABLE PAR L'ADMINISTRATEUR OU LE PHARMACIEN SEULEMENT (décision 3.10.0) : compte « admin », ou profil
 //    administrateur / pharmacien donné par le serveur (vague1/profil_acces.dart) ; les autres comptes voient le choix,
 //    verrouillé, avec l'explication (plus de code administrateur pour ce réglage) ;
-//  - « Style des icônes » (PROPOSITIONS visuelles, réglage caché : visible pour le compte « admin » seulement) :
-//    Actuel (défaut, inchangé) ; P1 couleur par famille (pastille douce derrière l'icône) ; P2 tuiles teintées
+//  - « Style des icônes » (3.10.1, décision du pharmacien : P4 PAR DÉFAUT ; réglage visible, mêmes droits que
+//    « Menus de l'accueil » : administrateur ou pharmacien ; migration : un style jamais choisi passe en P4, un style
+//    choisi explicitement est gardé) : Actuel (style d'origine) ; P1 couleur par famille (pastille douce derrière l'icône) ; P2 tuiles teintées
 //    (fond de tuile teinté par famille, icône colorée) ; P3 icônes colorées sur fond blanc et en-têtes de famille
 //    colorés ; P4 icônes illustrées (3.10.0 : vraies icônes en couleur, Fluent Emoji de Microsoft, licence MIT,
 //    icones_illustrees.dart). P1 à P4 marquent aussi l'onglet actif de la barre du bas.
-//    Captures : docs/maquettes/propositions_couleurs/. Le choix final revient au pharmacien.
+//    Captures : docs/maquettes/propositions_couleurs/.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,7 +49,7 @@ const menusParPage = 6;
 
 /// Style des icônes (propositions visuelles ; « Actuel » par défaut).
 enum StyleIcones {
-  actuel('Actuel', 'Icônes bleu nuit sur pastille bleu clair (par défaut)'),
+  actuel('Actuel', 'Icônes bleu nuit sur pastille bleu clair (style d\'origine)'),
   p1('P1 · Couleur par famille', 'Pastille de couleur douce derrière chaque icône'),
   p2('P2 · Tuiles teintées', 'Fond de tuile légèrement teinté, icône colorée'),
   p3('P3 · Icônes colorées', 'Icônes colorées sur fond blanc, en-têtes de famille colorés'),
@@ -117,7 +118,10 @@ class ApparenceAccueilPrefs {
   static const cleStyle = 'style_icones_v1';
 
   static final ValueNotifier<AffichageMenus> affichage = ValueNotifier(AffichageMenus.unePage);
-  static final ValueNotifier<StyleIcones> style = ValueNotifier(StyleIcones.actuel);
+  /// Style par défaut (décision du pharmacien, 3.10.1) : P4 « icônes illustrées ».
+  static const styleParDefaut = StyleIcones.p4;
+
+  static final ValueNotifier<StyleIcones> style = ValueNotifier(styleParDefaut);
 
   /// Les deux réglages ensemble (reconstruire l'accueil quand l'un change).
   static Listenable get ecoute => Listenable.merge([affichage, style]);
@@ -126,17 +130,22 @@ class ApparenceAccueilPrefs {
     try {
       final p = await SharedPreferences.getInstance();
       affichage.value = AffichageMenus.depuis(p.getInt(cleAffichage));
-      style.value = StyleIcones.values.asNameMap()[p.getString(cleStyle)] ?? StyleIcones.actuel;
+      style.value = styleDepuis(p.getString(cleStyle));
     } catch (_) {
       affichage.value = AffichageMenus.unePage;
-      style.value = StyleIcones.actuel;
+      style.value = styleParDefaut;
     }
   }
+
+  /// Migration 3.10.1 : aucun style mémorisé (jamais choisi) ou valeur inconnue → P4, le nouveau défaut ; un style
+  /// CHOISI explicitement (« actuel », « p1 »… mémorisé) est gardé. Rien n'est écrit : le choix reste « non fait »
+  /// tant que l'utilisateur ne touche pas le réglage.
+  static StyleIcones styleDepuis(String? v) => StyleIcones.values.asNameMap()[v] ?? styleParDefaut;
 
   /// Valeurs par défaut (tests).
   static void reinitialiser() {
     affichage.value = AffichageMenus.unePage;
-    style.value = StyleIcones.actuel;
+    style.value = styleParDefaut;
   }
 
   /// « Menus de l'accueil » : modifiable par l'administrateur (compte « admin ») ou un profil administrateur /
@@ -158,10 +167,16 @@ class ApparenceAccueilPrefs {
     return true;
   }
 
-  /// Style des icônes : réservé au compte « admin » (le réglage n'est pas montré aux autres comptes).
+  /// Style des icônes (3.10.1 : réglage visible, mêmes droits que « Menus de l'accueil » : administrateur ou
+  /// pharmacien). Le choix est mémorisé, même s'il est égal au défaut (choix explicite gardé à l'avenir).
   static Future<bool> changerStyle(BuildContext context, StyleIcones s) async {
-    if (s == style.value) return true;
-    if (!PresentationPrefs.estAdministrateur(context)) return false;
+    if (!peutChangerAffichage(context)) return false;
+    if (s == style.value) {
+      try {
+        await (await SharedPreferences.getInstance()).setString(cleStyle, s.name);
+      } catch (_) {}
+      return true;
+    }
     style.value = s;
     try {
       await (await SharedPreferences.getInstance()).setString(cleStyle, s.name);

@@ -21,14 +21,14 @@ représente les **objets réels** du métier (livraison, colis, gélule, caisse,
 
 ## Où elles s'affichent (style P4 seulement)
 
-Réglages › Apparence › **Style des icônes** (réglage caché, compte « admin ») › **P4 · Icônes illustrées** :
+Réglages › Apparence › **Style des icônes** › **P4 · Icônes illustrées** — **style par défaut depuis la 3.10.1** (décision du pharmacien) ; le réglage est visible et modifiable par l'administrateur ou le pharmacien :
 
 - accueil **A** (tuiles des familles, en pages ou sur une page) ;
 - accueil **B** (lignes de menus), **« Tous les menus »** de C, onglet **Analyses** ;
 - **barre du bas** : onglet actif en couleur sur une pastille bleu clair, les autres en gris atténué (le libellé
   actif reste en gras : l'état ne repose jamais sur la couleur seule).
 
-Le style par défaut reste **« Actuel »** (icônes Material d'origine). Une image manquante est remplacée par l'icône
+Un utilisateur qui avait choisi un autre style (Actuel, P1, P2, P3) le garde ; sans choix, P4 s'affiche. Une image manquante est remplacée par l'icône
 Material du menu. Les icônes sont décoratives pour le lecteur d'écran (le titre du menu est lu).
 
 ## Correspondances

@@ -14,6 +14,7 @@
 // recherche de produit « contient » en haut de l'onglet Analyses (recherche_produit_analyses.dart).
 // 3.10.0 : « Menus de l'accueil » en trois dispositions (tout sur une page, une rubrique par page, 6 tuiles par
 // page) ; proposition P4 « icônes illustrées » (icones_illustrees.dart) sur les tuiles, les listes et la barre du bas.
+// 3.10.1 : P4 par défaut (style jamais choisi), disposition « tout sur une page » par défaut.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

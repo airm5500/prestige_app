@@ -49,7 +49,7 @@ void donneesLot1(FauxServeurPrestige serveur) {
 void preparerNouvelle(FauxServeurPrestige serveur,
         {Presentation p = Presentation.automatique,
         AffichageMenus affichage = AffichageMenus.unePage,
-        StyleIcones style = StyleIcones.actuel,
+        StyleIcones? style = StyleIcones.actuel,
         Map<String, Object> prefs = const {}}) =>
     preparerTelephone(serveur, nouvelle: true, presentation: p, affichageMenus: affichage, styleIcones: style, autres: prefs);
 

@@ -50,7 +50,7 @@ void preparerTelephone(FauxServeurPrestige serveur,
     bool nouvelle = false,
     Presentation presentation = Presentation.automatique,
     AffichageMenus affichageMenus = AffichageMenus.unePage,
-    StyleIcones styleIcones = StyleIcones.actuel}) {
+    StyleIcones? styleIcones = StyleIcones.actuel}) {
   InterfaceVersion.useNew.value = nouvelle;
   // Taille de l'écran : [tailleEcranPreparee] (Automatique par défaut : Compact d'office sur les petits écrans),
   // enregistrée et appliquée comme après un lancement (main() la lit avant runApp).
@@ -61,7 +61,8 @@ void preparerTelephone(FauxServeurPrestige serveur,
   // Réglages d'apparence de l'accueil (3.9.0) : valeurs par défaut, sauf demande du test (ils sont lus au lancement).
   ApparenceAccueilPrefs.reinitialiser();
   ApparenceAccueilPrefs.affichage.value = affichageMenus;
-  ApparenceAccueilPrefs.style.value = styleIcones;
+  // Style des icônes : null = jamais choisi (nouveau défaut P4, 3.10.1) ; sinon choix explicite mémorisé.
+  ApparenceAccueilPrefs.style.value = styleIcones ?? ApparenceAccueilPrefs.styleParDefaut;
   // Nombres des alertes de l'accueil A : rien de compté ni de mémorisé d'un test à l'autre.
   AlertesAccueil.instance.oublier();
   AlertesAccueil.maintenant = DateTime.now;
@@ -71,7 +72,7 @@ void preparerTelephone(FauxServeurPrestige serveur,
     if (tailleEcranPreparee != TailleEcran.automatique) TailleEcranReglage.cle: tailleEcranPreparee.name,
     PresentationPrefs.cle: presentation.name,
     if (affichageMenus != AffichageMenus.unePage) ApparenceAccueilPrefs.cleAffichage: affichageMenus.valeur,
-    if (styleIcones != StyleIcones.actuel) ApparenceAccueilPrefs.cleStyle: styleIcones.name,
+    if (styleIcones != null) ApparenceAccueilPrefs.cleStyle: styleIcones.name,
     ...autres,
   }));
   FlutterSecureStorage.setMockInitialValues({});

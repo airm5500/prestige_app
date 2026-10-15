@@ -1,7 +1,7 @@
 // Unitaires des décisions du pharmacien et de la réponse du serveur appliquées en 3.10.0 (logique pure, sans écran
 // ni serveur) :
 //  1. P4 « icônes illustrées » : une icône pour CHAQUE menu et chaque onglet, fichiers embarqués présents (PNG
-//     144 × 144, poids total borné), licence MIT de Microsoft embarquée ; défaut toujours « Actuel » ;
+//     144 × 144, poids total borné), licence MIT de Microsoft embarquée ; P4 par défaut depuis la 3.10.1 ;
 //  2. « Menus de l'accueil » en trois dispositions (0 tout sur une page, 1 une rubrique par page, 2 six tuiles par
 //     page) : valeurs, lecture, paquets de 6 dans l'ordre des familles, titres ;
 //  3. « Menus de l'accueil » réservé à l'administrateur ou au pharmacien (profil « dashboard » ou rôle) ;
@@ -95,14 +95,24 @@ void main() {
       expect(code, contains('Image.asset'));
     });
 
-    test('P4 ajouté au réglage, défaut toujours « Actuel » ; seul P4 est illustré', () async {
+    test('P4 ajouté au réglage et PAR DÉFAUT (3.10.1) ; seul P4 est illustré ; choix explicite gardé', () async {
       expect(StyleIcones.values, [StyleIcones.actuel, StyleIcones.p1, StyleIcones.p2, StyleIcones.p3, StyleIcones.p4]);
       expect([for (final s in StyleIcones.values) if (s.illustre) s], [StyleIcones.p4]);
+      expect(ApparenceAccueilPrefs.styleParDefaut, StyleIcones.p4);
       await ApparenceAccueilPrefs.charger();
-      expect(ApparenceAccueilPrefs.style.value, StyleIcones.actuel);
-      SharedPreferences.setMockInitialValues({ApparenceAccueilPrefs.cleStyle: 'p4'});
+      expect(ApparenceAccueilPrefs.style.value, StyleIcones.p4, reason: 'jamais choisi → P4');
+      for (final s in StyleIcones.values) {
+        SharedPreferences.setMockInitialValues({ApparenceAccueilPrefs.cleStyle: s.name});
+        await ApparenceAccueilPrefs.charger();
+        expect(ApparenceAccueilPrefs.style.value, s, reason: 'choix explicite « ${s.name} » gardé');
+      }
+      expect(ApparenceAccueilPrefs.styleDepuis(null), StyleIcones.p4);
+      expect(ApparenceAccueilPrefs.styleDepuis('inconnu'), StyleIcones.p4);
+      expect(ApparenceAccueilPrefs.styleDepuis('actuel'), StyleIcones.actuel);
+      // La lecture n'écrit rien : le choix reste « non fait ».
+      SharedPreferences.setMockInitialValues({});
       await ApparenceAccueilPrefs.charger();
-      expect(ApparenceAccueilPrefs.style.value, StyleIcones.p4);
+      expect((await SharedPreferences.getInstance()).getString(ApparenceAccueilPrefs.cleStyle), isNull);
       // P4 : tuile et pastille blanches (l'image remplace l'icône).
       final a = ApparenceIcone.pourMenu(StyleIcones.p4, menusModules.first);
       expect([a.pastille, a.fond], [Charte.blanc, Charte.blanc]);

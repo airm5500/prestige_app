@@ -5,7 +5,7 @@
 //  3. recherche de produit « contient » : paramètres, lecture tolérante, CIP EXACT pour le détail ;
 //  4. Pointage BL : dernier grossiste (ou groupe) mémorisé ;
 //  5. « Menus de l'accueil » 0 / 1 : lecture, défaut, changement (compte « admin ») ;
-//  6. « Style des icônes » : défaut « Actuel », palette par famille (contrastes ≥ 4,5:1), onglets colorés.
+//  6. « Style des icônes » : défaut P4 depuis la 3.10.1 (style jamais choisi), palette par famille (contrastes ≥ 4,5:1), onglets colorés.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/donnees/analyses_ventes_donnees.dart';
@@ -190,10 +190,10 @@ void main() {
       }
     });
 
-    test('lecture au lancement : défaut « sur une page » et « Actuel » ; valeurs mémorisées reprises', () async {
+    test('lecture au lancement : défaut « sur une page » et P4 (3.10.1, jamais choisi) ; valeurs mémorisées reprises', () async {
       await ApparenceAccueilPrefs.charger();
       expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.unePage);
-      expect(ApparenceAccueilPrefs.style.value, StyleIcones.actuel);
+      expect(ApparenceAccueilPrefs.style.value, StyleIcones.p4);
       SharedPreferences.setMockInitialValues({ApparenceAccueilPrefs.cleAffichage: 1, ApparenceAccueilPrefs.cleStyle: 'p2'});
       await ApparenceAccueilPrefs.charger();
       expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.parRubrique);
@@ -201,7 +201,7 @@ void main() {
       SharedPreferences.setMockInitialValues({ApparenceAccueilPrefs.cleAffichage: 7, ApparenceAccueilPrefs.cleStyle: 'inconnu'});
       await ApparenceAccueilPrefs.charger();
       expect(ApparenceAccueilPrefs.affichage.value, AffichageMenus.unePage);
-      expect(ApparenceAccueilPrefs.style.value, StyleIcones.actuel);
+      expect(ApparenceAccueilPrefs.style.value, StyleIcones.p4, reason: 'valeur inconnue → défaut (P4 depuis la 3.10.1)');
     });
   });
 

@@ -9,6 +9,8 @@
 //    comparaison : index.html ;
 //  - docs/maquettes/captures_3_10_0/ (3.10.0) : « Menus de l'accueil » dans les trois dispositions (tout sur une page,
 //    une rubrique par page, 6 tuiles par page), accueils A et B, téléphone et Sunmi ; Pointage BL par groupe ;
+//  - docs/maquettes/captures_3_10_1/ (3.10.1) : défaut (style jamais choisi → P4, tout sur une page) sur téléphone et
+//    Sunmi ; Réglages du pharmacien (style des icônes visible) et d'un compte simple (verrouillé) ;
 //  - docs/maquettes/captures_3_9_0/ : menus par pages (A, B), recherche « contient » de l'onglet Analyses,
 //    Pointage BL sans grossiste, Suivi 20/80 « Tous ».
 import 'dart:io';
@@ -51,7 +53,7 @@ void main() {
   });
   tearDownAll(serveur.arreter);
 
-  Future<void> preparer(Presentation p, {StyleIcones style = StyleIcones.actuel, AffichageMenus affichage = AffichageMenus.unePage}) async {
+  Future<void> preparer(Presentation p, {StyleIcones? style = StyleIcones.actuel, AffichageMenus affichage = AffichageMenus.unePage}) async {
     serveur
       ..installerRoutesParDefaut()
       ..controlerSession = !serveurAdmin;
@@ -316,6 +318,42 @@ void main() {
     await pomper(tester, 15);
     await photo(tester, 'captures_3_9_0/8_suivi_2080_tous_les_articles');
     await fin(tester);
+    debugDisableShadows = true;
+  }, skip: !_actif);
+
+  testWidgets('3.10.1 · défaut P4 (jamais choisi) et réglage « Style des icônes » visible', (tester) async {
+    debugDisableShadows = false;
+    for (final (nomAppareil, regler) in [('telephone', telephone), ('sunmi', sunmi)]) {
+      regler(tester);
+      await preparer(Presentation.tableauDeBord, style: null);
+      await connecterEnMemoire(tester);
+      await pomperJusqua(tester, () => find.text('…').evaluate().isEmpty, raison: 'chiffres du jour');
+      await defiler(tester, const Key('defilement_accueil'), nomAppareil == 'sunmi' ? 420 : 470);
+      await photo(tester, 'captures_3_10_1/${nomAppareil}_1_accueil_A_defaut');
+      await fin(tester);
+      await preparer(Presentation.compact, style: null);
+      await connecterEnMemoire(tester);
+      await photo(tester, 'captures_3_10_1/${nomAppareil}_2_accueil_B_defaut');
+      await fin(tester);
+    }
+    // Réglages : pharmacien (style visible, modifiable), puis compte simple (verrouillé).
+    telephone(tester);
+    for (final (n, simple) in [('3_reglages_pharmacien', false), ('4_reglages_compte_simple', true)]) {
+      await preparer(Presentation.tableauDeBord, style: null);
+      if (simple) {
+        serveur
+          ..controlerSession = false
+          ..quand('/user/auth', ReponseFausse.json({...DonneesFictives.utilisateur(), 'xtypeuser': 'mainmenumanager'},
+              entetes: {'set-cookie': 'JSESSIONID=fictif-caisse; Path=/prestige; HttpOnly'}), methode: 'POST');
+      }
+      await connecterEnMemoire(tester);
+      await tester.tap(find.byKey(const Key('bouton_reglages')));
+      await pomper(tester, 6);
+      await tester.drag(find.byType(Scrollable).hitTestable().first, const Offset(0, -900));
+      await pomper(tester, 6);
+      await photo(tester, 'captures_3_10_1/$n');
+      await fin(tester);
+    }
     debugDisableShadows = true;
   }, skip: !_actif);
 }

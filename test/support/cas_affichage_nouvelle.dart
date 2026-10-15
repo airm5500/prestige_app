@@ -39,7 +39,7 @@ Future<void> Function(WidgetTester, FauxServeurPrestige) enNouvelle(Future<void>
         Future<void> Function(WidgetTester)? ensuite,
         void Function(FauxServeurPrestige)? donnees,
         AffichageMenus affichage = AffichageMenus.unePage,
-        StyleIcones style = StyleIcones.actuel,
+        StyleIcones? style = StyleIcones.actuel,
         Map<String, Object> prefs = const {}}) =>
     (tester, serveur) async {
       preparerNouvelle(serveur, p: p, affichage: affichage, style: style, prefs: prefs);

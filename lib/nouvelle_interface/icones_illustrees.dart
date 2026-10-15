@@ -9,8 +9,8 @@
 //  - décodées à la taille affichée (cacheWidth) : peu de mémoire, même sur les terminaux Sunmi ;
 //  - une icône manquante ou illisible n'empêche rien : l'icône Material d'origine la remplace ([IconeIllustree]) ;
 //  - décoratives pour le lecteur d'écran (le titre du menu est lu, comme avant).
-// Réglage « Style des icônes » (caché, compte « admin ») : P4 s'ajoute à Actuel / P1 / P2 / P3 ; le défaut reste
-// « Actuel ».
+// Réglage « Style des icônes » : P4 s'ajoute à Actuel / P1 / P2 / P3 ; depuis la 3.10.1 (décision du pharmacien), P4
+// est le style PAR DÉFAUT et le réglage est visible (administrateur ou pharmacien), apparence_accueil.dart.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
