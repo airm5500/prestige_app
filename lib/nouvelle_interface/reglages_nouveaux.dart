@@ -202,7 +202,7 @@ class ChoixAffichageMenus extends StatelessWidget {
 
   void _refuser(BuildContext context) {
     ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
+      ..clearSnackBars()
       ..showSnackBar(const SnackBar(key: Key('affichage_menus_refus'), content: Text(ApparenceAccueilPrefs.explicationAffichageVerrouille)));
   }
 
@@ -285,7 +285,7 @@ class ChoixStyleIcones extends StatelessWidget {
               if (verrouille) {
                 if (s == choix) return;
                 ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
+                  ..clearSnackBars()
                   ..showSnackBar(const SnackBar(key: Key('style_icones_refus'), content: Text(ApparenceAccueilPrefs.explicationAffichageVerrouille)));
                 return;
               }

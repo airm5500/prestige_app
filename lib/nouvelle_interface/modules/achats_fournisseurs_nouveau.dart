@@ -124,7 +124,7 @@ class _AchatsFournisseursNouveauState extends State<AchatsFournisseursNouveau>
     final tout = donnees ?? const <AchatFournisseur>[];
     if (tout.isEmpty) {
       ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
+        ..clearSnackBars()
         ..showSnackBar(const SnackBar(content: Text('Aucun achat sur la période : rien à récapituler.')));
       return;
     }

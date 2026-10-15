@@ -62,7 +62,7 @@ class PinCodeDialog {
 
   static void _message(BuildContext context, String texte, Color couleur) {
     ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
+      ?..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(texte), backgroundColor: couleur));
   }
 }

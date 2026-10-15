@@ -25,7 +25,11 @@ Future<bool> confirmer(BuildContext context, {required String titre, required St
 /// Message de résultat d'une action (vert : réussi ; rouge : échec), lisible et sans code technique.
 void messageResultat(BuildContext context, String texte, {bool echec = false}) {
   final m = ScaffoldMessenger.of(context);
-  m.hideCurrentSnackBar();
+  // Le DERNIER message l'emporte : la file est vidée (clearSnackBars), pas seulement le message affiché. Avec
+  // hideCurrentSnackBar, un message déjà en attente (succès d'un envoi précédent, en file pendant la sortie d'un
+  // autre) passait AVANT le nouveau et le cachait 4 s (défaut révélé par la CI, 3.10.1 : « Quantité invalide » d'une
+  // suggestion masquée par « Quantité enregistrée »).
+  m.clearSnackBars();
   m.showSnackBar(SnackBar(
     backgroundColor: echec ? Charte.rougeTexte : Charte.vertTexte,
     content: Row(children: [

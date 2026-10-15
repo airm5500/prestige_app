@@ -226,7 +226,7 @@ class _DetailAnnulationVenteState extends State<DetailAnnulationVente> with Char
       if (!mounted) return;
       if (!ok) {
         ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
+          ..clearSnackBars()
           ..showSnackBar(const SnackBar(content: Text('Annulation abandonnée : rien n\'a été envoyé.')));
         return;
       }
@@ -261,7 +261,7 @@ class _DetailAnnulationVenteState extends State<DetailAnnulationVente> with Char
           if (fait) return;
           if (_envoi) {
             ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
+              ..clearSnackBars()
               ..showSnackBar(const SnackBar(content: Text('Annulation en cours : attendez la réponse du serveur.')));
             return;
           }

@@ -36,6 +36,17 @@ Demande (regroupé dans prestige_vente_app/docs/serveur/TRANSMISSION_SERVEUR_202
 pointer) calculé sur toutes les pièces quel que soit `etat`, sommes égales aux totaux ; endroit du code serveur à
 modifier, règles, compatibilité (application déjà prête), quatre vérifications `curl`.
 
+## Défaut corrigé (révélé par la CI)
+
+Le parcours de bout en bout « Suggestions » (lot 2) a échoué une fois sur la CI : le message « Quantité invalide (0 à
+99999) : non enregistrée. » n'apparaissait pas. **Cause** (reproduite par un test) : `messageResultat` remplaçait le
+message affiché par `hideCurrentSnackBar`, qui ne vide pas la FILE ; quand un message attendait déjà son tour (ici
+« Quantité enregistrée », demandé pendant la sortie du précédent), il passait devant le nouveau et le cachait 4 s.
+Selon la vitesse de la machine, le message d'erreur s'affichait ou non. **Correction** : `clearSnackBars` (le dernier
+message l'emporte, un message périmé n'est jamais montré) dans `messageResultat` et aux autres endroits de la nouvelle
+interface (Achats fournisseurs, Annulation des ventes, Réglages) et du code administrateur. Test :
+`test/unitaires/messages_resultat_test.dart` (échoue avec l'ancien code). Toujours 3.10.1+42 : rien n'est publié.
+
 ## Captures
 
 - `docs/maquettes/captures_3_10_1/` : accueil A et B par défaut (P4, tout sur une page) sur téléphone 1080 × 2400 et
