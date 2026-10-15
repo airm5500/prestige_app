@@ -115,12 +115,15 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       _isLoading = false;
-      // 3.10.2 : Prestige momentanément indisponible (redéploiement : 404 de /user/auth ; 502 / 503 / 504 ; connexion
-      // refusée) → message clair, jamais « erreur 404 ». Un mot de passe faux (réponse 200 success:false) n'est pas
-      // concerné ; le Wi-Fi coupé garde son message (« Serveur injoignable… Vérifiez le Wi-Fi »).
-      _errorMessage = e is ApiLoadException && e.serveurIndisponible
-          ? ApiLoadException.messageServeurIndisponible
-          : e.toString().replaceFirst("Exception: ", "");
+      // 3.10.3 (pharmacien) : deux cas distincts, jamais un code brut.
+      //  1. serveur injoignable (Wi-Fi, PC serveur éteint, Payara arrêté = connexion refusée, délai dépassé) ;
+      //  2. le serveur répond mais Prestige n'est pas déployé (404 de Payara, 502 / 503 / 504).
+      // Mot de passe faux (200 success:false), 500, réponse illisible, certificat refusé : message d'origine.
+      _errorMessage = switch (e) {
+        ApiLoadException(serveurIndisponible: true) => ApiLoadException.messageServeurIndisponible,
+        ApiLoadException(nature: NatureErreur.delai) => ApiLoadException.messageReseau,
+        _ => e.toString().replaceFirst("Exception: ", ""),
+      };
       notifyListeners();
       return _errorMessage;
     }

@@ -101,7 +101,8 @@ class RechercheProduit {
       final data = await ApiService().get(context, route, queryParams: parametres(texte), onSessionInvalid: onSessionInvalid);
       return ResultatRechercheProduit(lire(data), contient: true);
     } on ApiLoadException catch (e) {
-      if (e.code != 404) rethrow;
+      // Repli « serveur ancien » seulement sur un vrai 404 de la route, jamais quand Prestige n'est pas déployé (3.10.3).
+      if (e.code != 404 || e.serveurIndisponible) rethrow;
     }
     if (!context.mounted) return null;
     final articles = await RechercheArticles.analyse(context, texte, onSessionInvalid: onSessionInvalid);

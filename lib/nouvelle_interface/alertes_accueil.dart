@@ -90,9 +90,10 @@ class EchecComptage {
     if (e is! ApiLoadException) return const EchecComptage(CauseEchec.autre, 'Comptage impossible.');
     return switch (e.nature) {
       NatureErreur.reseau when e.certificatRefuse => const EchecComptage(CauseEchec.injoignable, 'Certificat du serveur refusé (HTTPS).'),
-      NatureErreur.reseau => const EchecComptage(CauseEchec.injoignable, 'Serveur injoignable. Vérifiez le réseau.'),
+      NatureErreur.reseau => const EchecComptage(CauseEchec.injoignable, ApiLoadException.messageReseau),
       NatureErreur.delai => const EchecComptage(CauseEchec.delai, 'Le serveur met trop de temps à répondre.'),
       NatureErreur.session => const EchecComptage(CauseEchec.session, 'Session expirée : reconnectez-vous.'),
+      NatureErreur.serveur when e.serveurIndisponible => const EchecComptage(CauseEchec.serveur, ApiLoadException.messageServeurIndisponible),
       NatureErreur.serveur => EchecComptage(CauseEchec.serveur, 'Erreur du serveur${e.code == null ? '' : ' (code ${e.code})'}.'),
       NatureErreur.droit => const EchecComptage(CauseEchec.droit, 'Accès refusé pour ce compte.'),
       NatureErreur.refus || NatureErreur.reponse => const EchecComptage(CauseEchec.autre, 'Réponse inattendue du serveur.'),

@@ -149,6 +149,9 @@ class DiagnosticErreur {
       NatureErreur.delai => DiagnosticErreur(CauseErreur.delai, 'Le serveur ne répond pas', e.message, Icons.hourglass_empty),
       NatureErreur.session =>
         const DiagnosticErreur(CauseErreur.session, 'Session expirée', 'Votre session a expiré : reconnectez-vous.', Icons.lock_clock),
+      // 3.10.3 : le serveur répond, Prestige n'est pas déployé (démarrage, redéploiement).
+      NatureErreur.serveur when e.serveurIndisponible =>
+        DiagnosticErreur(CauseErreur.serveur, ApiLoadException.titreServeurIndisponible, e.message, Icons.cloud_sync_outlined),
       NatureErreur.serveur => DiagnosticErreur(CauseErreur.serveur, 'Erreur du serveur', e.message, Icons.dns_outlined),
       NatureErreur.droit => DiagnosticErreur(CauseErreur.droit, 'Droit manquant', e.message, Icons.lock_outline),
       NatureErreur.refus || NatureErreur.reponse => DiagnosticErreur(CauseErreur.autre, 'Chargement impossible', e.message, Icons.error_outline),

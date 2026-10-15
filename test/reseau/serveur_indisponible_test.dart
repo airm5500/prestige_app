@@ -1,11 +1,12 @@
-// RÉSEAU — Prestige momentanément INDISPONIBLE à la connexion (3.10.2, demande du pharmacien : « erreur 404 » quand
-// il se connecte pendant un redéploiement de Prestige), deux interfaces :
-//  - 404 de POST /user/auth (application en cours de redéploiement), 502 / 503 / 504, connexion refusée (port fermé,
-//    vrai socket) → « Serveur indisponible, veuillez réessayer. », jamais « code 404 » ; puis, serveur revenu,
-//    connexion réussie au réessai ;
-//  - NON confondu avec : mot de passe faux (message du serveur), erreur 500 (« Erreur du serveur »), Wi-Fi coupé
-//    (« Serveur injoignable… Vérifiez le Wi-Fi »), 404 MÉTIER d'un module (inchangé) ;
-//  - /officine en 404 sur l'écran de connexion : aucune erreur affichée, le dernier nom connu reste.
+// RÉSEAU — connexion quand Prestige est injoignable ou pas déployé (3.10.2, revu en 3.10.3 : deux cas distincts du
+// pharmacien), deux interfaces :
+//  - cas 2, le serveur répond sans Prestige : 404 de POST /user/auth (redéploiement), 502 / 503 / 504 → « Serveur
+//    indisponible : Prestige est en cours de démarrage ou de redéploiement… », jamais « code 404 » ; serveur revenu →
+//    connexion au réessai ;
+//  - cas 1, serveur injoignable : connexion refusée (PC éteint, Payara arrêté), Wi-Fi coupé, délai dépassé →
+//    « Serveur injoignable. Vérifiez le Wi-Fi et que le PC serveur est allumé. » ;
+//  - inchangés : mot de passe faux, erreur 500 ; /officine en 404 sur l'écran de connexion : aucune erreur affichée.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
+import 'package:prestige_app/nouvelle_interface/vague2/previsions_vague2.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/services/api_service.dart';
@@ -120,12 +122,13 @@ void main() {
       });
     }
 
-    testWidgets('$nom : connexion refusée (Prestige arrêté) → « Serveur indisponible »', (tester) async {
+    testWidgets('$nom : connexion refusée (PC serveur éteint, Payara arrêté) → « Serveur injoignable » (cas 1)', (tester) async {
       telephone(tester);
       await jusquConnexion(tester, nouvelle: nouvelle);
       serveur.coupe = true; // le client en mémoire lève SocketException('Connection refused')
       await tenterConnexion(tester);
-      expect(find.text(indisponible), findsOneWidget);
+      expect(find.text(ApiLoadException.messageReseau), findsOneWidget);
+      expect(find.text(indisponible), findsNothing);
       serveur.coupe = false;
       await fermer(tester);
     });
@@ -145,8 +148,13 @@ void main() {
       // Wi-Fi coupé : le réseau est inaccessible (≠ connexion refusée par le serveur).
       ApiService.client = MockClient((_) async => throw const SocketException('Network is unreachable', osError: OSError('Network is unreachable', 101)));
       await tenterConnexion(tester);
-      expect(find.textContaining('Serveur injoignable'), findsOneWidget);
+      expect(find.text(ApiLoadException.messageReseau), findsOneWidget);
       expect(find.text(indisponible), findsNothing);
+
+      // Délai dépassé à la connexion : cas 1 aussi.
+      ApiService.client = MockClient((_) async => throw TimeoutException('délai'));
+      await tenterConnexion(tester);
+      expect(find.text(ApiLoadException.messageReseau), findsOneWidget);
       await fermer(tester);
     });
   }
@@ -160,6 +168,49 @@ void main() {
     await tenterConnexion(tester);
     await laisser(tester, dixiemes: 30);
     expect(find.byType(AccueilNouveau), findsOneWidget);
+    await fermer(tester);
+  });
+
+  testWidgets('démarrage, Prestige pas déployé (licence en 503) : « Serveur indisponible » ; serveur coupé : « Le serveur ne répond pas »',
+      (tester) async {
+    telephone(tester);
+    preparerNouvelle(serveur, p: Presentation.compact);
+    ApiService.client = serveur.clientMemoire();
+    serveur.quand('/licence/find', ReponseFausse.erreurServeur(statut: 503), methode: 'GET');
+    await lancerApplication(tester);
+    await laisser(tester, dixiemes: 40);
+    expect(find.text(ApiLoadException.titreServeurIndisponible), findsOneWidget);
+    expect(find.textContaining('démarrage ou de redéploiement'), findsOneWidget);
+    await fermer(tester);
+
+    serveur.coupe = true;
+    preparerNouvelle(serveur, p: Presentation.compact);
+    await lancerApplication(tester);
+    await laisser(tester, dixiemes: 40);
+    expect(find.text('Le serveur ne répond pas'), findsOneWidget);
+    expect(find.textContaining('PC serveur est allumé'), findsOneWidget);
+    serveur.coupe = false;
+    await fermer(tester);
+  });
+
+  testWidgets('module (Prévisions) pendant un redéploiement : 404 + /officine 404 → « Serveur indisponible », Réessayer → données',
+      (tester) async {
+    telephone(tester);
+    preparerNouvelle(serveur, p: Presentation.compact);
+    ApiService.client = serveur.clientMemoire();
+    serveur
+      ..controlerSession = false
+      ..quand('/analyse-commande/tableau', ReponseFausse.introuvable(), methode: 'GET')
+      ..quand(AppConstants.officineEndpoint, ReponseFausse.introuvable(), methode: 'GET');
+    await lancerApplication(tester, accueil: const PrevisionsScreen());
+    await laisser(tester, dixiemes: 40);
+    expect(find.text(ApiLoadException.titreServeurIndisponible), findsWidgets);
+    aucunCodeBrut();
+    serveur.installerRoutesParDefaut();
+    serveur.controlerSession = false;
+    await tester.tap(find.text('Réessayer').first);
+    await laisser(tester, dixiemes: 20);
+    expect(find.text(ApiLoadException.titreServeurIndisponible), findsNothing);
     await fermer(tester);
   });
 

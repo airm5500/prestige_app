@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/screens/home_screen.dart';
+import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/screens/serveur_injoignable_screen.dart';
@@ -48,7 +49,7 @@ Future<void> Function(WidgetTester, FauxServeurPrestige) connexionIndisponible(F
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(find.text('Serveur indisponible, veuillez réessayer.'), findsOneWidget);
+      expect(find.text(ApiLoadException.messageServeurIndisponible), findsOneWidget);
     };
 
 /// Écran connecté rendu seul (avec le thème et les providers de l'application) ; [recherche] saisie ensuite.
@@ -69,10 +70,13 @@ Future<void> Function(WidgetTester, FauxServeurPrestige) ecranConnecte(Widget Fu
 final casAffichage = <CasAffichage>[
   CasAffichage('Configuration IP (premier lancement)', parcoursDemarrage(SettingsScreen, configure: false)),
   CasAffichage('Serveur injoignable', parcoursDemarrage(ServeurInjoignableScreen, preparer: (s) => s.coupe = true)),
+  // 3.10.3 : le serveur répond, Prestige n'est pas déployé (démarrage, redéploiement) — cas 2 du pharmacien.
+  CasAffichage('Démarrage · serveur indisponible',
+      parcoursDemarrage(ServeurInjoignableScreen, preparer: (s) => s.quand('/licence/find', ReponseFausse.erreurServeur(statut: 503)))),
   CasAffichage('Licence requise',
       parcoursDemarrage(LicenceRegistrationScreen, preparer: (s) => s.quand('/licence/find', ReponseFausse.vide()))),
   CasAffichage('Connexion', parcoursDemarrage(LoginScreen)),
-  // 3.10.2 : Prestige en cours de redéploiement (404 de /user/auth) → « Serveur indisponible, veuillez réessayer. »
+  // 3.10.2 / 3.10.3 : Prestige en cours de redéploiement (404 de /user/auth) → « Serveur indisponible : … »
   CasAffichage('Connexion · serveur indisponible', connexionIndisponible(parcoursDemarrage(LoginScreen))),
   CasAffichage('Accueil', ecranConnecte(() => const HomeScreen())),
   for (final m in modulesAccueil) CasAffichage(m.tuile, ecranConnecte(m.ecran)),

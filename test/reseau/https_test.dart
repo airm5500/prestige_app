@@ -280,7 +280,7 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('alerte_peremption_echec')));
       await tester.pump();
       expect(tester.widget<Text>(find.byKey(const Key('alerte_peremption_echec'))).data, contains('Certificat du serveur refusé'));
-      expect(find.text('Serveur injoignable. Vérifiez le réseau.'), findsNothing);
+      expect(find.text(ApiLoadException.messageReseau), findsNothing);
       await fermerApplication(tester);
     });
   });

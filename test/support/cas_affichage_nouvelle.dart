@@ -3,6 +3,7 @@
 // Analyses / Équipe / Réglages, écrans de la présentation C, puis chaque module de l'accueil et les états
 // supplémentaires, avec le thème de la nouvelle interface. Données : faux serveur Prestige « en mémoire ».
 import 'package:flutter/material.dart';
+import 'package:prestige_app/nouvelle_interface/vague2/previsions_vague2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/apparence_accueil.dart';
@@ -73,6 +74,15 @@ Future<void> Function(WidgetTester) compterAlertes(List<String> attendus, {Durat
 final casAffichageNouvelle = <CasAffichage>[
   CasAffichage('Configuration IP (premier lancement)', enNouvelle(parcoursDemarrage(SettingsScreen, configure: false))),
   CasAffichage('Serveur injoignable', enNouvelle(parcoursDemarrage(ServeurInjoignableScreen, preparer: (s) => s.coupe = true))),
+  // 3.10.3 : démarrage avec Prestige pas déployé ; module pendant un redéploiement (404 confirmé par /officine).
+  CasAffichage('Démarrage · serveur indisponible',
+      enNouvelle(parcoursDemarrage(ServeurInjoignableScreen, preparer: (s) => s.quand('/licence/find', ReponseFausse.erreurServeur(statut: 503))))),
+  CasAffichage(
+      'Module · serveur indisponible (redéploiement)',
+      enNouvelle(ecranConnecte(() => const PrevisionsScreen()),
+          donnees: (s) => s
+            ..quand('/analyse-commande/tableau', ReponseFausse.introuvable(), methode: 'GET')
+            ..quand('/officine', ReponseFausse.introuvable(), methode: 'GET'))),
   CasAffichage('Licence requise',
       enNouvelle(parcoursDemarrage(LicenceRegistrationScreen, preparer: (s) => s.quand('/licence/find', ReponseFausse.vide())))),
   CasAffichage('Connexion A', enNouvelle(parcoursDemarrage(LoginScreen))),

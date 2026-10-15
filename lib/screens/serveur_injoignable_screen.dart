@@ -113,11 +113,12 @@ class _ServeurInjoignableScreenState extends State<ServeurInjoignableScreen> {
   static (String, String) _textes(LicenceLookup? echec) {
     switch (echec?.issue) {
       case LicenceIssue.appNotFound:
+        // 3.10.3 : le serveur répond, Prestige n'y est pas déployé (démarrage, redéploiement ; 404 de Payara ou
+        // 502 / 503 / 504). Cas 2 du pharmacien.
         return (
-          'Prestige introuvable à cette adresse',
-          'Un serveur répond, mais l\'application Prestige n\'y est pas trouvée (nom de l\'application ou port incorrect, '
-              'application arrêtée). Si Prestige est en cours de mise à jour (redéploiement), réessayez dans un instant. '
-              'La licence n\'est pas en cause.'
+          ApiLoadException.titreServeurIndisponible,
+          '${ApiLoadException.messageServeurIndisponible} Si cela dure, vérifiez le nom de l\'application et le port '
+              '(configuration du serveur). La licence n\'est pas en cause.'
         );
       case LicenceIssue.serverError:
         return (
@@ -140,7 +141,8 @@ class _ServeurInjoignableScreenState extends State<ServeurInjoignableScreen> {
       case null:
         return (
           'Le serveur ne répond pas',
-          'Vérifiez le Wi-Fi ou les données mobiles et que le serveur de l\'officine est allumé. La licence n\'est pas en cause.'
+          // Cas 1 du pharmacien (3.10.3) : Wi-Fi, PC serveur éteint, Payara arrêté, délai dépassé.
+          '${ApiLoadException.messageReseau} La licence n\'est pas en cause.'
         );
     }
   }

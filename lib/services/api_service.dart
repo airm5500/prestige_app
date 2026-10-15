@@ -53,26 +53,39 @@ class ApiLoadException implements Exception {
   final NatureErreur nature;
   final int? code;
 
-  /// Le serveur a REFUSÉ la connexion (port fermé : Prestige arrêté ou en cours de redémarrage), ≠ Wi-Fi coupé.
+  /// Le serveur a REFUSÉ la connexion (port fermé : PC serveur éteint ou Payara arrêté). Depuis la 3.10.3, c'est le
+  /// cas « serveur injoignable » (comme le Wi-Fi coupé) ; l'indication reste pour le diagnostic.
   final bool connexionRefusee;
-  const ApiLoadException(this.message, {this.nature = NatureErreur.reseau, this.code, this.connexionRefusee = false});
 
-  /// Message de la connexion quand Prestige est momentanément indisponible (3.10.2).
-  static const messageServeurIndisponible = 'Serveur indisponible, veuillez réessayer.';
+  /// Le serveur répond mais Prestige n'y est pas déployé (3.10.3) : 404 de Payara (route toujours présente, ou
+  /// confirmé par /officine) ou 502 / 503 / 504.
+  final bool prestigeNonDeploye;
+  const ApiLoadException(this.message,
+      {this.nature = NatureErreur.reseau, this.code, this.connexionRefusee = false, this.prestigeNonDeploye = false});
 
-  /// Codes HTTP d'un serveur momentanément indisponible derrière un frontal (Bad Gateway, Service Unavailable,
-  /// Gateway Timeout).
+  /// Prestige pas déployé (démarrage ou redéploiement) : message « Serveur indisponible ».
+  const ApiLoadException.nonDeploye(int this.code)
+      : message = messageServeurIndisponible,
+        nature = NatureErreur.serveur,
+        connexionRefusee = false,
+        prestigeNonDeploye = true;
+
+  /// Cas 2 du pharmacien (3.10.3) : le serveur répond, Prestige n'est pas déployé.
+  static const messageServeurIndisponible =
+      'Serveur indisponible : Prestige est en cours de démarrage ou de redéploiement. Veuillez réessayer dans un instant.';
+
+  /// Titre court des écrans pour ce cas.
+  static const titreServeurIndisponible = 'Serveur indisponible';
+
+  /// Codes HTTP d'un serveur qui répond sans Prestige (Bad Gateway, Service Unavailable, Gateway Timeout).
   static const codesIndisponible = {502, 503, 504};
 
-  /// Prestige est momentanément indisponible (3.10.2, demande du pharmacien : « erreur 404 » pendant un
-  /// redéploiement) : 404 d'une route TOUJOURS présente (connexion), 502 / 503 / 504, connexion refusée. À n'utiliser
-  /// que pour ces routes : ailleurs, un 404 peut être une réponse métier (élément introuvable).
-  bool get serveurIndisponible =>
-      (nature == NatureErreur.refus && code == 404) ||
-      (nature == NatureErreur.serveur && codesIndisponible.contains(code)) ||
-      (nature == NatureErreur.reseau && connexionRefusee);
+  /// Prestige n'est pas déployé (cas 2) ; ≠ serveur injoignable (cas 1 : Wi-Fi, PC éteint, Payara arrêté, délai).
+  bool get serveurIndisponible => prestigeNonDeploye;
 
-  static const messageReseau = 'Serveur injoignable. Vérifiez le Wi-Fi ou les données mobiles puis réessayez.';
+  /// Cas 1 du pharmacien (3.10.3) : Wi-Fi bon mais serveur injoignable (réseau absent, hôte inaccessible, connexion
+  /// refusée = PC serveur éteint ou Payara arrêté).
+  static const messageReseau = 'Serveur injoignable. Vérifiez le Wi-Fi et que le PC serveur est allumé.';
   static const messageDelai = 'Le serveur met trop de temps à répondre. Vérifiez le réseau puis réessayez.';
   static const messageSession = 'Session expirée. Reconnectez-vous.';
   static const messageDroit = 'Accès refusé : ce compte n\'a pas le droit de consulter ces données.';
@@ -91,12 +104,13 @@ class ApiLoadException implements Exception {
     switch (nature) {
       case NatureErreur.reseau:
         return ApiLoadException(message == messageReseau
-            ? 'Serveur injoignable ($quoi non chargés). Vérifiez le Wi-Fi ou les données mobiles puis réessayez.'
+            ? 'Serveur injoignable ($quoi non chargés). Vérifiez le Wi-Fi et que le PC serveur est allumé.'
             : message, nature: nature, code: code, connexionRefusee: connexionRefusee);
       case NatureErreur.delai:
         return ApiLoadException('Le serveur met trop de temps à répondre ($quoi non chargés). Vérifiez le réseau puis réessayez.',
             nature: nature, code: code);
       case NatureErreur.serveur:
+        if (prestigeNonDeploye) return this;
         return ApiLoadException('Erreur du serveur (code $code) lors du chargement des $quoi.', nature: nature, code: code);
       case NatureErreur.session:
       case NatureErreur.droit:
@@ -221,7 +235,7 @@ class ApiService {
     if (endpoint == AppConstants.authEndpoint && response.headers['set-cookie'] != null) {
       await setSessionCookie(response.headers['set-cookie']!);
     }
-    final decoded = _handleResponse(response, onSessionInvalid);
+    final decoded = await _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid));
     if (decoded == null) return <String, dynamic>{};
     if (decoded is! Map<String, dynamic>) {
       throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
@@ -241,7 +255,7 @@ class ApiService {
     }
     JournalApp.debug(JournalApp.requete('GET', uri));
     final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delai ?? delaiGet);
-    return _handleResponse(response, onSessionInvalid);
+    return _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid));
   }
 
   Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
@@ -255,7 +269,7 @@ class ApiService {
     }
     JournalApp.debug(JournalApp.requete('GET', uri));
     final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delaiGet);
-    return _handleResponse(response, onSessionInvalid);
+    return _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid));
   }
 
   Future<Map<String, dynamic>> delete(BuildContext context, String endpoint, {VoidCallback? onSessionInvalid}) async {
@@ -265,7 +279,7 @@ class ApiService {
     JournalApp.debug(JournalApp.requete('DELETE', url));
 
     final response = await _envoyer(() => client.delete(url, headers: _getHeaders()), delaiGet);
-    final decoded = _handleResponse(response, onSessionInvalid);
+    final decoded = await _verifier404(baseUrl, endpoint, () => _handleResponse(response, onSessionInvalid));
     if (decoded == null) return <String, dynamic>{};
     if (decoded is! Map<String, dynamic>) {
       throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
@@ -282,7 +296,7 @@ class ApiService {
     if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
     JournalApp.debug(JournalApp.requete('PUT', uri));
     final response = await _envoyer(() => client.put(uri, headers: _getHeaders()), delaiPost);
-    return _objet(_handleResponse(response, onSessionInvalid));
+    return _objet(await _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid)));
   }
 
   /// POST d'un corps JSON avec paramètres dans l'adresse (vague 3 : /rappels-habitude/marquer?statut=).
@@ -294,7 +308,7 @@ class ApiService {
     JournalApp.debug(JournalApp.requete('POST', uri));
     // [delai] : calcul long demandé explicitement (actualisation des rappels) ; sinon [delaiPost].
     final response = await _envoyer(() => client.post(uri, headers: _getHeaders(), body: jsonEncode(body)), delai ?? delaiPost);
-    return _objet(_handleResponse(response, onSessionInvalid));
+    return _objet(await _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid)));
   }
 
   static Map<String, dynamic> _objet(dynamic decoded) {
@@ -397,6 +411,38 @@ class ApiService {
     }
   }
 
+  /// Routes présentes sur TOUT serveur Prestige déployé (publiques ou de connexion) : un 404 y signifie que Prestige
+  /// n'est pas déployé (démarrage ou redéploiement de Payara), jamais « élément introuvable ».
+  static const routesToujoursPresentes = {AppConstants.authEndpoint, AppConstants.officineEndpoint, '/licence/find'};
+
+  /// 3.10.3 (pharmacien : distinguer « serveur injoignable » et « Prestige pas déployé ») : un 404 d'une autre route
+  /// peut être une réponse MÉTIER (élément introuvable) ou une route absente d'un serveur plus ancien… ou Prestige
+  /// pas déployé. Sur un tel 404 SEULEMENT (aucune requête de plus en fonctionnement normal), GET /officine lève le
+  /// doute : 404 ou 502 / 503 / 504 → Prestige n'est pas déployé ([ApiLoadException.nonDeploye]) ; sinon le 404 d'origine.
+  Future<dynamic> _verifier404(String base, String endpoint, dynamic Function() traiter) async {
+    try {
+      return traiter();
+    } on ApiLoadException catch (e) {
+      if (e.nature != NatureErreur.refus || e.code != 404) rethrow;
+      final chemin = endpoint.split('?').first;
+      if (routesToujoursPresentes.contains(chemin)) throw const ApiLoadException.nonDeploye(404);
+      if (await prestigeNonDeploye(base)) throw const ApiLoadException.nonDeploye(404);
+      rethrow;
+    }
+  }
+
+  /// GET /officine (route publique, toujours présente) : Prestige est-il absent du serveur ? Faux si /officine répond
+  /// ou si la vérification elle-même échoue (rien n'est conclu).
+  Future<bool> prestigeNonDeploye(String base) async {
+    try {
+      final r = await _envoyer(() => client.get(Uri.parse('$base${AppConstants.officineEndpoint}'), headers: _getHeaders()),
+          const Duration(seconds: 10));
+      return r.statusCode == 404 || ApiLoadException.codesIndisponible.contains(r.statusCode);
+    } catch (_) {
+      return false;
+    }
+  }
+
   dynamic _handleResponse(http.Response response, VoidCallback? onSessionInvalid) {
     final code = response.statusCode;
     if (code == 401 || (code != 200 && response.body.contains("Veuillez vous connecter"))) {
@@ -426,6 +472,8 @@ class ApiService {
       return decodedBody;
     }
     JournalApp.debug('Erreur serveur HTTP $code');
+    // 502 / 503 / 504 : le serveur répond mais Prestige n'est pas disponible (démarrage, redéploiement).
+    if (ApiLoadException.codesIndisponible.contains(code)) throw ApiLoadException.nonDeploye(code);
     if (code >= 500) {
       throw ApiLoadException('Erreur du serveur (code $code). Réessayez dans un instant.', nature: NatureErreur.serveur, code: code);
     }
@@ -574,6 +622,9 @@ class ApiService {
           return LicenceLookup.failure(e.code == 404 ? LicenceIssue.appNotFound : LicenceIssue.serverError, e.message);
         case NatureErreur.reponse:
           return LicenceLookup.failure(LicenceIssue.unexpectedResponse, e.message);
+        case NatureErreur.serveur when e.prestigeNonDeploye:
+          // Le serveur répond, Prestige n'est pas déployé (404 de Payara, 502 / 503 / 504) : cas 2 (3.10.3).
+          return LicenceLookup.failure(LicenceIssue.appNotFound, e.message);
         case NatureErreur.serveur:
         case NatureErreur.session:
         case NatureErreur.droit:

@@ -156,11 +156,11 @@ void main() {
       expect(app.auth.isLoading, isFalse);
     });
 
-    testWidgets('serveur arrêté (connexion refusée) à la connexion : « Serveur indisponible » (3.10.2)', (tester) async {
+    testWidgets('serveur arrêté (connexion refusée) à la connexion : « Serveur injoignable » (3.10.3, cas 1)', (tester) async {
       final app = await monter(tester);
       await tester.runAsync(serveur.arreter);
       final message = await appel(tester, () => app.auth.login(app.ctx, DonneesFictives.identifiant, DonneesFictives.motDePasse, false));
-      expect(message, ApiLoadException.messageServeurIndisponible);
+      expect(message, ApiLoadException.messageReseau);
     });
 
     testWidgets('« Rester connecté » : identifiant mémorisé, mot de passe dans le stockage sûr (pas en clair)', (tester) async {
@@ -200,11 +200,11 @@ void main() {
   });
 
   group('Natures d\'échec', () {
-    Future<Object?> echec(WidgetTester tester, ReponseFausse reponse) async {
+    Future<Object?> echec(WidgetTester tester, ReponseFausse reponse, {String route = '/officine'}) async {
       final app = await monter(tester);
       serveur.controlerSession = false;
-      serveur.quand('/officine', reponse);
-      return appel(tester, () => ApiService().get(app.ctx, '/officine'));
+      serveur.quand(route, reponse);
+      return appel(tester, () => ApiService().get(app.ctx, route));
     }
 
     testWidgets('500 : erreur serveur avec le code, page technique jamais affichée', (tester) async {
@@ -218,8 +218,14 @@ void main() {
       expect(await echec(tester, ReponseFausse.texte('Forbidden', statut: 403)), echecDeNature(NatureErreur.droit, code: 403));
     });
 
-    testWidgets('404 : demande refusée (code 404)', (tester) async {
-      expect(await echec(tester, ReponseFausse.introuvable()), echecDeNature(NatureErreur.refus, code: 404));
+    testWidgets('404 d\'une route de module (/officine répond) : demande refusée (code 404)', (tester) async {
+      expect(await echec(tester, ReponseFausse.introuvable(), route: '/fournisseurs'), echecDeNature(NatureErreur.refus, code: 404));
+    });
+
+    testWidgets('404 d\'une route toujours présente (/officine) : Prestige pas déployé (3.10.3)', (tester) async {
+      final e = await echec(tester, ReponseFausse.introuvable());
+      expect(e, echecDeNature(NatureErreur.serveur, code: 404));
+      expect((e as ApiLoadException).serveurIndisponible, isTrue);
     });
 
     testWidgets('réponse illisible (HTML en 200)', (tester) async {

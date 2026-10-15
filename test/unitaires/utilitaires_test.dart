@@ -95,7 +95,7 @@ void main() {
   group('ApiLoadException.pour : message précisé par ce qui n\'a pas été chargé', () {
     test('réseau, délai, serveur', () {
       expect(const ApiLoadException(ApiLoadException.messageReseau).pour('rayons').message,
-          'Serveur injoignable (rayons non chargés). Vérifiez le Wi-Fi ou les données mobiles puis réessayez.');
+          'Serveur injoignable (rayons non chargés). Vérifiez le Wi-Fi et que le PC serveur est allumé.');
       expect(const ApiLoadException(ApiLoadException.messageDelai, nature: NatureErreur.delai).pour('articles').message,
           contains('(articles non chargés)'));
       final e = const ApiLoadException('x', nature: NatureErreur.serveur, code: 503).pour('articles');

@@ -14,6 +14,7 @@
 //    ≠ licence ; licence absente → écran de licence.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/services/api_service.dart';
 import 'package:prestige_app/interface_version.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/alertes_accueil.dart';
@@ -445,7 +446,7 @@ void main() {
     await amenerEnVue(tester, find.byKey(const Key('alerte_ruptures_actualiser')), find.byKey(const Key('defilement_accueil')));
     await tester.runAsync(serveur.arreter);
     await tester.tap(find.byKey(const Key('alerte_ruptures_actualiser')));
-    await attendreTexte(tester, 'Serveur injoignable. Vérifiez le réseau.');
+    await attendreTexte(tester, ApiLoadException.messageReseau); // 3.10.3 : message du cas 1
     expect(find.text('Erreur du serveur (code 500).'), findsNothing, reason: 'le dernier échec remplace le précédent');
     expect(find.byType(LoginScreen), findsNothing);
     await terminer(tester);

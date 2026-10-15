@@ -113,7 +113,7 @@ void main() {
   testWidgets('application Prestige absente (404) ou erreur serveur : message dédié, pas de licence', (tester) async {
     licence = () => http.Response('Not Found', 404);
     await lancer(tester);
-    expect(find.text('Prestige introuvable à cette adresse'), findsOneWidget);
+    expect(find.text('Serveur indisponible'), findsOneWidget); // 3.10.3 : Prestige pas déployé (cas 2)
     licence = () => http.Response('<html>500</html>', 500);
     await tester.tap(find.byKey(const Key('injoignable_reessayer')));
     await tester.pump();

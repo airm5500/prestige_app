@@ -1,7 +1,8 @@
-// Parcours de bout en bout (3.10.2), application ENTIÈRE contre le faux serveur local (vrai réseau HTTP) :
-// redéploiement de Prestige pendant la connexion — /user/auth et /officine en 404 → « Serveur indisponible,
-// veuillez réessayer. » (aucun « 404 » à l'écran) ; Prestige revenu → réessai → accueil ; puis Prestige ARRÊTÉ (port
-// fermé, vraie connexion refusée) pendant l'écran de connexion → même message, jamais « Vérifiez le Wi-Fi ».
+// Parcours de bout en bout (3.10.2, revu en 3.10.3), application ENTIÈRE contre le faux serveur local (vrai réseau
+// HTTP) : redéploiement de Prestige pendant la connexion — /user/auth et /officine en 404 → « Serveur indisponible :
+// Prestige est en cours de démarrage ou de redéploiement… » (aucun « 404 » à l'écran) ; Prestige revenu → réessai →
+// accueil ; puis Prestige ARRÊTÉ (port fermé, vraie connexion refusée) → « Serveur injoignable. Vérifiez le Wi-Fi et
+// que le PC serveur est allumé. » (cas 1 du pharmacien).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -57,7 +58,7 @@ void main() {
       ..controlerSession = true;
   });
 
-  testWidgets('redéploiement (404) puis Prestige arrêté (connexion refusée) : « Serveur indisponible », puis connexion', (tester) async {
+  testWidgets('redéploiement (404) → « Serveur indisponible » → réessai → accueil ; Prestige arrêté (connexion refusée) → « Serveur injoignable »', (tester) async {
     telephone(tester);
     await lancerApplication(tester);
     await attendreWidget(tester, find.byType(LoginScreen));
@@ -92,8 +93,9 @@ void main() {
     ApiService.client.close();
     ApiService.client = http.Client();
     await valider(tester);
-    await attendreWidget(tester, find.text(ApiLoadException.messageServeurIndisponible));
-    expect(find.textContaining('Wi-Fi'), findsNothing, reason: 'serveur arrêté ≠ Wi-Fi coupé');
+    // 3.10.3 : PC serveur éteint ou Payara arrêté = cas 1 « Serveur injoignable… PC serveur allumé ».
+    await attendreWidget(tester, find.text(ApiLoadException.messageReseau));
+    expect(find.text(ApiLoadException.messageServeurIndisponible), findsNothing);
     await terminer(tester);
   });
 }
