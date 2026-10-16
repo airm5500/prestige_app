@@ -208,6 +208,11 @@ void main() {
     final avantAppui = etatSaisie(tester, champ);
     expect(tester.widget<TextField>(champ).controller!.text, '', reason: 'champ vidé avant l\'appui : $avantAppui');
     await toucher(tester, bouton);
+    // Le message remplace « Quantité enregistrée » : il s'affiche à la fin de la sortie de ce dernier, ce qui peut
+    // prendre quelques images de plus sur une machine chargée (CI, 3.11.0). On l'attend (2 s d'horloge au plus).
+    for (var i = 0; i < 40 && find.text('Quantité invalide (0 à 99999) : non enregistrée.').evaluate().isEmpty; i++) {
+      await stabiliser(tester, tours: 1);
+    }
     // Diagnostic complet en cas d'échec (CI) : champ avant / après l'appui, messages présents, envois.
     expect(find.text('Quantité invalide (0 à 99999) : non enregistrée.'), findsOneWidget,
         reason: 'avant l\'appui : $avantAppui ; après : ${etatSaisie(tester, champ)} ; messages : ${messagesAffiches()} ; '
