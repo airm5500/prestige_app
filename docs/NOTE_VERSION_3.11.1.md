@@ -61,6 +61,12 @@ Le premier ouvre **juste en dessous** un menu : Aujourd'hui (en tête, pour y re
 « Autres périodes » est retiré. Personnaliser est inchangé (calendrier). Mêmes périodes, **mêmes requêtes** (une par
 choix, mesuré). Les tests qui touchaient « Aujourd'hui » passent par le menu.
 
+## 5 bis. Correction relevée par la CI
+
+Écran de chargement (3.11.0) : la ligne « Étape n sur 4 · adresse:port » en gris sur le bas du dégradé avait un
+contraste de 4,41:1 sur Sunmi 1080 × 1920 (attendu 4,5:1 ; la longueur de l'adresse change la position du texte, d'où
+un écart vu sur la CI seulement). Les trois textes gris de l'écran passent au gris foncé de la charte (`grisTexte`).
+
 ## 6. Mesures (faux serveur en mémoire, local)
 
 | Mesure | Valeur |
