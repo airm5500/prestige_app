@@ -22,11 +22,13 @@ import '../composants.dart';
 import '../menus.dart';
 import '../modules/commun.dart';
 import '../modules/commun_lot2.dart' show messageResultat;
+import '../modules/commun_lot3.dart' show CadreGraphique;
 import '../modules/periode.dart';
 import '../vague1/alertes_vague1.dart';
 import '../vague2/commun_vague2.dart' show ChargementAnnulable, Variation;
 import '../vague2/donnees_vague2.dart' show grouperMilliers, pourcentTexte;
 import 'donnees_vague4.dart';
+import 'graphiques_vague4.dart';
 
 enum OngletBalance {
   balance('Balance'),
@@ -57,6 +59,9 @@ class _BalanceCaisseScreenState extends State<BalanceCaisseScreen> with SingleTi
   Object? _balanceErreur;
   int _genBalance = 0;
   bool _export = false;
+
+  /// Camembert de la Balance : par type de vente (sinon par mode de paiement), 3.11.1.
+  bool _repartitionParType = false;
 
   // Onglets Analyse et Modes (un seul appel commun).
   PeriodeAnalyse _type = PeriodeAnalyse.troisSemaines;
@@ -302,9 +307,33 @@ class _BalanceCaisseScreenState extends State<BalanceCaisseScreen> with SingleTi
         LigneDetail('Tiers payant', formaterMontant(r.montantTp)),
         LigneDetail('Différé', formaterMontant(r.montantDiff)),
       ]),
-      if (b.modes.isNotEmpty)
-        CarteSection(key: const Key('balance_modes'), titre: 'Part dans le chiffre d\'affaires', icone: Icons.donut_small_outlined, enfants: [
-          for (final m in b.modes) LigneDetail('${m.libelle} (${pourcentTexte(m.part)})', formaterMontant(m.montant)),
+      // 3.11.1 : camembert de la répartition (modes de paiement ou type de vente), légende avec montants et %.
+      if (b.modes.isNotEmpty || b.lignes.isNotEmpty)
+        CarteSection(key: const Key('balance_modes'), titre: 'Répartition du chiffre d\'affaires', icone: Icons.pie_chart_outline, enfants: [
+          if (b.modes.isNotEmpty && b.lignes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: PucesChoix<bool>(
+                choix: const [(false, 'Modes de paiement'), (true, 'Type de vente')],
+                valeur: _repartitionParType || b.modes.isEmpty,
+                cle: (v, _) => Key(v ? 'repartition_type' : 'repartition_modes'),
+                onChanged: (v) => setState(() => _repartitionParType = v),
+              ),
+            ),
+          if ((_repartitionParType || b.modes.isEmpty) && b.lignes.isNotEmpty)
+            CamembertParts(
+              key: const Key('repartition_type_vente'),
+              titre: 'Répartition par type de vente',
+              prefixeCle: 'repartition_type',
+              parts: [for (final l in b.lignes) (libelle: l.libelle, montant: l.valeurs.montantNet)],
+            )
+          else
+            CamembertParts(
+              key: const Key('repartition_modes_paiement'),
+              titre: 'Répartition par mode de paiement',
+              prefixeCle: 'repartition_modes',
+              parts: [for (final m in b.modes) (libelle: m.libelle, montant: m.montant)],
+            ),
         ]),
       if (b.caisse.isNotEmpty)
         CarteSection(key: const Key('balance_caisse'), titre: 'Caisse', icone: Icons.point_of_sale_outlined, enfants: [
@@ -377,7 +406,27 @@ class _BalanceCaisseScreenState extends State<BalanceCaisseScreen> with SingleTi
     if (a.periodes.isEmpty || a.modes.isEmpty) {
       return const [EtatVide(titre: 'Aucun mode de paiement', texte: 'Aucun encaissement pour ce choix.', icone: Icons.search_off)];
     }
+    final totalModes = [for (final m in a.modes) (libelle: m.libelle, montant: a.totalModes[m.id] ?? 0)];
     return [
+      // 3.11.1 : barres de l'évolution, une barre par période empilée par mode ; légende : total de chaque mode et %.
+      CarteSection(key: const Key('modes_graphique'), titre: 'Évolution par mode de paiement', icone: Icons.bar_chart, enfants: [
+        CadreGraphique(
+          hauteur: 220,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 12, 12, 4),
+            child: BarresEmpilees(
+              titre: 'Encaissements par période et par mode',
+              periodes: [for (final p in a.periodes) p.libelleCourt],
+              series: [for (final m in a.modes) m.libelle],
+              valeurs: [
+                for (final p in a.periodes) [for (final m in a.modes) p.parModes[m.id] ?? 0],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        LegendeParts(parts: totalModes, pourcents: pourcentages(totalModes), prefixeCle: 'modes'),
+      ]),
       for (var i = 0; i < a.periodes.length; i++)
         Padding(
           key: Key('modes_periode_$i'),

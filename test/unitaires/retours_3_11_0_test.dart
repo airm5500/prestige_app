@@ -28,10 +28,10 @@ void main() {
   setUpAll(() => initializeDateFormatting('fr_FR'));
 
   group('Sélecteur de période', () {
-    test('Aujourd\'hui, Hier, Personnaliser visibles ; 7 jours, Ce mois, Mois dernier dans « Autres périodes »', () {
-      expect(SelecteurPeriode.visibles, [PeriodeRapide.aujourdhui, PeriodeRapide.hier, PeriodeRapide.personnalisee]);
-      expect(SelecteurPeriode.autres, [PeriodeRapide.septJours, PeriodeRapide.ceMois, PeriodeRapide.moisDernier]);
-      expect({...SelecteurPeriode.visibles, ...SelecteurPeriode.autres}, PeriodeRapide.values.toSet(), reason: 'aucune période perdue');
+    test('3.11.1 : [Aujourd\'hui ▾] (Aujourd\'hui, 7 jours, Ce mois, Mois dernier), [Hier], [Personnaliser]', () {
+      expect(SelecteurPeriode.menu, [PeriodeRapide.aujourdhui, PeriodeRapide.septJours, PeriodeRapide.ceMois, PeriodeRapide.moisDernier]);
+      expect(SelecteurPeriode.boutons, [PeriodeRapide.hier, PeriodeRapide.personnalisee]);
+      expect({...SelecteurPeriode.menu, ...SelecteurPeriode.boutons}, PeriodeRapide.values.toSet(), reason: 'aucune période perdue');
     });
   });
 

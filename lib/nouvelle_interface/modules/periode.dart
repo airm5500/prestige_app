@@ -141,32 +141,26 @@ class SelecteurPeriode extends StatelessWidget {
     onChanged(Periode.personnalisee(choix.start, choix.end, now)!);
   }
 
-  /// 3.11.0 (demande du pharmacien) : « Aujourd'hui », « Hier » et « Personnaliser » toujours visibles, les autres
-  /// périodes dans un sélecteur déroulant (« Autres périodes ▾ ») : plus de puces cachées à droite de l'écran.
-  /// Les éléments passent à la ligne sur un écran étroit (rien n'est caché).
-  static const visibles = [PeriodeRapide.aujourdhui, PeriodeRapide.hier, PeriodeRapide.personnalisee];
-  static const autres = [PeriodeRapide.septJours, PeriodeRapide.ceMois, PeriodeRapide.moisDernier];
+  /// 3.11.1 (décision du pharmacien, modèle selecteur_periode_modele.png) : TROIS boutons seulement,
+  /// [Aujourd'hui ▾] [Hier] [Personnaliser]. Le premier ouvre, juste en dessous, un menu avec Aujourd'hui (en tête,
+  /// pour y revenir) puis les autres raccourcis, dans l'ordre d'avant ; un raccourci choisi donne son nom au bouton
+  /// (« Ce mois ▾ »), qui reste en surbrillance. Plus de bouton « Autres périodes ». Mêmes périodes, mêmes requêtes.
+  static const menu = [PeriodeRapide.aujourdhui, PeriodeRapide.septJours, PeriodeRapide.ceMois, PeriodeRapide.moisDernier];
+  static const boutons = [PeriodeRapide.hier, PeriodeRapide.personnalisee];
 
   @override
   Widget build(BuildContext context) {
-    final autreChoisie = autres.contains(periode.choix);
+    final duMenu = menu.contains(periode.choix);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Wrap(key: const Key('periode_puces'), spacing: 6, children: [
-        for (final c in visibles)
-          _Puce(
-            cle: Key('periode_${c.name}'),
-            texte: c == PeriodeRapide.personnalisee ? 'Personnaliser' : c.libelle,
-            icone: c == PeriodeRapide.personnalisee ? Icons.date_range_outlined : null,
-            choisie: c == periode.choix,
-            onTap: () => c == PeriodeRapide.personnalisee ? _personnaliser(context) : onChanged(Periode.rapide(c, maintenant())),
-          ),
         PopupMenuButton<PeriodeRapide>(
           key: const Key('periode_autres'),
-          tooltip: 'Autres périodes',
-          initialValue: autreChoisie ? periode.choix : null,
+          tooltip: 'Choisir la période',
+          position: PopupMenuPosition.under,
+          initialValue: duMenu ? periode.choix : null,
           onSelected: (c) => onChanged(Periode.rapide(c, maintenant())),
           itemBuilder: (_) => [
-            for (final c in autres)
+            for (final c in menu)
               PopupMenuItem(
                 key: Key('periode_${c.name}'),
                 value: c,
@@ -175,11 +169,19 @@ class SelecteurPeriode extends StatelessWidget {
               ),
           ],
           child: _Puce(
-            texte: autreChoisie ? periode.choix.libelle : 'Autres périodes',
+            texte: duMenu ? periode.choix.libelle : PeriodeRapide.aujourdhui.libelle,
             iconeFin: Icons.arrow_drop_down,
-            choisie: autreChoisie,
+            choisie: duMenu,
           ),
         ),
+        for (final c in boutons)
+          _Puce(
+            cle: Key('periode_${c.name}'),
+            texte: c == PeriodeRapide.personnalisee ? 'Personnaliser' : c.libelle,
+            icone: c == PeriodeRapide.personnalisee ? Icons.date_range_outlined : null,
+            choisie: c == periode.choix,
+            onTap: () => c == PeriodeRapide.personnalisee ? _personnaliser(context) : onChanged(Periode.rapide(c, maintenant())),
+          ),
       ]),
       Padding(
         padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),

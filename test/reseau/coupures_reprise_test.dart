@@ -126,9 +126,13 @@ void main() {
       expect(erreursAffichees(), findsNothing);
       // Nouvelle coupure, puis changement de période : message réseau, pas de liste vide.
       serveur.coupe = true;
-      await tester.ensureVisible(cle(cycle.isOdd ? 'periode_hier' : 'periode_aujourdhui'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(cle(cycle.isOdd ? 'periode_hier' : 'periode_aujourdhui'));
+      if (cycle.isOdd) {
+        await tester.ensureVisible(cle('periode_hier'));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(cle('periode_hier'));
+      } else {
+        await choisirAutrePeriode(tester, 'aujourdhui'); // 3.11.1 : dans le menu du premier bouton
+      }
       await laisser(tester);
     }
     serveur.coupe = false;

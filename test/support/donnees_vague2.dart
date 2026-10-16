@@ -318,6 +318,12 @@ class DonneesVague2 {
             for (final m in ['07', '08', '09', '10'])
               {'cle': '2026-$m', 'libelle': '$m/2026', 'debut': '2026-$m-01', 'fin': '2026-$m-28', 'enCours': m == '10'},
           ],
+        // Période libre courte : jour par jour (3.11.1), comme le serveur (granularité JOUR).
+        'LIBRE' => [
+            for (final (d, l) in [('2026-10-08', 'Jeu 08/10'), ('2026-10-09', 'Ven 09/10'), ('2026-10-10', 'Sam 10/10'), ('2026-10-11', 'Dim 11/10'),
+              ('2026-10-12', 'Lun 12/10'), ('2026-10-13', 'Mar 13/10'), ('2026-10-14', 'Mer 14/10')])
+              {'cle': d, 'libelle': l, 'debut': d, 'fin': d, 'enCours': d == '2026-10-14'},
+          ],
         _ => [
             for (final (s, l) in [('2026-W39', 'S39 (21/09-27/09)'), ('2026-W40', 'S40 (28/09-04/10)'), ('2026-W41', 'S41 (05/10-11/10)'), ('2026-W42', 'S42 (12/10-14/10)')])
               {'cle': s, 'libelle': l, 'debut': '', 'fin': '', 'enCours': s == '2026-W42'},
@@ -326,6 +332,7 @@ class DonneesVague2 {
 
   static Map<String, Object?> caZone(Map<String, String> p) {
     final tranches = tranchesCa(p['typePeriode'] ?? 'TROIS_SEMAINES');
+    final jourParJour = p['typePeriode'] == 'LIBRE';
     final reg = p['regroupement'] ?? 'ZONE';
     final lignes = <Map<String, Object?>>[];
     final base = [('ZONE-TEST-1', 'RAYON A', 'FAM-TEST-1', 'ANTALGIQUES FICTIFS', 100000), ('ZONE-TEST-2', 'RAYON B', 'FAM-TEST-2', 'SIROPS IMAGINAIRES', 60000)];
@@ -342,12 +349,14 @@ class DonneesVague2 {
       };
       var total = 0;
       int? precedent;
+      // Jour par jour : hausses, baisses, dimanche fermé (0) puis reprise.
+      const jours = [1.0, 1.2, 0.9, 0.0, 1.3, 1.1, 1.1];
       for (var i = 0; i < tranches.length; i++) {
         final cle = tranches[i]['cle']! as String;
-        final v = m + i * 10000;
+        final v = jourParJour ? (m * jours[i % jours.length]).round() : m + i * 10000;
         l['t_$cle'] = v;
         l['q_$cle'] = v ~/ 1000;
-        l['e_$cle'] = precedent == null ? null : ((v - precedent) * 1000 / precedent).round() / 10;
+        l['e_$cle'] = precedent == null || precedent == 0 ? null : ((v - precedent) * 1000 / precedent).round() / 10;
         precedent = v;
         total += v;
         totaux[cle] = (totaux[cle] ?? 0) + v;
@@ -361,9 +370,18 @@ class DonneesVague2 {
       'data': lignes,
       'total': lignes.length,
       'tranches': tranches,
-      'granularite': 'SEMAINE',
+      'granularite': jourParJour ? 'JOUR' : 'SEMAINE',
       'totauxTranches': totaux,
-      'evolutionsTranches': {for (var i = 0; i < tranches.length; i++) tranches[i]['cle']! as String: i == 0 ? null : 8.5},
+      'evolutionsTranches': {
+        for (var i = 0; i < tranches.length; i++)
+          tranches[i]['cle']! as String: i == 0
+              ? null
+              : jourParJour
+                  ? (totaux[tranches[i - 1]['cle']]! == 0
+                      ? null
+                      : ((totaux[tranches[i]['cle']]! - totaux[tranches[i - 1]['cle']]!) * 1000 / totaux[tranches[i - 1]['cle']]!).round() / 10)
+                  : 8.5,
+      },
       'totalGeneral': lignes.fold<int>(0, (s, l) => s + (l['total']! as int)),
       'margeGenerale': 150000,
       'montantHtGeneral': 600000,

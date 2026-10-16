@@ -149,8 +149,8 @@ String resumerErreur(FlutterErrorDetails details) {
   return lieu == null ? court : '$court ($lieu)';
 }
 
-/// 3.11.0 : choisit une période du sélecteur déroulant « Autres périodes » (7 jours, Ce mois, Mois dernier) :
-/// ouvre le sélecteur, puis touche la période (clé `periode_<nom>`).
+/// Choisit une période du menu du premier bouton du sélecteur (3.11.1 : [Aujourd'hui ▾] → Aujourd'hui, 7 jours,
+/// Ce mois, Mois dernier) : ouvre le menu (clé `periode_autres`), puis touche la période (clé `periode_<nom>`).
 Future<void> choisirAutrePeriode(WidgetTester tester, String nom) async {
   await tester.ensureVisible(find.byKey(const Key('periode_autres')).first);
   await tester.pump(const Duration(milliseconds: 200));

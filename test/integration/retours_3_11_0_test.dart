@@ -85,12 +85,16 @@ void main() {
   testWidgets('sélecteur de période : Aujourd\'hui, Hier, Personnaliser visibles ; « Autres périodes » → 7 jours, affiché et envoyé', (tester) async {
     ecran(tester);
     await monter(tester, () => const DetailCaNouveau());
-    for (final c in ['periode_aujourdhui', 'periode_hier', 'periode_personnalisee', 'periode_autres']) {
+    // 3.11.1 : trois boutons, [Aujourd'hui ▾] [Hier] [Personnaliser] ; plus de « Autres périodes ».
+    for (final c in ['periode_autres', 'periode_hier', 'periode_personnalisee']) {
       expect(find.byKey(Key(c)).hitTestable(), findsOneWidget, reason: '$c visible sans défiler');
     }
     expect(find.text('Personnaliser'), findsOneWidget);
-    expect(find.byKey(const Key('periode_septJours')), findsNothing, reason: 'dans le sélecteur déroulant');
+    expect(find.text('Autres périodes'), findsNothing);
+    expect(find.descendant(of: find.byKey(const Key('periode_autres')), matching: find.text('Aujourd\'hui')), findsOneWidget);
+    expect(find.byKey(const Key('periode_septJours')), findsNothing, reason: 'dans le menu du premier bouton');
     await toucher(tester, find.byKey(const Key('periode_autres')));
+    expect(find.byKey(const Key('periode_aujourdhui')), findsOneWidget, reason: 'en tête du menu');
     expect(find.byKey(const Key('periode_ceMois')), findsOneWidget);
     await tester.tap(find.byKey(const Key('periode_septJours')).last);
     await pomper(tester);

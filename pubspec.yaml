@@ -3,7 +3,7 @@ description: Application de gestion Prestige.
 
 publish_to: 'none'
 
-version: 3.11.0+45
+version: 3.11.1+46
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

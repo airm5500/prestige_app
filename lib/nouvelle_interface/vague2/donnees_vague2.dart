@@ -1454,6 +1454,13 @@ class FiltresCa {
       };
 }
 
+/// Évolution d'une tranche par rapport à la précédente, en %, arrondie au dixième comme le serveur ; null pour la
+/// première tranche ou si la précédente est nulle.
+double? evolutionTranche(int? precedent, int courant) {
+  if (precedent == null || precedent == 0) return null;
+  return ((courant - precedent) * 1000 / precedent).round() / 10;
+}
+
 class TrancheCa {
   final String cle;
   final String libelle;
@@ -1505,9 +1512,19 @@ class LigneCa {
         marge: entierTolerant(j['marge']),
         pourcentageMarge: decimalOuNull(j['pourcentageMarge']),
         evolution: decimalOuNull(j['evolution']),
-        tranches: {
-          for (final t in tranches) t.cle: ValeurTranche(entierTolerant(j['t_${t.cle}']), entierTolerant(j['q_${t.cle}']), decimalOuNull(j['e_${t.cle}'])),
-        },
+        tranches: () {
+          // 3.11.1 : évolution par rapport à la tranche précédente (le jour précédent en vue jour par jour) ; celle du
+          // serveur (e_<cle>) si elle est envoyée, sinon calculée ici, de la même façon (CaZoneGeoServiceImpl.evolution).
+          final m = <String, ValeurTranche>{};
+          int? precedent;
+          for (final t in tranches) {
+            final montant = entierTolerant(j['t_${t.cle}']);
+            final e = j.containsKey('e_${t.cle}') ? decimalOuNull(j['e_${t.cle}']) : evolutionTranche(precedent, montant);
+            m[t.cle] = ValeurTranche(montant, entierTolerant(j['q_${t.cle}']), e);
+            precedent = montant;
+          }
+          return m;
+        }(),
       );
 
   ValeurTranche de(String cle) => tranches[cle] ?? const ValeurTranche(0, 0, null);
@@ -1581,7 +1598,16 @@ class ComparatifCa {
       totauxTranches: {
         for (final t in tranches) t.cle: tt.containsKey(t.cle) ? entierTolerant(tt[t.cle]) : lignes.fold(0, (s, l) => s + l.de(t.cle).montant),
       },
-      evolutionsTranches: {for (final t in tranches) t.cle: decimalOuNull(et[t.cle])},
+      evolutionsTranches: () {
+        final m = <String, double?>{};
+        int? precedent;
+        for (final t in tranches) {
+          final montant = tt.containsKey(t.cle) ? entierTolerant(tt[t.cle]) : lignes.fold(0, (s, l) => s + l.de(t.cle).montant);
+          m[t.cle] = et.containsKey(t.cle) ? decimalOuNull(et[t.cle]) : evolutionTranche(precedent, montant);
+          precedent = montant;
+        }
+        return m;
+      }(),
       totalGeneral: j.containsKey('totalGeneral') ? entierTolerant(j['totalGeneral']) : lignes.fold(0, (s, l) => s + l.total),
       margeGenerale: entierTolerant(j['margeGenerale']),
       pourcentageMargeGeneral: decimalOuNull(j['pourcentageMargeGeneral']),

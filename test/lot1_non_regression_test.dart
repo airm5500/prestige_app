@@ -96,7 +96,7 @@ Future<void> demonter(WidgetTester tester) async {
 /// Puce de période du nouvel écran (amenée à l'écran : les puces défilent horizontalement).
 Future<void> choisirPeriode(WidgetTester tester, String nom) async {
   // 3.11.0 : 7 jours, Ce mois et Mois dernier sont dans le sélecteur « Autres périodes ».
-  if (const {'septJours', 'ceMois', 'moisDernier'}.contains(nom)) return choisirAutrePeriode(tester, nom);
+  if (const {'aujourdhui', 'septJours', 'ceMois', 'moisDernier'}.contains(nom)) return choisirAutrePeriode(tester, nom);
   await tester.ensureVisible(find.byKey(Key('periode_$nom')));
   await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(find.byKey(Key('periode_$nom')));

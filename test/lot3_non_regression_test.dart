@@ -191,8 +191,8 @@ void main() {
     // requête que l'origine.
     final ouvertureN = params(routeTableau);
     serveur.oublierRequetes();
-    await tester.ensureVisible(find.byKey(const Key('periode_aujourdhui')));
-    await toucher(tester, find.byKey(const Key('periode_aujourdhui')));
+    await choisirAutrePeriode(tester, 'aujourdhui'); // 3.11.1 : dans le menu du premier bouton
+    await pomper(tester, 8);
     final jourN = params(routeTableau);
     final graphiquesN = <String, List<List<FlSpot>>>{};
     for (final nom in ['comparee', 'achats', 'ventes']) {

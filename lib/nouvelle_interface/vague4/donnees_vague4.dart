@@ -171,6 +171,14 @@ class PeriodeBalance {
   final Map<String, double?> evolutionsModes;
   const PeriodeBalance(this.libelle, this.enCours, this.valeurs, this.evolutions, this.parModes, this.evolutionsModes);
 
+  /// Libellé court pour l'axe d'un graphique : sans la précision entre parenthèses (« S39 (21/09-27/09) » → « S39 »),
+  /// 8 caractères au plus.
+  String get libelleCourt {
+    final i = libelle.indexOf(' (');
+    final t = (i > 0 ? libelle.substring(0, i) : libelle).trim();
+    return t.length <= 8 ? t : t.substring(0, 8);
+  }
+
   factory PeriodeBalance.depuis(Map<String, dynamic> j) {
     final e = _carte(j['evolutions']);
     return PeriodeBalance(

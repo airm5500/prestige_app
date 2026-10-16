@@ -263,6 +263,16 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
       CarteSection(key: const Key('ca_totaux_tranches'), enfants: [
         for (final t in d.tranches) _LigneTranche(t, d.totauxTranches[t.cle] ?? 0, d.evolutionsTranches[t.cle]),
       ]),
+      // 3.11.1 : ce que mesure le pourcentage de chaque ligne (en vue jour par jour : le jour précédent).
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+        child: Text(
+            d.granularite == 'JOUR'
+                ? 'Flèche et % : évolution par rapport au jour précédent (vert : hausse, rouge : baisse).'
+                : 'Flèche et % : évolution par rapport à la tranche précédente (vert : hausse, rouge : baisse).',
+            key: const Key('ca_legende_evolution'),
+            style: const TextStyle(color: Charte.grisTexte, fontSize: 12.5)),
+      ),
       TitreSection('Par ${f.regroupement.libelle.toLowerCase()} (${grouperMilliers(d.lignes.length)})'),
       // Largeur utile = largeur de l'écran − marges de la liste (16 + 16), comme le LayoutBuilder d'origine.
       if (MediaQuery.sizeOf(context).width - 32 >= largeurTableau)
@@ -376,6 +386,7 @@ class _LigneTranche extends StatelessWidget {
   Widget build(BuildContext context) {
     final commentaires = [if (t.enCours) 'en cours', if (quantite != null) '${grouperMilliers(quantite!)} u.'];
     return Padding(
+      key: Key('tranche_${t.cle}'),
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [

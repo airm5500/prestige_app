@@ -33,6 +33,7 @@ import 'cas_lot3.dart';
 import 'cas_lot4.dart';
 import 'cas_retours_3_10_0.dart';
 import 'cas_retours_3_11_0.dart';
+import 'cas_retours_3_11_1.dart';
 import 'cas_retours_3_9_0.dart';
 
 /// [ouvrir] dans la nouvelle interface, présentation [p] (données de l'accueil A fournies par le serveur).
@@ -131,6 +132,7 @@ final casAffichageNouvelle = <CasAffichage>[
   ...casRetours390,
   ...casRetours3100,
   ...casRetours3110,
+  ...casRetours3111,
 ];
 
 /// États supplémentaires des modules d'origine encore ouverts dans la nouvelle interface (ceux d'Analyse et de Fiche

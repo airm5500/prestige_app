@@ -133,10 +133,13 @@ class DonneesVague4 {
 
   static List<int> _heures(int base) => [for (var h = 0; h < 24; h++) h >= 8 && h <= 20 ? base + (h % 5) * 3 : 0];
 
+  /// La veille (3.11.1) : décalée de deux heures, pour avoir des hausses, des baisses et des égalités.
+  static List<int> _heuresVeille(int base) => [for (var h = 0; h < 24; h++) h >= 8 && h <= 20 ? base + ((h + 2) % 5) * 3 : 0];
+
   static Map<String, Object?> frequentationPilotage(String jour) => {
         'success': true,
-        'courante': {'libelle': 'Période regardée', 'debut': jour, 'fin': jour, 'jours': 1, 'ventesH': _heures(4), 'caH': _heures(40000)},
-        'reference': {'libelle': 'Période précédente', 'debut': jour, 'fin': jour, 'jours': 1, 'ventesH': _heures(3), 'caH': _heures(30000)},
+        'courante': {'libelle': 'Période regardée', 'debut': jour, 'fin': jour, 'jours': 1, 'ventesH': _heures(4), 'caH': [for (final v in _heures(4)) v * 9500]},
+        'reference': {'libelle': 'Période précédente', 'debut': jour, 'fin': jour, 'jours': 1, 'ventesH': _heuresVeille(4), 'caH': [for (final v in _heuresVeille(4)) v * 9500]},
         'periode': jour,
       };
 

@@ -151,7 +151,9 @@ void main() {
     final hier = DateTime.now().subtract(const Duration(days: 1));
     String j(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     await attendreQue(tester, () => serveur.recues('/pilotage/suivi/frequentation').last.parametres['dtStart'] == j(hier), raison: 'hier');
-    await tester.scrollUntilVisible(find.byKey(const Key('top_familles')), 300, scrollable: defilement, maxScrolls: 30);
+    // hitTestable : la carte peut déjà exister hors de l'écran (gardée en mémoire après un premier passage, 3.11.1 :
+    // fréquentation plus haute) ; on défile jusqu'à ce qu'elle soit vraiment à l'écran.
+    await tester.scrollUntilVisible(find.byKey(const Key('top_familles')).hitTestable(), 300, scrollable: defilement, maxScrolls: 30);
     await toucher(tester, find.byKey(const Key('top_familles')));
     await attendreQue(tester, () => serveur.recues('/tableau-bord/emplacements').last.parametres['axe'] == 'famille', raison: 'familles');
     await attendreTexte(tester, '1. FAMILLE FICTIVE 0');
