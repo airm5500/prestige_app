@@ -107,7 +107,7 @@ Future<DateTime?> choisirJour(BuildContext context, DateTime initiale, {String? 
   return d == null ? null : Periode.jour(d);
 }
 
-/// Puces de période (défilement horizontal) et résumé des dates. « Personnalisée » ouvre le calendrier (dates
+/// Puces de période (Aujourd'hui, Hier, Personnaliser), sélecteur « Autres périodes » et résumé des dates. « Personnaliser » ouvre le calendrier (dates
 /// futures et antérieures à 2000 grisées) puis contrôle la période choisie.
 class SelecteurPeriode extends StatelessWidget {
   final Periode periode;
@@ -141,47 +141,67 @@ class SelecteurPeriode extends StatelessWidget {
     onChanged(Periode.personnalisee(choix.start, choix.end, now)!);
   }
 
+  /// 3.11.0 (demande du pharmacien) : « Aujourd'hui », « Hier » et « Personnaliser » toujours visibles, les autres
+  /// périodes dans un sélecteur déroulant (« Autres périodes ▾ ») : plus de puces cachées à droite de l'écran.
+  /// Les éléments passent à la ligne sur un écran étroit (rien n'est caché).
+  static const visibles = [PeriodeRapide.aujourdhui, PeriodeRapide.hier, PeriodeRapide.personnalisee];
+  static const autres = [PeriodeRapide.septJours, PeriodeRapide.ceMois, PeriodeRapide.moisDernier];
+
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        SingleChildScrollView(
-          key: const Key('periode_puces'),
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (final c in PeriodeRapide.values)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: _Puce(
-                  cle: Key('periode_${c.name}'),
-                  texte: c.libelle,
-                  icone: c == PeriodeRapide.personnalisee ? Icons.date_range_outlined : null,
-                  choisie: c == periode.choix,
-                  onTap: () => c == PeriodeRapide.personnalisee ? _personnaliser(context) : onChanged(Periode.rapide(c, maintenant())),
-                ),
-              ),
-          ]),
+  Widget build(BuildContext context) {
+    final autreChoisie = autres.contains(periode.choix);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Wrap(key: const Key('periode_puces'), spacing: 6, children: [
+        for (final c in visibles)
+          _Puce(
+            cle: Key('periode_${c.name}'),
+            texte: c == PeriodeRapide.personnalisee ? 'Personnaliser' : c.libelle,
+            icone: c == PeriodeRapide.personnalisee ? Icons.date_range_outlined : null,
+            choisie: c == periode.choix,
+            onTap: () => c == PeriodeRapide.personnalisee ? _personnaliser(context) : onChanged(Periode.rapide(c, maintenant())),
+          ),
+        PopupMenuButton<PeriodeRapide>(
+          key: const Key('periode_autres'),
+          tooltip: 'Autres périodes',
+          initialValue: autreChoisie ? periode.choix : null,
+          onSelected: (c) => onChanged(Periode.rapide(c, maintenant())),
+          itemBuilder: (_) => [
+            for (final c in autres)
+              PopupMenuItem(key: Key('periode_${c.name}'), value: c, height: 48, child: Text(c.libelle, style: const TextStyle(fontSize: 15))),
+          ],
+          child: _Puce(
+            texte: autreChoisie ? periode.choix.libelle : 'Autres périodes',
+            iconeFin: Icons.arrow_drop_down,
+            choisie: autreChoisie,
+          ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
-          child: Row(children: [
-            const Icon(Icons.event_outlined, size: 16, color: Charte.gris),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(periode.resume,
-                  key: const Key('periode_resume'), style: const TextStyle(color: Charte.gris, fontSize: 13, fontWeight: FontWeight.w600)),
-            ),
-          ]),
-        ),
-      ]);
+      ]),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+        child: Row(children: [
+          const Icon(Icons.event_outlined, size: 16, color: Charte.gris),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(periode.resume,
+                key: const Key('periode_resume'), style: const TextStyle(color: Charte.gris, fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      ),
+    ]);
+  }
 }
 
 /// Puce de période : bleu nuit et texte blanc si choisie, blanche et texte bleu sinon (≥ 48 dp de haut).
 class _Puce extends StatelessWidget {
-  final Key cle;
+  final Key? cle;
   final String texte;
   final IconData? icone;
+  final IconData? iconeFin;
   final bool choisie;
-  final VoidCallback onTap;
-  const _Puce({required this.cle, required this.texte, this.icone, required this.choisie, required this.onTap});
+
+  /// Null : la puce sert d'apparence au sélecteur déroulant (c'est lui qui reçoit le toucher).
+  final VoidCallback? onTap;
+  const _Puce({this.cle, required this.texte, this.icone, this.iconeFin, required this.choisie, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +227,7 @@ class _Puce extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 if (icone != null) ...[Icon(icone, size: 16, color: fg), const SizedBox(width: 4)],
                 Text(texte, style: TextStyle(color: fg, fontSize: 14, fontWeight: FontWeight.w700)),
+                if (iconeFin != null) Icon(iconeFin, size: 20, color: fg),
               ]),
             ),
           ),

@@ -11,6 +11,7 @@ const routesInterditesTestees = <String>[
   '/analyse-commande/parametres',
   '/pilotage/recalculer',
   '/pilotage/charges',
+  '/pilotage/controler', // 3.11.0 : contrôle des chiffres retiré du mobile
   '/ca-zone-geo/detail/inventaire',
   '/gardes/supprimer',
   '/gardes/GARDE-TEST-1/inventaire',

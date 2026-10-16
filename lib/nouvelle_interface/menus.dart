@@ -117,7 +117,12 @@ class MenuModule {
 
   /// Réservé à l'administrateur et au pharmacien (nouveaux menus et Valorisation, vague1/profil_acces.dart).
   final bool responsables;
-  const MenuModule(this.titre, this.sousTitre, this.icone, this.famille, this.question, this.ecran, {this.responsables = false});
+
+  /// Menu absent pour l'administrateur et le pharmacien, qui l'ont DANS un autre menu (3.11.0 : « Evolution Stock »,
+  /// ouverte par le bouton « Évolution du stock » de la Valorisation, réservée à eux). Les autres profils le gardent.
+  final bool inclusPourResponsables;
+  const MenuModule(this.titre, this.sousTitre, this.icone, this.famille, this.question, this.ecran,
+      {this.responsables = false, this.inclusPourResponsables = false});
 
   /// Format attendu par l'écran « Personnaliser l'accueil » (commun aux deux interfaces).
   Map<String, dynamic> get pourPersonnalisation => {'title': titre, 'icon': icone, 'color': Charte.navy};
@@ -161,7 +166,7 @@ final menusModules = <MenuModule>[
   MenuModule('Suivi Péremption', 'Produits bientôt périmés', Icons.warning_amber_rounded, Famille.stock, Question.commander,
       () => const SuiviPeremptionNouveau()),
   MenuModule('Evolution Stock', 'Valeur du stock dans le temps', Icons.ssid_chart_outlined, Famille.stock, Question.commander,
-      () => const EvolutionStockNouveau()),
+      () => const EvolutionStockNouveau(), inclusPourResponsables: true), // dans la Valorisation (3.11.0)
   MenuModule('Valorisation', 'Valeur du stock à une date', Icons.inventory_2_outlined, Famille.stock, Question.commander,
       () => const ValorisationVague1(), responsables: true), // réservée (décision du pharmacien, 3.1.0)
   MenuModule('Suivi Ajustements', 'Corrections de stock', Icons.rule_folder_outlined, Famille.stock, Question.commander,
@@ -209,7 +214,10 @@ final menusModules = <MenuModule>[
 /// pharmacien. Sert à l'accueil, à la recherche et à « Personnaliser l'accueil ».
 List<MenuModule> menusAutorises() {
   final responsable = ProfilAcces.responsable;
-  return [for (final m in menusModules) if (responsable || !m.responsables) m];
+  return [
+    for (final m in menusModules)
+      if (responsable ? !m.inclusPourResponsables : !m.responsables) m,
+  ];
 }
 
 /// Menus affichés : ordre de « Personnaliser l'accueil », menus masqués et menus non autorisés retirés.

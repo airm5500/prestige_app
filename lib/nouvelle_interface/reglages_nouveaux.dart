@@ -155,10 +155,16 @@ class OngletReglages extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
+              // 3.11.0 : même icône que le bouton de l'en-tête de Prestige web, en rouge (rouge foncé pour la lisibilité du texte).
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                key: const Key('reglages_deconnexion'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: Charte.rougeTexte,
+                  side: const BorderSide(color: Charte.rougeTexte),
+                ),
                 onPressed: () => Provider.of<AuthProvider>(context, listen: false).logout(context),
-                icon: const Icon(Icons.logout),
+                icon: const Icon(Icons.power_settings_new),
                 label: const Text('Se déconnecter'),
               ),
             ],

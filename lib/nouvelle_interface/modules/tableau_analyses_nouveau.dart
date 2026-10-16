@@ -6,6 +6,9 @@
 // avec le choix Comparée / Achats / Ventes (les trois écrans d'origine), lisible sur téléphone (légende, axes
 // abrégés, valeurs au toucher ; achats en pointillés à marqueurs carrés, ventes en trait plein à marqueurs ronds),
 // jour par jour (cartes sur téléphone, tableau sur tablette), détail d'un jour en feuille.
+// 3.11.0 (demandes du pharmacien) : jour par jour, montant des achats en gras et taux d'évolution des ventes par
+// rapport à la veille (jour précédent de la liste ; sa date est écrite si ce n'est pas la veille), avec flèche
+// hausse / baisse et le mot « Hausse » / « Baisse » pour le lecteur d'écran.
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -119,7 +122,7 @@ class _TableauAnalysesNouveauState extends State<TableauAnalysesNouveau> with Ch
       if (l.length < 2)
         const Encadre(
           titre: 'Un seul jour',
-          texte: 'Choisissez « 7 jours », « Ce mois » ou une période personnalisée pour voir l\'évolution sur plusieurs jours.',
+          texte: 'Choisissez « Autres périodes » (7 jours, ce mois…) ou « Personnaliser » pour voir l\'évolution sur plusieurs jours.',
           icone: Icons.show_chart,
           avertissement: true,
         )
@@ -134,26 +137,96 @@ class _TableauAnalysesNouveauState extends State<TableauAnalysesNouveau> with Ch
         const Text('Touchez la courbe pour lire les montants d\'un jour.', style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
       ],
       const TitreSection('Jour par jour'),
-      ListeOuTableau(
-        nombre: l.length,
-        onTap: (i) => _detail(l[i]),
-        colonnes: const [
-          Colonne('Date', flex: 2),
-          Colonne('Achats', flex: 3, droite: true),
-          Colonne('Ventes', flex: 3, droite: true),
-          Colonne('Ratio', flex: 2, droite: true),
-        ],
-        cellules: (i) => [_date(l[i]), formaterMontant(l[i].montantAchat), formaterMontant(l[i].montantVente), formaterRatio(l[i].ratio)],
-        total: ['Total', formaterMontant(achats), formaterMontant(ventes), formaterRatio(ratio)],
-        carte: (i) => CarteLigne(
-          titre: _date(l[i]),
-          lignes: ['Achats ${formaterMontant(l[i].montantAchat)}', 'Ratio ${formaterRatio(l[i].ratio)}'],
-          libelleValeur: 'Ventes',
-          valeur: formaterMontant(l[i].montantVente),
-          onTap: () => _detail(l[i]),
-        ),
-      ),
+      _JourParJour(lignes: l, total: ['Total', formaterMontant(achats), formaterMontant(ventes), '', formaterRatio(ratio)], detail: _detail),
     ];
+  }
+}
+
+/// Évolution des ventes d'un jour par rapport au jour précédent de la liste : (pourcentage, libellé « veille » ou
+/// date du jour comparé) ; null pour le premier jour ou si le jour précédent n'a pas de vente.
+(double, String)? evolutionVeille(List<TableauBordAchatsVentes> l, int i) {
+  if (i <= 0 || i >= l.length) return null;
+  final avant = l[i - 1], jour = l[i];
+  if (avant.montantVente == 0) return null;
+  final p = (jour.montantVente - avant.montantVente) / avant.montantVente * 100;
+  final d0 = avant.dateMvt, d1 = jour.dateMvt;
+  final veille = d0 != null && d1 != null && DateTime(d1.year, d1.month, d1.day).difference(DateTime(d0.year, d0.month, d0.day)).inDays == 1;
+  return (p, veille || d0 == null ? 'veille' : DateFormat('dd/MM').format(d0));
+}
+
+String _texteEvolution((double, String) e) => '${e.$1 > 0 ? '+' : (e.$1 < 0 ? '−' : '')}${e.$1.abs().toStringAsFixed(1).replaceAll('.', ',')} % vs ${e.$2}';
+
+/// Flèche (hausse / baisse / stable) et taux d'évolution des ventes ; vert en hausse, rouge en baisse.
+class EvolutionVentesJour extends StatelessWidget {
+  final (double, String)? evolution;
+  const EvolutionVentesJour(this.evolution, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = evolution;
+    if (e == null) return const SizedBox.shrink();
+    final (icone, mot, couleur) = e.$1 > 0
+        ? (Icons.arrow_upward, 'Hausse', Charte.vertTexte)
+        : e.$1 < 0
+            ? (Icons.arrow_downward, 'Baisse', Charte.rougeTexte)
+            : (Icons.drag_handle, 'Stable', Charte.gris);
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icone, size: 16, color: couleur, semanticLabel: mot),
+      const SizedBox(width: 3),
+      Flexible(child: Text(_texteEvolution(e), style: TextStyle(color: couleur, fontSize: 13, fontWeight: FontWeight.w700))),
+    ]);
+  }
+}
+
+class _JourParJour extends StatelessWidget {
+  final List<TableauBordAchatsVentes> lignes;
+  final List<String> total;
+  final void Function(TableauBordAchatsVentes) detail;
+  const _JourParJour({required this.lignes, required this.total, required this.detail});
+
+  static String _date(TableauBordAchatsVentes l) => l.dateMvt == null ? 'N/A' : DateFormat('dd/MM/yyyy').format(l.dateMvt!);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = lignes;
+    return ListeOuTableau(
+      nombre: l.length,
+      onTap: (i) => detail(l[i]),
+      colonnes: const [
+        Colonne('Date', flex: 2),
+        Colonne('Achats', flex: 3, droite: true),
+        Colonne('Ventes', flex: 3, droite: true),
+        Colonne('Évol. ventes', flex: 3, droite: true),
+        Colonne('Ratio', flex: 2, droite: true),
+      ],
+      cellules: (i) {
+        final e = evolutionVeille(l, i);
+        return [
+          _date(l[i]),
+          formaterMontant(l[i].montantAchat),
+          formaterMontant(l[i].montantVente),
+          e == null ? '—' : '${e.$1 > 0 ? '↑' : (e.$1 < 0 ? '↓' : '=')} ${_texteEvolution(e)}',
+          formaterRatio(l[i].ratio),
+        ];
+      },
+      total: total,
+      carte: (i) => CarteLigne(
+        key: Key('jour_$i'),
+        titre: _date(l[i]),
+        lignes: ['Ratio ${formaterRatio(l[i].ratio)}'],
+        etiquette: Text.rich(
+          TextSpan(text: 'Achats ', children: [
+            TextSpan(text: formaterMontant(l[i].montantAchat), style: const TextStyle(fontWeight: FontWeight.w800, color: Charte.encre)),
+          ]),
+          key: Key('jour_achats_$i'),
+          style: const TextStyle(fontSize: 13.5, color: Charte.gris),
+        ),
+        pied: Padding(padding: const EdgeInsets.only(top: 3), child: EvolutionVentesJour(evolutionVeille(l, i), key: Key('jour_evolution_$i'))),
+        libelleValeur: 'Ventes',
+        valeur: formaterMontant(l[i].montantVente),
+        onTap: () => detail(l[i]),
+      ),
+    );
   }
 }
 

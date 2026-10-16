@@ -248,13 +248,17 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
     }
     final premiere = d.tranches.isEmpty ? null : d.tranches.first.libelle, derniere = d.tranches.isEmpty ? null : d.tranches.last.libelle;
     return [
+      // 3.11.0 (demande du pharmacien) : la petite carte « Lignes » est retirée (le nombre de lignes est dans le titre
+      // de la liste, celui des tranches sous l'évolution) ; la carte d'évolution prend toute la largeur.
       GrilleChiffres([
         ChiffreCle(libelle: 'Chiffre d\'affaires', valeur: formaterMontant(d.totalGeneral), enAvant: true, id: 'ca_total'),
         ChiffreCle(libelle: 'Marge', valeur: formaterMontant(d.margeGenerale), detail: 'taux ${pourcentTexte(d.pourcentageMargeGeneral)}', id: 'ca_marge'),
-        _CarteEvolution(
-            libelle: premiere == null ? 'Évolution' : 'Évolution de $premiere à $derniere', valeur: d.evolutionGenerale),
-        ChiffreCle(libelle: 'Lignes', valeur: grouperMilliers(d.lignes.length), detail: '${d.tranches.length} tranches', id: 'ca_lignes'),
       ]),
+      const SizedBox(height: 10),
+      _CarteEvolution(
+          libelle: premiere == null ? 'Évolution' : 'Évolution de $premiere à $derniere',
+          valeur: d.evolutionGenerale,
+          detail: '${grouperMilliers(d.tranches.length)} tranche${d.tranches.length > 1 ? 's' : ''} · ${grouperMilliers(d.lignes.length)} ligne${d.lignes.length > 1 ? 's' : ''}'),
       const TitreSection('Total par tranche'),
       CarteSection(key: const Key('ca_totaux_tranches'), enfants: [
         for (final t in d.tranches) _LigneTranche(t, d.totauxTranches[t.cle] ?? 0, d.evolutionsTranches[t.cle]),
@@ -307,7 +311,10 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
       const Colonne('Évol.', flex: 2, droite: true),
     ];
     String cellule(int montant, double? e) => e == null ? formaterMontant(montant) : '${formaterMontant(montant)}\n${variationTexte(e)}';
+    // 3.11.0 : lignes construites à l'affichage, dans un tableau qui défile (au plus 60 % de la hauteur de l'écran) :
+    // le tableau 40 × 60 de la tablette n'est plus construit d'un bloc (0,35 à 0,46 s par image en 3.10.3).
     final tableau = TableauDense(
+      hauteurMax: MediaQuery.sizeOf(context).height * 0.6,
       colonnes: colonnes,
       onTap: (i) => _ouvrir(d, f, d.lignes[i]),
       lignes: [
@@ -330,7 +337,8 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
 class _CarteEvolution extends StatelessWidget {
   final String libelle;
   final double? valeur;
-  const _CarteEvolution({required this.libelle, required this.valeur});
+  final String? detail;
+  const _CarteEvolution({required this.libelle, required this.valeur, this.detail});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -342,14 +350,21 @@ class _CarteEvolution extends StatelessWidget {
           boxShadow: const [BoxShadow(color: Charte.ombre, blurRadius: 4, offset: Offset(0, 1))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(libelle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Charte.gris, fontSize: 12.5, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Variation(valeur),
+          Text(libelle, style: const TextStyle(color: Charte.gris, fontSize: 13.5, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          // Évolution en grand (3.11.0 : carte agrandie).
+          Variation(valeur, grande: true),
+          if (detail != null) ...[
+            const SizedBox(height: 4),
+            Text(detail!, style: const TextStyle(color: Charte.gris, fontSize: 12.5)),
+          ],
         ]),
       );
 }
 
-/// Une tranche : libellé (« en cours » signalé), montant, quantité, évolution par rapport à la tranche précédente.
+/// Une tranche : libellé, montant et évolution par rapport à la tranche précédente SUR UNE LIGNE (3.11.0, demande du
+/// pharmacien : les chiffres ne passent plus à la ligne) ; en dessous, en petit, les commentaires (« en cours »,
+/// quantité). Si l'écran est trop étroit, le libellé est abrégé (…) et les chiffres réduits, jamais coupés.
 class _LigneTranche extends StatelessWidget {
   final TrancheCa t;
   final int montant;
@@ -358,18 +373,35 @@ class _LigneTranche extends StatelessWidget {
   const _LigneTranche(this.t, this.montant, this.evolution, {this.quantite});
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 2, children: [
-          Text('${t.libelle}${t.enCours ? ' (en cours)' : ''}',
-              style: TextStyle(color: t.enCours ? Charte.gris : Charte.encre, fontSize: 14, fontWeight: FontWeight.w600)),
-          Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            Text('${formaterMontant(montant)}${quantite == null ? '' : ' · ${grouperMilliers(quantite!)} u.'}',
-                style: const TextStyle(color: Charte.encre, fontSize: 14, fontWeight: FontWeight.w700)),
-            if (evolution != null) Variation(evolution, compacte: true),
-          ]),
+  Widget build(BuildContext context) {
+    final commentaires = [if (t.enCours) 'en cours', if (quantite != null) '${grouperMilliers(quantite!)} u.'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+            child: Text(t.libelle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: t.enCours ? Charte.gris : Charte.encre, fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 0,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(formaterMontant(montant), style: const TextStyle(color: Charte.encre, fontSize: 14, fontWeight: FontWeight.w700)),
+                if (evolution != null) ...[const SizedBox(width: 8), Variation(evolution, compacte: true)],
+              ]),
+            ),
+          ),
         ]),
-      );
+        if (commentaires.isNotEmpty)
+          Text(commentaires.join(' · '), style: const TextStyle(color: Charte.gris, fontSize: 12)),
+      ]),
+    );
+  }
 }
 
 /// Détail d'une ligne : toutes ses tranches et les produits (GET /ca-zone-geo/detail).
@@ -401,13 +433,21 @@ class _CaLigneDetailScreenState extends State<CaLigneDetailScreen> with Chargeme
     return Scaffold(
       appBar: AppBar(title: Text(l.titre(f.regroupement))),
       body: ListView(key: const Key('defilement_detail_ca'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-        CarteSection(titre: 'Chiffre d\'affaires par tranche', icone: Icons.bar_chart, enfants: [
-          for (final t in widget.tranches) _LigneTranche(t, l.de(t.cle).montant, l.de(t.cle).evolution, quantite: l.de(t.cle).quantite),
-          const Divider(height: 16),
-          LigneDetail('Total', formaterMontant(l.total), gras: true),
-          LigneDetail('Marge', '${formaterMontant(l.marge)} (${pourcentTexte(l.pourcentageMarge)})'),
-          Padding(padding: const EdgeInsets.only(top: 4), child: Variation(l.evolution, suffixe: '(1re à dernière tranche)')),
-        ]),
+        if (widget.tranches.isEmpty)
+          // Ouvert depuis le Pilotage (onglet À suivre, 3.11.0) : chiffres de la période, sans tranches.
+          CarteSection(titre: 'Chiffre d\'affaires de la période', icone: Icons.bar_chart, enfants: [
+            if (f.debut != null && f.fin != null) LigneDetail('Période', '${_date(f.debut!)} – ${_date(f.fin!)}'),
+            LigneDetail('Total', formaterMontant(l.total), gras: true),
+            LigneDetail('Marge', formaterMontant(l.marge)),
+          ])
+        else
+          CarteSection(titre: 'Chiffre d\'affaires par tranche', icone: Icons.bar_chart, enfants: [
+            for (final t in widget.tranches) _LigneTranche(t, l.de(t.cle).montant, l.de(t.cle).evolution, quantite: l.de(t.cle).quantite),
+            const Divider(height: 16),
+            LigneDetail('Total', formaterMontant(l.total), gras: true),
+            LigneDetail('Marge', '${formaterMontant(l.marge)} (${pourcentTexte(l.pourcentageMarge)})'),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Variation(l.evolution, suffixe: '(1re à dernière tranche)')),
+          ]),
         const TitreSection('Produits de la ligne'),
         if (enCours)
           ChargementAnnulable(

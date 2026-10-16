@@ -120,7 +120,8 @@ String get nomMoisDernier => DateFormat.MMMM('fr_FR').format(DateTime(maintenant
 /// Choisit le mois dernier : liste « Mois » d'origine ou puce « Mois dernier » du nouvel écran.
 Future<void> moisDernier(WidgetTester tester, {required bool nouvelle}) async {
   if (nouvelle) {
-    await toucher(tester, find.byKey(const Key('periode_moisDernier')));
+    await choisirAutrePeriode(tester, 'moisDernier');
+    await pomper(tester, 8);
   } else {
     await choisirDansListe(tester, find.text('Choisir...').first, nomMoisDernier);
   }

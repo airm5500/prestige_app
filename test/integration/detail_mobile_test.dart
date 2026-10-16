@@ -132,8 +132,7 @@ void main() {
     expect(find.byKey(const Key('detail_mobile')), findsNothing);
     await deplier(tester, cle: 'deplier_mobile_kpi');
 
-    await tester.ensureVisible(find.byKey(const Key('periode_septJours')));
-    await tester.tap(find.byKey(const Key('periode_septJours')));
+    await choisirAutrePeriode(tester, 'septJours');
     await pomper(tester);
     expect(serveur.recues(AppConstants.caComptantEndpoint), hasLength(2));
     expect(find.byKey(const Key('detail_mobile')), findsNothing, reason: 'nouvelle période : replié');

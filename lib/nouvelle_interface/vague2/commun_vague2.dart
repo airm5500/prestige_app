@@ -77,15 +77,20 @@ class BarresHorizontales extends StatelessWidget {
   }
 }
 
-/// Variation : flèche + texte + couleur (« Hausse +12,5 % »). La flèche suit le SENS RÉEL (hausse / baisse) ; selon
-/// [sens], la couleur et le mot « favorable » / « défavorable » disent si c'est une bonne nouvelle (jamais la couleur
-/// seule) ; neutre : gris, sans jugement.
+/// Variation : flèche + texte + couleur (« Hausse +12,5 % »). La flèche suit le SENS RÉEL (hausse / baisse) et le mot
+/// « Hausse » / « Baisse » l'écrit (le sens n'est jamais donné par la couleur seule) ; selon [sens], la couleur dit si
+/// c'est une bonne nouvelle ; neutre : gris. 3.11.0 (demande du pharmacien) : les mots « favorable » /
+/// « défavorable » sont retirés (CA par emplacement et Pilotage) ; la version compacte garde la flèche (et son libellé
+/// accessible « Hausse » / « Baisse ») et le pourcentage.
 class Variation extends StatelessWidget {
   final double? valeur;
   final String? suffixe;
   final SensIndicateur sens;
   final bool compacte;
-  const Variation(this.valeur, {super.key, this.suffixe, this.sens = SensIndicateur.hausseFavorable, this.compacte = false});
+
+  /// Grand format (carte d'évolution du CA par emplacement, 3.11.0).
+  final bool grande;
+  const Variation(this.valeur, {super.key, this.suffixe, this.sens = SensIndicateur.hausseFavorable, this.compacte = false, this.grande = false});
 
   @override
   Widget build(BuildContext context) {
@@ -99,14 +104,13 @@ class Variation extends StatelessWidget {
             : v < 0
                 ? (Icons.arrow_downward, 'Baisse')
                 : (Icons.drag_handle, 'Stable');
-    final jugement = favorable == null ? '' : (favorable ? ' · favorable' : ' · défavorable');
-    final texte = v == null ? mot : (compacte ? '${variationTexte(v)}$jugement' : '$mot ${variationTexte(v)}$jugement');
+    final texte = v == null ? mot : (compacte ? variationTexte(v) : '$mot ${variationTexte(v)}');
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icone, size: 16, color: couleur, semanticLabel: mot),
+      Icon(icone, size: grande ? 24 : 16, color: couleur, semanticLabel: mot),
       const SizedBox(width: 3),
       Flexible(
         child: Text(suffixe == null ? texte : '$texte $suffixe',
-            style: TextStyle(color: couleur, fontSize: 13, fontWeight: FontWeight.w700)),
+            style: TextStyle(color: couleur, fontSize: grande ? 20 : 13, fontWeight: grande ? FontWeight.w800 : FontWeight.w700)),
       ),
     ]);
   }

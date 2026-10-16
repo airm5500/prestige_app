@@ -1,7 +1,7 @@
 // Réponses du pharmacien sur la vague 2 (version 3.2.1+30), parties pures :
 //  - Pilotage : table des sens (une hausse est-elle favorable ?) pour TOUTES les clés de tuiles du serveur
 //    (PilotageService : synthese, asuivre, marge, achats, caisse, stock, qualité, KPI) ; flèche = sens réel,
-//    couleur + texte « favorable / défavorable » ; neutre sans jugement ;
+//    couleur selon le sens de l'indicateur ; neutre gris ; 3.11.0 : plus de texte « favorable / défavorable » ;
 //  - Analyse de garde : pages de 100, borne ;
 //  - CA emplacement / famille : choix multiple envoyé « id1,id2 » comme le web, tout coché = aucun filtre, compteur.
 import 'package:flutter/material.dart';
@@ -52,18 +52,18 @@ void main() {
       return (icone.icon!, texte.data!, texte.style!.color!);
     }
 
-    testWidgets('tuiles : taux de rupture en hausse = flèche ↑ + « défavorable » en rouge ; CA en hausse = ↑ « favorable » en vert', (tester) async {
+    testWidgets('tuiles : taux de rupture en hausse = flèche ↑ en rouge ; CA en hausse = ↑ en vert ; 3.11.0 : sans « favorable / défavorable »', (tester) async {
       final (i1, t1, c1) = await rendu(tester, const TuilePilotage(cle: 'tauxRupture', libelle: 'Taux de rupture', valeur: 4.2, unite: '%', reference: 3, variation: 40));
       expect(i1, Icons.arrow_upward);
-      expect(t1, endsWith('· défavorable'));
+      expect(t1, isNot(contains('favorable')));
       expect(c1, Charte.rougeTexte);
       final (i2, t2, c2) = await rendu(tester, const TuilePilotage(cle: 'caTTC', libelle: 'CA', valeur: 10, unite: 'FCFA', reference: 9, variation: 11.1));
       expect(i2, Icons.arrow_upward);
-      expect(t2, endsWith('· favorable'));
+      expect(t2, isNot(contains('favorable')));
       expect(c2, Charte.vertTexte);
       final (i3, t3, c3) = await rendu(tester, const TuilePilotage(cle: 'ruptures', libelle: 'Ruptures', valeur: 5, reference: 8, variation: -37.5));
       expect(i3, Icons.arrow_downward);
-      expect(t3, endsWith('· favorable'));
+      expect(t3, isNot(contains('favorable')));
       expect(c3, Charte.vertTexte);
       final (i4, t4, c4) = await rendu(tester, const TuilePilotage(cle: 'achats', libelle: 'Achats', valeur: 12, unite: 'FCFA', reference: 11, variation: 9.1));
       expect(i4, Icons.arrow_upward);

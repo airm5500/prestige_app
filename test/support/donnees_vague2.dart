@@ -224,8 +224,14 @@ class DonneesVague2 {
         'margeNegative': [
           {'cip': '5550002', 'libelle': 'PRODUIT A PERTE FICTIF', 'paf': 2000, 'prix': 1800, 'vendus': 4},
         ],
-        'emplacements': <Object>[],
-        'familles': <Object>[],
+        // 3.11.0 : CA par emplacement / famille (PilotageService.repartition : libellé, CA, marge, ventes, part).
+        'emplacements': [
+          {'libelle': 'RAYON A', 'ca': 120000, 'marge': 36000, 'ventes': 40, 'part': 65.5},
+          {'libelle': '(non renseigné)', 'ca': 63000, 'marge': 18000, 'ventes': 21, 'part': 34.5},
+        ],
+        'familles': [
+          {'libelle': 'ANTALGIQUES FICTIFS', 'ca': 183000, 'marge': 54000, 'ventes': 61, 'part': 100.0},
+        ],
       };
 
   // --- Gardes ---
@@ -407,7 +413,16 @@ void installerRoutesVague2(FauxServeurPrestige s) {
     s.quand('/gardes/$id/vendeurs', ReponseFausse.json(DonneesVague2.vendeurs()), methode: 'GET');
   }
   s.route('/ca-zone-geo', (r) => ReponseFausse.json(DonneesVague2.caZone(r.parametres)), methode: 'GET');
-  s.quand('/ca-zone-geo/detail', ReponseFausse.json(DonneesVague2.detailCa()), methode: 'GET');
+  // Comme le serveur (CaZoneGeoServiceImpl.produitsDeLaLigne) : « ligneZoneId= » ou « ligneFamilleId= » VIDE veut dire
+  // « produits sans emplacement / sans famille » : aucun produit fictif n'en est (liste vide). Paramètre absent :
+  // pas de filtre.
+  s.route('/ca-zone-geo/detail', (r) {
+    final sansZone = r.parametres['ligneZoneId'] == '', sansFamille = r.parametres['ligneFamilleId'] == '';
+    if (sansZone || sansFamille) {
+      return ReponseFausse.json({'success': true, 'total': 0, 'data': <Object>[], 'totaux': {'quantite': 0, 'montant': 0, 'marge': 0}});
+    }
+    return ReponseFausse.json(DonneesVague2.detailCa());
+  }, methode: 'GET');
   for (final interdite in routesInterditesTestees) {
     s.quand(interdite, ReponseFausse.json({'success': true}));
   }

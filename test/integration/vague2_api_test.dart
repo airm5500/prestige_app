@@ -5,8 +5,10 @@
 //    connexion par le mécanisme existant), 500, délai borné (45 s ; 2 min pour les calculs longs demandés) ;
 //  - AUCUNE route interdite (écritures, recalculs, créations) jamais appelée ; /pilotage/controler appelé SEULEMENT
 //    après confirmation du bouton « Contrôler les chiffres », une fois par appui.
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/nouvelle_interface/modules/commun.dart';
 import 'package:prestige_app/nouvelle_interface/vague2/donnees_vague2.dart';
 import 'package:prestige_app/nouvelle_interface/vague2/pilotage_vague2.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
@@ -184,64 +186,59 @@ void main() {
       expect(app.auth.isLoggedIn, isTrue);
     });
 
-    testWidgets('onglet Pilotage : AUCUN contrôle à l\'ouverture ; « Contrôler » → confirmation ; Annuler → rien ; Contrôler → UN appel',
-        (tester) async {
+    testWidgets('onglet Pilotage (3.11.0) : « Contrôler les chiffres » retiré, /pilotage/controler JAMAIS appelé ; '
+        'Marge → courbe des 7 derniers jours (7 lectures PERSO d\'un jour) ; CA non touchable', (tester) async {
       tester.view.devicePixelRatio = 2.625;
       tester.view.physicalSize = const Size(411 * 2.625, 891 * 2.625);
       addTearDown(tester.view.reset);
       final app = await connecte(tester);
-      serveur.quand(ApiPilotage.routeControler, ReponseFausse.json({'success': true, 'repris': 2}).apres(const Duration(milliseconds: 400)));
-      Navigator.of(app.ctx).push(MaterialPageRoute(builder: (_) => const Scaffold(body: OngletPilotageAccueil())));
+      Navigator.of(app.ctx).push(MaterialPageRoute(builder: (_) => Scaffold(body: OngletPilotageAccueil(maintenant: () => DateTime(2026, 10, 14, 10)))));
       await attendreWidget(tester, find.byKey(const Key('tuile_caTTC')));
-      expect(serveur.recues('/pilotage/onglet/synthese'), hasLength(1));
-      expect(serveur.recues('/pilotage/axes'), hasLength(1));
-      expect(serveur.recues(ApiPilotage.routeControler), isEmpty, reason: 'jamais à l\'ouverture (le web, lui, le fait)');
+      expect(find.byKey(const Key('pilotage_controler')), findsNothing);
+      expect(find.text('Contrôler les chiffres'), findsNothing);
+      expect(find.byKey(const Key('tuile_courbe_caTTC')), findsNothing, reason: 'seules Marge et Nombre de ventes ouvrent une courbe');
+      expect(find.byKey(const Key('tuile_courbe_nbVentes')), findsOneWidget);
+      expect(find.textContaining('favorable'), findsNothing);
 
-      // Annuler : aucun appel.
-      await tester.ensureVisible(find.byKey(const Key('pilotage_controler')));
-      await tester.tap(find.byKey(const Key('pilotage_controler')));
-      await stabiliser(tester, tours: 6);
-      expect(find.text('Contrôler les chiffres'), findsWidgets);
-      expect(find.textContaining('peut prendre du temps'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('controle_annuler')));
+      await tester.ensureVisible(find.byKey(const Key('tuile_courbe_marge')));
+      await tester.tap(find.byKey(const Key('tuile_courbe_marge')));
+      await attendreWidget(tester, find.byKey(const Key('courbe_sept_jours')));
+      await attendreQue(tester, () => find.byType(LineChart).evaluate().isNotEmpty, raison: 'courbe');
+      final jours = [for (final r in serveur.recues('/pilotage/onglet/synthese')) if (r.parametres['axe'] == 'PERSO') r.parametres];
+      expect(jours, hasLength(7));
+      expect(jours.first, {'axe': 'PERSO', 'dtStart': '2026-10-08', 'dtEnd': '2026-10-08'});
+      expect(jours.last, {'axe': 'PERSO', 'dtStart': '2026-10-14', 'dtEnd': '2026-10-14'});
+      expect(find.descendant(of: find.byKey(const Key('courbe_sept_jours')), matching: find.byType(LigneDetail)), findsNWidgets(7),
+          reason: 'valeur de chaque jour sous la courbe');
+      await tester.tap(find.byKey(const Key('courbe_fermer')));
       await stabiliser(tester, tours: 6);
       expect(serveur.recues(ApiPilotage.routeControler), isEmpty);
-
-      // Confirmer : un appel ; un second appui pendant le contrôle est ignoré (bouton désactivé).
-      await tester.tap(find.byKey(const Key('pilotage_controler')));
-      await stabiliser(tester, tours: 6);
-      await tester.tap(find.byKey(const Key('controle_confirmer')));
-      await stabiliser(tester, tours: 3);
-      await tester.tap(find.byKey(const Key('pilotage_controler')), warnIfMissed: false);
-      await stabiliser(tester, tours: 3);
-      expect(find.byKey(const Key('controle_confirmer')), findsNothing, reason: 'pas de seconde confirmation pendant le contrôle');
-      await attendreWidget(tester, find.byKey(const Key('controle_resultat')));
-      expect(find.text('2 mois recalculés : chiffres mis à jour.'), findsOneWidget);
-      final c = serveur.recues(ApiPilotage.routeControler).single;
-      expect(c.parametres, {'axe': 'MOIS'});
-      expect(c.methode, 'GET');
-      await attendreQue(tester, () => serveur.recues('/pilotage/onglet/synthese').length == 2, raison: 'chiffres relus après le contrôle');
+      expect(routeInterditeVague2(ApiPilotage.routeControler), isTrue, reason: 'écriture en base : interdite au mobile');
       await terminer(tester);
     });
 
-    testWidgets('contrôle : délai long borné (2 min) ; échec affiché sans déconnexion', (tester) async {
+    testWidgets('À suivre (3.11.0) : CA par emplacement et par famille affichés ; toucher un emplacement → ses produits '
+        '(période du Pilotage, zone retrouvée par son libellé, sans « ligneFamilleId »)', (tester) async {
+      tester.view.devicePixelRatio = 2.625;
+      tester.view.physicalSize = const Size(411 * 2.625, 891 * 2.625);
+      addTearDown(tester.view.reset);
       final app = await connecte(tester);
-      serveur.quand(ApiPilotage.routeControler, ReponseFausse.sansReponse());
-      Object? erreur;
-      () async {
-        try {
-          await ApiPilotage.controler(app.ctx, const ChoixAxe(AxePilotage('MOIS', '')));
-        } catch (e) {
-          erreur = e;
-        }
-      }();
+      Navigator.of(app.ctx).push(MaterialPageRoute(builder: (_) => const Scaffold(body: OngletPilotageAccueil())));
+      await attendreWidget(tester, find.byKey(const Key('tuile_caTTC')));
+      await tester.tap(find.text('À suivre'));
+      await attendreWidget(tester, find.byKey(const Key('suivi_emplacement_0')));
+      expect(find.text('RAYON A'), findsOneWidget);
+      expect(find.byKey(const Key('suivi_famille_0')), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('suivi_emplacement_0')));
       await stabiliser(tester, tours: 4);
-      await tester.pump(ApiService.delaiGet + const Duration(seconds: 1));
-      expect(erreur, isNull);
-      await tester.pump(ApiVague2.delaiLong);
-      await tester.pump();
-      expect(erreur, nature(NatureErreur.delai));
-      expect(app.auth.isLoggedIn, isTrue);
+      await tester.tap(find.byKey(const Key('suivi_emplacement_0')));
+      await attendreWidget(tester, find.byKey(const Key('detail_ca_total')));
+      final d = serveur.recues(ApiCaZone.routeDetail).single.parametres;
+      expect(d['ligneZoneId'], 'ZONE-TEST-1');
+      expect(d.containsKey('ligneFamilleId'), isFalse);
+      expect((d['typePeriode'], d['dtStart'], d['dtEnd'], d['regroupement']), ('LIBRE', '2026-10-01', '2026-10-14', 'ZONE'));
+      expect(find.text('PRODUIT CA FICTIF 1'), findsOneWidget, reason: 'les produits de l\'emplacement s\'affichent');
+      await terminer(tester);
     });
   });
 
@@ -291,6 +288,8 @@ void main() {
       expect(c.lignes.first.de('2026-W42').montant, 130000);
       final (d, _) = await essayer(tester, () => ApiCaZone.detail(app.ctx, f, c.lignes.first));
       expect(serveur.recues(ApiCaZone.routeDetail).single.parametres['ligneZoneId'], 'ZONE-TEST-1');
+      expect(serveur.recues(ApiCaZone.routeDetail).single.parametres.containsKey('ligneFamilleId'), isFalse,
+          reason: '3.11.0 : « ligneFamilleId= » vide = produits sans famille pour le serveur');
       expect(d!.montant, 90000);
     });
 

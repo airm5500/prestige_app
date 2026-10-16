@@ -43,12 +43,12 @@ void main() {
         expect(routeInterditeVague2(r), isTrue, reason: r);
       }
       expect(routeInterditeVague2('/gardes/X/inventaire?y=1'), isTrue);
+      expect(routeInterditeVague2('/pilotage/controler'), isTrue, reason: '3.11.0 : contrôle des chiffres retiré du mobile');
       for (final r in [
         '/analyse-commande/previsions',
         '/analyse-commande/analyse',
         '/analyse-commande/demande',
         '/pilotage/onglet/synthese',
-        '/pilotage/controler',
         '/gardes',
         '/gardes/GARDE-TEST-1/rapport',
         '/ca-zone-geo',
@@ -263,12 +263,21 @@ void main() {
       expect(ApiCaZone.delai(const FiltresCa(type: TypePeriodeCa.troisAns)), ApiVague2.delaiLong);
     });
 
-    test('détail d\'une ligne : identifiants selon le regroupement', () {
+    test('détail d\'une ligne : identifiants selon le regroupement, paramètre hors regroupement OMIS (3.11.0)', () {
       const l = LigneCa(zoneId: 'Z1', familleId: 'F1');
+      // Regroupement Emplacement : la zone seulement. Avant la 3.11.0, « ligneFamilleId= » (vide) partait aussi, et le
+      // serveur le lisait « produits sans famille » : liste vide au clic sur un emplacement.
       expect(ApiCaZone.parametresDetail(const FiltresCa(), l)['ligneZoneId'], 'Z1');
-      expect(ApiCaZone.parametresDetail(const FiltresCa(), l)['ligneFamilleId'], '');
-      expect(ApiCaZone.parametresDetail(const FiltresCa(regroupement: RegroupementCa.famille), l)['ligneZoneId'], '');
-      expect(ApiCaZone.parametresDetail(const FiltresCa(regroupement: RegroupementCa.zoneFamille), l)['ligneFamilleId'], 'F1');
+      expect(ApiCaZone.parametresDetail(const FiltresCa(), l).containsKey('ligneFamilleId'), isFalse);
+      // Regroupement Famille : la famille seulement.
+      final fam = ApiCaZone.parametresDetail(const FiltresCa(regroupement: RegroupementCa.famille), l);
+      expect(fam.containsKey('ligneZoneId'), isFalse);
+      expect(fam['ligneFamilleId'], 'F1');
+      // Emplacement et famille : les deux.
+      final deux = ApiCaZone.parametresDetail(const FiltresCa(regroupement: RegroupementCa.zoneFamille), l);
+      expect((deux['ligneZoneId'], deux['ligneFamilleId']), ('Z1', 'F1'));
+      // Ligne « sans emplacement » : la valeur vide est gardée DANS le regroupement (le serveur cherche IS NULL).
+      expect(ApiCaZone.parametresDetail(const FiltresCa(), const LigneCa(zoneId: ''))['ligneZoneId'], '');
     });
   });
 

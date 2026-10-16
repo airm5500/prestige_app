@@ -6,8 +6,9 @@
 //    /analyse-commande/produit/{id}, /analyse-commande/equivalents/{id}, /analyse-commande/a-analyser,
 //    /analyse-commande/analyse?type=SUGGESTION|COMMANDE&id=, /analyse-commande/demande?mois=12|24|36&query=&rayonId= ;
 //  - Pilotage (web « pilotage », droit P_SM_PILOTAGE vérifié par le serveur) : /pilotage/axes,
-//    /pilotage/onglet/synthese|asuivre?axe=&dtStart=&dtEnd=, et /pilotage/controler (écrit en base : seulement sur
-//    le bouton « Contrôler les chiffres », après confirmation) ;
+//    /pilotage/onglet/synthese|asuivre?axe=&dtStart=&dtEnd= (3.11.0 : aussi par jour, axe PERSO, pour les courbes
+//    des 7 derniers jours de la marge et du nombre de ventes) ; /pilotage/controler n'est plus appelé depuis la 3.11.0
+//    (le pharmacien contrôle les chiffres sur Prestige web) ;
 //  - Analyse de garde (web « gardemanager », session seulement) : /gardes/annees, /gardes?annee=,
 //    /gardes/{id}/rapport?heures=&tri=&classe=&start=&limit=100, /gardes/{id}/vendeurs ;
 //  - CA emplacement / famille (web « cazonegeomanager », session seulement) : /ca-zone-geo et /ca-zone-geo/detail.
@@ -40,6 +41,8 @@ const routesInterditesVague2 = <String>[
   '/analyse-commande/parametres',
   '/pilotage/recalculer',
   '/pilotage/charges',
+  // 3.11.0 : « Contrôler les chiffres » retiré du mobile (écrit en base ; se fait sur Prestige web).
+  '/pilotage/controler',
   '/ca-zone-geo/detail/inventaire',
   '/gardes/supprimer',
 ];
@@ -976,6 +979,34 @@ class ProduitPilotage {
   const ProduitPilotage(this.cip, this.libelle, this.vendus, {this.paf, this.prix});
 }
 
+/// Ligne « CA par emplacement » ou « CA par famille » de l'onglet À suivre (20 premières, triées par CA).
+class RepartitionPilotage {
+  final String libelle;
+  final int ca;
+  final int marge;
+  final int ventes;
+  final double part;
+  const RepartitionPilotage(this.libelle, this.ca, this.marge, this.ventes, this.part);
+
+  /// Libellé envoyé par le serveur pour une ligne sans emplacement (ou sans famille).
+  static const nonRenseigne = '(non renseigné)';
+  bool get sansLibelle => libelle.trim().isEmpty || libelle == nonRenseigne;
+
+  factory RepartitionPilotage.depuis(Map<String, dynamic> j) => RepartitionPilotage(
+      texteTolerant(j['libelle']), entierTolerant(j['ca']), entierTolerant(j['marge']), entierTolerant(j['ventes']), decimalTolerant(j['part']));
+}
+
+/// Bornes de la période regardée, lues dans axe.periode (« 01/10/2026 -> 16/10/2026 », fin incluse ; toute forme
+/// contenant deux dates jj/mm/aaaa est acceptée) ; null si illisible.
+(DateTime, DateTime)? bornesPeriodePilotage(String periode) {
+  final dates = [
+    for (final m in RegExp(r'(\d{2})/(\d{2})/(\d{4})').allMatches(periode))
+      DateTime(int.parse(m.group(3)!), int.parse(m.group(2)!), int.parse(m.group(1)!)),
+  ];
+  if (dates.length < 2 || dates[1].isBefore(dates[0])) return null;
+  return (dates[0], dates[1]);
+}
+
 /// Données d'un onglet (GET /pilotage/onglet/{onglet}).
 class DonneesPilotage {
   final String axeCode;
@@ -988,6 +1019,10 @@ class DonneesPilotage {
   final List<AlertePilotage> alertes;
   final List<ProduitPilotage> ruptures;
   final List<ProduitPilotage> margeNegative;
+
+  /// Onglet À suivre (3.11.0) : CA par emplacement et par famille de la période (« emplacements », « familles »).
+  final List<RepartitionPilotage> emplacements;
+  final List<RepartitionPilotage> familles;
   const DonneesPilotage({
     this.axeCode = '',
     this.periode = '',
@@ -999,6 +1034,8 @@ class DonneesPilotage {
     this.alertes = const [],
     this.ruptures = const [],
     this.margeNegative = const [],
+    this.emplacements = const [],
+    this.familles = const [],
   });
 
   factory DonneesPilotage.depuis(Map<String, dynamic> j) {
@@ -1018,6 +1055,8 @@ class DonneesPilotage {
           ProduitPilotage(texteTolerant(x['cip']), texteTolerant(x['libelle']), entierTolerant(x['vendus']),
               paf: entierTolerant(x['paf']), prix: entierTolerant(x['prix'])),
       ],
+      emplacements: [for (final x in _liste(j['emplacements'])) RepartitionPilotage.depuis(x)],
+      familles: [for (final x in _liste(j['familles'])) RepartitionPilotage.depuis(x)],
     );
   }
 }
@@ -1027,7 +1066,11 @@ class ApiPilotage {
 
   static const routeAxes = '/pilotage/axes';
   static String routeOnglet(OngletPilotage o) => '/pilotage/onglet/${o.cle}';
+  /// Plus appelée depuis la 3.11.0 (route interdite : [routesInterditesVague2]) ; gardée pour les contrôles des tests.
   static const routeControler = '/pilotage/controler';
+
+  /// Indicateurs dont la tuile ouvre la courbe des 7 derniers jours (3.11.0 : marge et nombre de ventes).
+  static const clesCourbeSeptJours = {'marge', 'nbVentes'};
   static const quoi = 'le pilotage';
 
   /// Motif de refus d'une période personnalisée (dates obligatoires, contrôles communs, 3 ans au plus).
@@ -1055,13 +1098,36 @@ class ApiPilotage {
     return ApiVague2.lire(() => DonneesPilotage.depuis(j), quoi);
   }
 
-  /// Contrôle des chiffres : vérifie et recalcule les mois modifiés (ÉCRIT en base). Appelé SEULEMENT par le bouton
-  /// « Contrôler les chiffres », après confirmation. Renvoie le nombre de mois repris.
-  static Future<int> controler(BuildContext context, ChoixAxe c, {DateTime? maintenant}) async {
-    final e = erreurAxe(c, maintenant ?? DateTime.now());
-    if (e != null) throw ApiLoadException(e, nature: NatureErreur.refus);
-    final j = await ApiVague2.get(context, routeControler, c.parametres, 'le contrôle des chiffres', delai: ApiVague2.delaiLong);
-    return entierTolerant(j['repris']);
+  /// Courbe rapide des 7 derniers jours d'un indicateur de la Synthèse ([clesCourbeSeptJours]) : un appel par jour
+  /// (axe PERSO, du jour au jour : lecture directe et bornée côté serveur), lancés ensemble. Un jour sans la tuile
+  /// donne null ; un échec fait échouer la courbe (message commun).
+  static Future<List<(DateTime, double?)>> septJours(BuildContext context, String cle, {DateTime? maintenant}) async {
+    final j = Periode7.jours(maintenant ?? DateTime.now());
+    const perso = AxePilotage('PERSO', 'Période personnalisée');
+    final reponses = await Future.wait([
+      for (final d in j) ApiVague2.get(context, routeOnglet(OngletPilotage.synthese), ChoixAxe(perso, debut: d, fin: d).parametres, quoi),
+    ]);
+    return [
+      for (var i = 0; i < j.length; i++)
+        (
+          j[i],
+          ApiVague2.lire(() {
+            for (final t in _liste(reponses[i]['tuiles'])) {
+              if (texteTolerant(t['cle']) == cle) return decimalTolerant(t['valeur']);
+            }
+            return null;
+          }, quoi)
+        ),
+    ];
+  }
+}
+
+/// Les 7 derniers jours, aujourd'hui compris (du plus ancien au plus récent).
+class Periode7 {
+  Periode7._();
+  static List<DateTime> jours(DateTime maintenant) {
+    final j = DateTime(maintenant.year, maintenant.month, maintenant.day);
+    return [for (var i = 6; i >= 0; i--) DateTime(j.year, j.month, j.day - i)];
   }
 }
 
@@ -1564,10 +1630,15 @@ class ApiCaZone {
     return ApiVague2.lire(() => ComparatifCa.depuis(j), quoi);
   }
 
+  /// Paramètres du détail d'une ligne : ceux de l'analyse, plus la zone et/ou la famille de la ligne SELON le
+  /// regroupement, comme le web (CaZoneGeoCtr.js). 3.11.0 : le paramètre hors regroupement est OMIS. Il partait vide
+  /// (« ligneFamilleId= » en regroupement Emplacement), ce que le serveur lit comme « produits SANS famille »
+  /// (CaZoneGeoServiceImpl.produitsDeLaLigne) : la liste des produits d'un emplacement revenait vide. Une valeur vide
+  /// DANS le regroupement reste envoyée : elle désigne la ligne « sans emplacement » (ou « sans famille »).
   static Map<String, String> parametresDetail(FiltresCa f, LigneCa l) => {
         ...f.parametres,
-        'ligneZoneId': f.regroupement == RegroupementCa.famille ? '' : l.zoneId,
-        'ligneFamilleId': f.regroupement == RegroupementCa.zone ? '' : l.familleId,
+        if (f.regroupement != RegroupementCa.famille) 'ligneZoneId': l.zoneId,
+        if (f.regroupement != RegroupementCa.zone) 'ligneFamilleId': l.familleId,
       };
 
   static Future<DetailLigneCa> detail(BuildContext context, FiltresCa f, LigneCa l, {DateTime? maintenant}) async {

@@ -145,3 +145,18 @@ String resumerErreur(FlutterErrorDetails details) {
   final court = details.exceptionAsString().split('\n').first;
   return lieu == null ? court : '$court ($lieu)';
 }
+
+/// 3.11.0 : choisit une période du sélecteur déroulant « Autres périodes » (7 jours, Ce mois, Mois dernier) :
+/// ouvre le sélecteur, puis touche la période (clé `periode_<nom>`).
+Future<void> choisirAutrePeriode(WidgetTester tester, String nom) async {
+  await tester.ensureVisible(find.byKey(const Key('periode_autres')).first);
+  await tester.pump(const Duration(milliseconds: 200));
+  await tester.tap(find.byKey(const Key('periode_autres')).first);
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(const Duration(milliseconds: 150));
+  }
+  await tester.tap(find.byKey(Key('periode_$nom')).last);
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(const Duration(milliseconds: 150));
+  }
+}

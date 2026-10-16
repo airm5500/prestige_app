@@ -86,6 +86,9 @@ class _AnalyseBlNouveauState extends State<AnalyseBlNouveau> with ChargementSuiv
         ),
       );
 
+  /// Temps de saisie d'un BL clôturé (création → clôture), ou null.
+  static String? _saisie(BonLivraisonStat b) => b.tempsSaisie == null ? null : AnalyseSaisiesBl.duree(b.tempsSaisie!);
+
   List<Widget> _corps() {
     if (enCours) return const [EtatChargement(texte: 'Analyse des saisies…')];
     if (erreur != null) return [EtatErreur(erreur: erreur!, reessayer: _charger)];
@@ -97,6 +100,7 @@ class _AnalyseBlNouveauState extends State<AnalyseBlNouveau> with ChargementSuiv
     final bons = tout.where((b) => b.status == 'Bon').length;
     final pasBons = tout.where((b) => b.status == 'Pas bon').length;
     final moyen = AnalyseSaisiesBl.delaiMoyen(tout);
+    final temps = AnalyseSaisiesBl.tempsSaisieMoyen(tout);
     return [
       GrilleKpi([
         ChiffreCle(libelle: 'Nombre de BL affichés', valeur: formaterNombre(l.length), id: 'affiches', enAvant: true, detail: 'sur ${formaterNombre(tout.length)}'),
@@ -106,6 +110,15 @@ class _AnalyseBlNouveauState extends State<AnalyseBlNouveau> with ChargementSuiv
             libelle: 'Délai moyen de saisie',
             valeur: moyen == null ? 'N/A' : '${moyen.toStringAsFixed(1).replaceAll('.', ',')} j',
             id: 'delai_moyen'),
+        // 3.11.0 : temps de saisie moyen (création → clôture des BL clôturés, durées ≤ 24 h).
+        ChiffreCle(
+            libelle: 'Temps de saisie moyen par BL',
+            valeur: temps.moyenne == null ? 'N/A' : AnalyseSaisiesBl.duree(temps.moyenne!),
+            id: 'temps_saisie',
+            detail: temps.retenus == 0
+                ? 'aucun BL clôturé'
+                : '${formaterNombre(temps.retenus)} BL clôturé${temps.retenus > 1 ? 's' : ''}'
+                    '${temps.ecartes == 0 ? '' : ' · ${formaterNombre(temps.ecartes)} ouvert${temps.ecartes > 1 ? 's' : ''} > 24 h non compté${temps.ecartes > 1 ? 's' : ''}'}'),
       ]),
       const TitreSection('Bons de livraison'),
       if (l.isEmpty)
@@ -113,13 +126,19 @@ class _AnalyseBlNouveauState extends State<AnalyseBlNouveau> with ChargementSuiv
       else
         ListeOuTableau(
           nombre: l.length,
-          colonnes: const [Colonne('Référence', flex: 3), Colonne('Fournisseur', flex: 4), Colonne('Délai', flex: 2, droite: true), Colonne('Statut', flex: 2)],
-          cellules: (i) => [l[i].refLivraison, l[i].fournisseur, _delai(l[i]), l[i].status],
+          colonnes: const [
+            Colonne('Référence', flex: 3),
+            Colonne('Fournisseur', flex: 4),
+            Colonne('Délai', flex: 2, droite: true),
+            Colonne('Saisie', flex: 2, droite: true),
+            Colonne('Statut', flex: 2),
+          ],
+          cellules: (i) => [l[i].refLivraison, l[i].fournisseur, _delai(l[i]), _saisie(l[i]) ?? '—', l[i].status],
           carte: (i) => CarteLigne(
             titre: l[i].refLivraison,
             bande: l[i].status == 'Pas bon' ? Charte.rouge : null,
             etiquette: Etiquette(l[i].status, ton: _ton(l[i].status)),
-            lignes: [l[i].fournisseur],
+            lignes: [l[i].fournisseur, if (_saisie(l[i]) != null) 'Temps de saisie : ${_saisie(l[i])}'],
             libelleValeur: 'Délai',
             valeur: _delai(l[i]),
           ),

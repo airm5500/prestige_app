@@ -84,7 +84,9 @@ Future<void> toucher(WidgetTester tester, Finder f, {int tours = 6}) async {
   await stabiliser(tester, tours: tours);
 }
 
-Future<void> choisirPeriode(WidgetTester tester, String nom) => toucher(tester, find.byKey(Key('periode_$nom')), tours: 2);
+/// 3.11.0 : 7 jours, Ce mois et Mois dernier sont dans le sélecteur « Autres périodes ».
+Future<void> choisirPeriode(WidgetTester tester, String nom) =>
+    const {'septJours', 'ceMois', 'moisDernier'}.contains(nom) ? choisirAutrePeriode(tester, nom) : toucher(tester, find.byKey(Key('periode_$nom')), tours: 2);
 
 /// Feuille des filtres : [reglages] puis « Appliquer ».
 Future<void> filtrer(WidgetTester tester, Future<void> Function() reglages) async {

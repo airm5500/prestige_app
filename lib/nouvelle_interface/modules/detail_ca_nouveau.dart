@@ -15,6 +15,7 @@ import '../../utils/date_formatter.dart';
 import '../charte.dart';
 import '../composants.dart';
 import 'commun.dart';
+import 'commun_lot3.dart';
 import 'periode.dart';
 
 class DetailCaNouveau extends StatefulWidget {
@@ -126,6 +127,20 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
         ),
       );
 
+  /// Une courbe par mode de paiement présent sur la période (mêmes modes et couleurs que la liste), jour par jour.
+  Widget _courbes(List<CaComptant> lignes, List<(String, double, double)> repartition) {
+    final jours = [...lignes]..sort((a, b) => (a.mvtDate ?? DateTime(0)).compareTo(b.mvtDate ?? DateTime(0)));
+    final valeurs = [for (final c in jours) DetailCa.modes(c)];
+    return GraphiqueCourbes(
+      libelle: 'Courbes de la répartition par mode de paiement, ${jours.length} jours',
+      jours: [for (final c in jours) c.mvtDate],
+      series: [
+        for (var i = 0; i < repartition.length; i++)
+          (SerieGraphique(repartition[i].$1, _couleurs[i % _couleurs.length]), [for (final v in valeurs) v[repartition[i].$1] ?? 0]),
+      ],
+    );
+  }
+
   List<Widget> _corps() {
     if (enCours) return const [EtatChargement(texte: 'Calcul du chiffre d\'affaires…')];
     if (erreur != null) return [EtatErreur(erreur: erreur!, reessayer: _charger)];
@@ -153,8 +168,19 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
       CarteSection(titre: 'Répartition par mode de paiement', icone: Icons.donut_small_outlined, enfants: [
         if (repartition.isEmpty)
           const Text('Aucun encaissement sur la période.', style: TextStyle(color: Charte.gris))
-        else
+        else ...[
+          // 3.11.0 (demande du pharmacien) : la répartition se lit en COURBES (une par mode de paiement, jour par jour)
+          // et non plus en barres ; montants et parts restent écrits sous la courbe.
+          if (lignes.length >= 2) ...[
+            CadreGraphique(key: const Key('repartition_courbes'), hauteur: 240, child: _courbes(lignes, repartition)),
+            const SizedBox(height: 8),
+          ] else
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text('Choisissez plusieurs jours pour voir les courbes.', style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
           for (var i = 0; i < repartition.length; i++) _BarreRepartition(repartition[i], _couleurs[i % _couleurs.length]),
+        ],
       ]),
       CarteSection(titre: 'Totaux sur la période', icone: Icons.functions, enfants: [
         LigneDetail('Total Espèces', formaterMontant(t.totEsp)),
@@ -457,7 +483,8 @@ class _Depliable extends StatelessWidget {
   }
 }
 
-/// Mode de paiement : libellé, montant, pourcentage (même calcul que le camembert d'origine) et barre.
+/// Mode de paiement : pastille de la couleur de sa courbe, libellé, pourcentage (même calcul que le camembert d'origine)
+/// et montant.
 class _BarreRepartition extends StatelessWidget {
   final (String, double, double) mode;
   final Color couleur;
@@ -470,16 +497,14 @@ class _BarreRepartition extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
+          // Pastille de la couleur de la courbe (3.11.0 : plus de barre).
+          Container(width: 12, height: 12, decoration: BoxDecoration(color: couleur, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
           Expanded(child: Text(libelle, style: const TextStyle(fontWeight: FontWeight.w600, color: Charte.encre))),
           Text('${pourcent.toStringAsFixed(1)}%', style: const TextStyle(color: Charte.gris, fontWeight: FontWeight.w600)),
           const SizedBox(width: 10),
           Text(formaterMontant(montant), style: const TextStyle(fontWeight: FontWeight.bold, color: Charte.encre)),
         ]),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(value: pourcent / 100, minHeight: 8, color: couleur, backgroundColor: Charte.grisClair),
-        ),
       ]),
     );
   }

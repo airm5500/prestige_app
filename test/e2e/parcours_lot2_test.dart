@@ -11,7 +11,9 @@ import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/composants.dart';
 import 'package:prestige_app/nouvelle_interface/modules/commun.dart';
 import 'package:prestige_app/nouvelle_interface/modules/suggestions_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/menus.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
+import 'package:prestige_app/nouvelle_interface/vague1/profil_acces.dart';
 import 'package:prestige_app/providers/auth_provider.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/utils/constants.dart';
@@ -45,6 +47,19 @@ ModuleLot1 module(String tuile) => modulesLot2.firstWhere((m) => m.tuile == tuil
 
 /// Ouvre [m] par la recherche de menu de l'accueil B et attend son nouvel écran.
 Future<void> ouvrir(WidgetTester tester, ModuleLot1 m) async {
+  // 3.11.0 : l'administrateur et le pharmacien n'ont plus le menu « Evolution Stock » : ils l'ouvrent par le bouton
+  // « Évolution du stock » de la Valorisation (même écran).
+  if (m.tuile == 'Evolution Stock' && ProfilAcces.responsable) {
+    expect(menusAutorises().where((x) => x.titre == 'Evolution Stock'), isEmpty);
+    await tester.enterText(find.byKey(const Key('recherche_menu')), 'Valorisation');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text('Valorisation')).first);
+    await attendreWidget(tester, find.byKey(const Key('valorisation_evolution')));
+    await tester.tap(find.byKey(const Key('valorisation_evolution')));
+    await attendreWidget(tester, find.byType(m.typeNouveau));
+    expect(find.widgetWithText(AppBar, m.titreEcran), findsOneWidget);
+    return;
+  }
   await tester.enterText(find.byKey(const Key('recherche_menu')), m.tuile);
   await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text(m.tuile)).first);
@@ -55,6 +70,11 @@ Future<void> ouvrir(WidgetTester tester, ModuleLot1 m) async {
 Future<void> revenir(WidgetTester tester, ModuleLot1 m) async {
   await retourSysteme(tester);
   await attendreQue(tester, () => find.byType(m.typeNouveau).evaluate().isEmpty, raison: 'retour depuis ${m.tuile}');
+  // Évolution ouverte depuis la Valorisation (3.11.0) : un retour de plus.
+  if (find.byKey(const Key('valorisation_evolution')).evaluate().isNotEmpty) {
+    await retourSysteme(tester);
+    await attendreQue(tester, () => find.byKey(const Key('valorisation_evolution')).evaluate().isEmpty, raison: 'retour depuis la Valorisation');
+  }
   expect(find.byType(AccueilNouveau).hitTestable(), findsOneWidget);
   await tester.enterText(find.byKey(const Key('recherche_menu')), '');
   await tester.pump(const Duration(milliseconds: 300));
@@ -67,7 +87,9 @@ Future<void> toucher(WidgetTester tester, Finder f, {int tours = 6}) async {
   await stabiliser(tester, tours: tours);
 }
 
-Future<void> choisirPeriode(WidgetTester tester, String nom) => toucher(tester, find.byKey(Key('periode_$nom')), tours: 2);
+/// 3.11.0 : 7 jours, Ce mois et Mois dernier sont dans le sélecteur « Autres périodes ».
+Future<void> choisirPeriode(WidgetTester tester, String nom) =>
+    const {'septJours', 'ceMois', 'moisDernier'}.contains(nom) ? choisirAutrePeriode(tester, nom) : toucher(tester, find.byKey(Key('periode_$nom')), tours: 2);
 
 /// Feuille des filtres : [reglages] puis « Appliquer » (ou « Rechercher »).
 Future<void> filtrer(WidgetTester tester, Future<void> Function() reglages) async {
@@ -139,8 +161,13 @@ void main() {
     await jusquAccueilNouveau(tester);
     final m = module('Suggestions');
     await ouvrir(tester, m);
-    await attendreWidget(tester, find.byKey(const Key('chiffre_suggestions')));
-    expect(chiffre(tester, 'suggestions'), '2');
+    await attendreWidget(tester, find.byKey(const Key('suggestion_reference_${DonneesLot2.suggestion1}')));
+    // 3.11.0 : plus de compteurs ; deux suggestions affichées, statut en face du grossiste, date et référence sur
+    // une ligne.
+    expect(find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('suggestion_reference_')),
+        findsNWidgets(2));
+    expect(find.byKey(const Key('chiffre_suggestions')), findsNothing);
+    expect(find.byKey(const Key('suggestion_statut_${DonneesLot2.suggestion1}')), findsOneWidget);
     expect(serveur.recues(AppConstants.suggestionListEndpoint).single.parametres, {'limit': '50'});
 
     await toucher(tester, find.text(DonneesLot2.grossisteA));
@@ -220,7 +247,7 @@ void main() {
     await jusquAccueilNouveau(tester);
     final m = module('Suggestions');
     await ouvrir(tester, m);
-    await attendreWidget(tester, find.byKey(const Key('chiffre_suggestions')));
+    await attendreWidget(tester, find.byKey(const Key('suggestion_reference_${DonneesLot2.suggestion1}')));
     await toucher(tester, find.byKey(const Key('suggestion_menu_${DonneesLot2.suggestion2}')));
     expect(find.byKey(const Key('suggestion_actions')), findsOneWidget);
     await toucher(tester, find.byKey(const Key('suggestion_supprimer')));
@@ -437,9 +464,11 @@ void main() {
     await tester.runAsync(serveur.arreter);
     final evolution = module('Evolution Stock');
     await ouvrir(tester, evolution);
-    await attendreWidget(tester, find.byType(EtatErreur));
-    expect(find.byKey(const Key('erreur_reseau')), findsOneWidget);
-    expect(find.byKey(const Key('bouton_reessayer')), findsOneWidget);
+    // Écran Évolution (ouvert depuis la Valorisation pour le pharmacien, 3.11.0 : seule l'erreur de cet écran compte).
+    final ecran = find.byType(evolution.typeNouveau);
+    await attendreWidget(tester, find.descendant(of: ecran, matching: find.byType(EtatErreur)));
+    expect(find.descendant(of: ecran, matching: find.byKey(const Key('erreur_reseau'))), findsOneWidget);
+    expect(find.descendant(of: ecran, matching: find.byKey(const Key('bouton_reessayer'))), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
     await terminer(tester);
   });
@@ -448,7 +477,7 @@ void main() {
     telephone(tester);
     await jusquAccueilNouveau(tester);
     await ouvrir(tester, module('Suggestions'));
-    await attendreWidget(tester, find.byKey(const Key('chiffre_suggestions')));
+    await attendreWidget(tester, find.byKey(const Key('suggestion_reference_${DonneesLot2.suggestion1}')));
     await toucher(tester, find.text(DonneesLot2.grossisteA));
     await attendreWidget(tester, find.byKey(const Key('chiffre_montant_achat')));
     serveur.expirerSessions();

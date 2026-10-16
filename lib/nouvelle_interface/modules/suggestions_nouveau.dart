@@ -10,6 +10,10 @@
 //  - export CSV « cip;qte » dans le menu Exporter (et dans le menu ⋮ de chaque suggestion de la liste).
 // En plus : anti double envoi (un appui de plus pendant un envoi ne renvoie rien), message de résultat clair
 // (réussi / non enregistré et pourquoi). Aucune commande PharmaML (prévue plus tard).
+// 3.11.0 (demandes du pharmacien) : liste sans compteurs (nombre de suggestions, en cours, grossistes), statut en
+// face du grossiste, « Créée le … · Réf. … » sur une seule ligne ; dans une suggestion, curseur placé
+// automatiquement dans la quantité du premier article à l'ouverture (texte sélectionné : la saisie le remplace), et
+// après la saisie d'une quantité (touche « Suivant » du clavier) le curseur passe à l'article suivant.
 import 'package:flutter/material.dart';
 
 import '../../donnees/suggestions_donnees.dart';
@@ -155,6 +159,39 @@ class _SuggestionsNouveauState extends State<SuggestionsNouveau> with Chargement
   }
 
   static bool _enCours(Suggestion s) => s.status == 'pending';
+
+  /// « Créée le 14/10/2026 · Réf. SUG-12 » (une seule ligne).
+  static String ligneReference(Suggestion s) => [if (_date(s).isNotEmpty) 'Créée le ${_date(s)}', 'Réf. ${s.name}'].join(' · ');
+
+  /// Carte d'une suggestion : grossiste et statut sur la même ligne, puis date et référence sur une ligne.
+  Widget _carte(Suggestion s) => Padding(
+        key: Key('suggestion_${s.id}'),
+        padding: const EdgeInsets.only(bottom: 8),
+        child: CarteBande(
+          bande: _enCours(s) ? Charte.vert : null,
+          onTap: () => _ouvrir(s),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Expanded(child: Text(s.grossiste, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Charte.encre))),
+                  const SizedBox(width: 6),
+                  KeyedSubtree(
+                    key: Key('suggestion_statut_${s.id}'),
+                    child: _enCours(s) ? const Etiquette('En cours', ton: Ton.vert) : Etiquette(s.status, ton: Ton.gris),
+                  ),
+                ]),
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(ligneReference(s),
+                      key: Key('suggestion_reference_${s.id}'), style: const TextStyle(fontSize: 13, color: Charte.gris)),
+                ),
+              ]),
+            ),
+            _menu(s),
+          ]),
+        ),
+      );
   static String _date(Suggestion s) => s.dtCreated == null ? '' : DateFormatter.toDisplayFormat(s.dtCreated!);
 
   @override
@@ -175,15 +212,7 @@ class _SuggestionsNouveauState extends State<SuggestionsNouveau> with Chargement
     if (l.isEmpty) {
       return const [EtatVide(titre: 'Aucune suggestion de commande', texte: 'Aucune suggestion de commande disponible.', icone: Icons.lightbulb_outline)];
     }
-    final enCoursN = l.where(_enCours).length;
-    final grossistes = {for (final s in l) s.grossiste}.length;
     return [
-      GrilleKpi([
-        ChiffreCle(libelle: 'Suggestions', valeur: formaterNombre(l.length), id: 'suggestions', enAvant: true),
-        ChiffreCle(libelle: 'En cours', valeur: formaterNombre(enCoursN), id: 'en_cours', detail: 'ouvertes (« pending »)'),
-        ChiffreCle(libelle: 'Grossistes', valeur: formaterNombre(grossistes), id: 'grossistes'),
-      ]),
-      const SizedBox(height: 10),
       const Text('Touchez une suggestion pour l\'ouvrir et ajuster les quantités.', style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
       const TitreSection('Suggestions'),
       ListeOuTableau(
@@ -197,15 +226,7 @@ class _SuggestionsNouveauState extends State<SuggestionsNouveau> with Chargement
           Colonne('Statut', flex: 2),
         ],
         cellules: (i) => [l[i].grossiste, l[i].name, _date(l[i]), _enCours(l[i]) ? 'En cours' : l[i].status],
-        carte: (i) => CarteLigne(
-          key: Key('suggestion_${l[i].id}'),
-          titre: l[i].grossiste,
-          bande: _enCours(l[i]) ? Charte.vert : null,
-          etiquette: _enCours(l[i]) ? const Etiquette('En cours', ton: Ton.vert) : Etiquette(l[i].status, ton: Ton.gris),
-          lignes: [l[i].name, if (_date(l[i]).isNotEmpty) 'Créée le ${_date(l[i])}'],
-          onTap: () => _ouvrir(l[i]),
-          action: _menu(l[i]),
-        ),
+        carte: (i) => _carte(l[i]),
       ),
     ];
   }
@@ -238,6 +259,30 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
   /// Lignes en cours d'envoi (quantité ou suppression) : anti double envoi.
   final _envois = <String>{};
 
+  /// Focus de chaque champ de quantité (curseur automatique, passage à l'article suivant).
+  final _focus = <String, FocusNode>{};
+  bool _focusInitialPose = false;
+
+  FocusNode _noeud(String itemId) => _focus[itemId] ??= FocusNode(debugLabel: 'qte_$itemId');
+
+  /// Place le curseur dans la quantité de [l] et sélectionne son texte (la saisie remplace la valeur).
+  void _placer(SuggestionItem l) {
+    final c = _champs[l.itemId];
+    if (c != null) c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+    _noeud(l.itemId).requestFocus();
+  }
+
+  /// Après la saisie de [l] : curseur sur l'article suivant (le dernier ferme le clavier).
+  void _suivant(SuggestionItem l) {
+    final lignes = _lignes ?? const <SuggestionItem>[];
+    final i = lignes.indexWhere((x) => x.itemId == l.itemId);
+    if (i >= 0 && i + 1 < lignes.length) {
+      _placer(lignes[i + 1]);
+    } else {
+      FocusScope.of(context).unfocus();
+    }
+  }
+
   String get _id => widget.suggestion.id;
 
   @override
@@ -252,6 +297,9 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
   void dispose() {
     for (final c in _champs.values) {
       c.dispose();
+    }
+    for (final f in _focus.values) {
+      f.dispose();
     }
     super.dispose();
   }
@@ -277,6 +325,14 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
         _erreursChamp.clear();
         _enCours = false;
       });
+      // Curseur automatique dans la quantité du premier article, une seule fois (pas à chaque relecture).
+      if (!_focusInitialPose && _lignes!.isNotEmpty) {
+        _focusInitialPose = true;
+        final premier = _lignes!.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _placer(premier);
+        });
+      }
     } catch (e) {
       if (!mounted || g != _generation) return;
       setState(() {
@@ -396,16 +452,20 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
         child: TextField(
           key: Key('qte_${l.itemId}'),
           controller: _champs[l.itemId] ??= TextEditingController(text: '${l.quantiteSuggeree}'),
+          focusNode: _noeud(l.itemId),
           enabled: !envoi,
           textAlign: TextAlign.center,
           keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.done,
+          textInputAction: (_lignes?.isNotEmpty ?? false) && _lignes!.last.itemId == l.itemId ? TextInputAction.done : TextInputAction.next,
           inputFormatters: Saisie.entierFormatters(5), // 0 à 99 999
           onChanged: (_) => setState(() {
             _enregistrees.remove(l.itemId);
             _erreursChamp.remove(l.itemId);
           }),
-          onSubmitted: (_) => _enregistrer(l),
+          onSubmitted: (_) {
+            _suivant(l);
+            _enregistrer(l);
+          },
           decoration: InputDecoration(
             labelText: 'Qté à commander',
             isDense: true,

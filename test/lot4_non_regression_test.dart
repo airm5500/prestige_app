@@ -249,7 +249,10 @@ void main() {
     await toucher(tester, find.byKey(const Key('detail_fermer')));
     final requetesN = serveur.recues(route).length;
     serveur.oublierRequetes();
-    if (moisDernierPossible) await toucher(tester, find.byKey(const Key('periode_moisDernier')));
+    if (moisDernierPossible) {
+      await choisirAutrePeriode(tester, 'moisDernier');
+      await pomper(tester, 8);
+    }
     final moisN = params(route);
     await demonter(tester);
 

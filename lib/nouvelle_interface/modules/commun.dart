@@ -327,7 +327,18 @@ class TableauDense extends StatelessWidget {
   /// Action en fin de ligne (menu « ⋮ »…), à la place du chevron ; [largeurFin] : sa largeur.
   final Widget Function(int index)? fin;
   final double largeurFin;
-  const TableauDense({super.key, required this.colonnes, required this.lignes, this.onTap, this.total, this.fin, this.largeurFin = 48});
+
+  /// 3.11.0 : hauteur maximale des lignes. Si elle est donnée, les lignes défilent DANS le tableau et ne sont
+  /// construites qu'à l'affichage (tableaux longs : CA emplacement / famille sur tablette) ; en-tête et total restent
+  /// visibles. Sinon, toutes les lignes sont construites d'un bloc (comportement d'origine).
+  final double? hauteurMax;
+  const TableauDense(
+      {super.key, required this.colonnes, required this.lignes, this.onTap, this.total, this.fin, this.largeurFin = 48, this.hauteurMax});
+
+  Widget _ligneTouchable(int i) => Material(
+        color: i.isOdd ? Charte.page : Charte.blanc,
+        child: InkWell(onTap: onTap == null ? null : () => onTap!(i), child: _ligne(lignes[i], index: i)),
+      );
 
   Widget _ligne(List<String> cellules, {bool entete = false, bool gras = false, int? index}) => Container(
         constraints: const BoxConstraints(minHeight: 48),
@@ -368,10 +379,18 @@ class TableauDense extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(color: Charte.grisClair, child: _ligne([for (final c in colonnes) c.titre.toUpperCase()], entete: true)),
-          for (var i = 0; i < lignes.length; i++)
-            Material(
-              color: i.isOdd ? Charte.page : Charte.blanc,
-              child: InkWell(onTap: onTap == null ? null : () => onTap!(i), child: _ligne(lignes[i], index: i)),
+          if (hauteurMax == null)
+            for (var i = 0; i < lignes.length; i++) _ligneTouchable(i)
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: hauteurMax!),
+              child: ListView.builder(
+                key: const Key('tableau_dense_lignes'),
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: lignes.length,
+                itemBuilder: (_, i) => _ligneTouchable(i),
+              ),
             ),
           if (total != null)
             Container(

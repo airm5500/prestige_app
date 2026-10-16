@@ -175,16 +175,30 @@ class BoutonReglages extends StatelessWidget {
       );
 }
 
-/// Bouton de déconnexion (en-têtes).
+/// Rouge du bouton de déconnexion de l'en-tête de Prestige web (header.css, `.hdr-logout` : #e74c3c).
+const rougeDeconnexion = Color(0xFFE74C3C);
+
+/// Bouton de déconnexion (en-têtes). 3.11.0 (demande du pharmacien) : même bouton que l'en-tête de Prestige web
+/// (Header.js : icône « power-off » blanche dans un rond rouge #e74c3c), placé APRÈS les Réglages. Zone touchable de
+/// 48 dp, libellé accessible « Déconnexion ». [couleur] est conservé pour compatibilité (le bouton est toujours rouge).
 class BoutonDeconnexion extends StatelessWidget {
   final Color couleur;
-  const BoutonDeconnexion({super.key, this.couleur = Charte.blanc});
+  const BoutonDeconnexion({super.key = const Key('bouton_deconnexion'), this.couleur = Charte.blanc});
 
   @override
   Widget build(BuildContext context) => IconButton(
-        icon: Icon(Icons.logout, color: couleur),
         tooltip: 'Déconnexion',
         onPressed: () => Provider.of<AuthProvider>(context, listen: false).logout(context),
+        icon: Container(
+          width: 34,
+          height: 34,
+          decoration: const BoxDecoration(
+            color: rougeDeconnexion,
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Color(0x73E74C3C), blurRadius: 8, offset: Offset(0, 2))],
+          ),
+          child: const Icon(Icons.power_settings_new, color: Colors.white, size: 19),
+        ),
       );
 }
 
@@ -412,8 +426,8 @@ class _AccueilTableauDeBord extends StatelessWidget {
           onPressed: chargement ? null : actualiser,
           icon: const Icon(Icons.refresh, color: Charte.blanc),
         ),
-        const BoutonDeconnexion(),
         const BoutonReglages(),
+        const BoutonDeconnexion(),
       ],
       enfants: [
         Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -603,8 +617,8 @@ class _AccueilCompactState extends State<_AccueilCompact> {
             icon: Icon(ip.useLocalIp ? Icons.lan_outlined : Icons.public, color: Charte.navy),
             onPressed: () => basculerServeur(context),
           ),
-          const BoutonDeconnexion(couleur: Charte.navy),
           const BoutonReglages(couleur: Charte.navy),
+          const BoutonDeconnexion(couleur: Charte.navy),
         ],
       ),
       Container(
@@ -808,7 +822,7 @@ class _AccueilGuide extends StatelessWidget {
         titre: prenom.isEmpty ? 'Bonjour' : 'Bonjour $prenom',
         sousTitre: 'Que voulez-vous savoir ?',
         retour: false,
-        actions: const [BoutonDeconnexion(), BoutonReglages()],
+        actions: const [BoutonReglages(), BoutonDeconnexion()],
         enfants: const [Align(alignment: Alignment.centerLeft, child: PastilleServeur())],
       ),
       Padding(

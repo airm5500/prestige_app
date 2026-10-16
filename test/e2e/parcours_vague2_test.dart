@@ -182,7 +182,7 @@ void main() {
     await terminer(tester);
   });
 
-  testWidgets('Pilotage : onglet de la barre du bas (4 onglets), synthèse, axe, À suivre, contrôle confirmé', (tester) async {
+  testWidgets('Pilotage : onglet de la barre du bas (4 onglets), synthèse, axe, À suivre (CA par emplacement), sans contrôle des chiffres (3.11.0)', (tester) async {
     telephone(tester);
     await jusquAccueilNouveau(tester);
     final barre = tester.widget<NavigationBar>(find.byKey(const Key('barre_accueil')));
@@ -203,18 +203,19 @@ void main() {
     await onglet(tester, 'À suivre');
     await attendreWidget(tester, find.byKey(const Key('pilotage_a_suivre')));
     expect(serveur.recues('/pilotage/onglet/asuivre').single.parametres, {'axe': 'VS_M1'});
-    // Taux de rupture en hausse : flèche vers le haut (sens réel) mais « défavorable » (couleurs inversées).
+    // Taux de rupture en hausse : flèche vers le haut (sens réel), en rouge (couleurs inversées) ; 3.11.0 : sans le
+    // mot « défavorable ».
     await attendreWidget(tester, find.byKey(const Key('variation_tauxRupture')));
     expect(find.descendant(of: find.byKey(const Key('variation_tauxRupture')), matching: find.byIcon(Icons.arrow_upward)), findsOneWidget);
-    expect(find.descendant(of: find.byKey(const Key('variation_tauxRupture')), matching: find.textContaining('défavorable')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pilotage_a_suivre')), matching: find.textContaining('favorable')), findsNothing);
     expect(find.text('PRODUIT A PERTE FICTIF'), findsOneWidget);
+    // 3.11.0 : CA par emplacement et par famille de la période.
+    expect(find.byKey(const Key('suivi_emplacement_0')), findsOneWidget);
+    expect(find.byKey(const Key('suivi_famille_0')), findsOneWidget);
 
-    await toucher(tester, find.byKey(const Key('pilotage_controler')), defilement: find.byKey(const Key('defilement_pilotage')));
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(serveur.recues(ApiPilotage.routeControler), isEmpty, reason: 'rien avant confirmation');
-    await toucher(tester, find.byKey(const Key('controle_confirmer')));
-    await attendreWidget(tester, find.byKey(const Key('controle_resultat')));
-    expect(serveur.recues(ApiPilotage.routeControler).single.parametres, {'axe': 'VS_M1'});
+    // 3.11.0 : « Contrôler les chiffres » retiré (se fait sur Prestige web) ; jamais appelé.
+    expect(find.byKey(const Key('pilotage_controler')), findsNothing);
+    expect(serveur.recues(ApiPilotage.routeControler), isEmpty);
 
     await ouvrirOnglet(tester, 'Accueil');
     expect(find.byType(AccueilNouveau), findsOneWidget);
@@ -266,7 +267,11 @@ void main() {
     await attendreWidget(tester, find.byKey(const Key('ligne_ca_0')));
     expect(serveur.recues(ApiCaZone.route).single.parametres['typePeriode'], 'TROIS_SEMAINES');
     expect(find.byKey(const Key('chiffre_ca_total')), findsOneWidget);
-    expect(find.textContaining('S42 (12/10-14/10) (en cours)'), findsWidgets, reason: 'tranche en cours signalée');
+    // 3.11.0 : libellé, montant et évolution sur une ligne ; « en cours » et la quantité en commentaire dessous.
+    expect(find.text('S42 (12/10-14/10)'), findsWidgets);
+    expect(find.textContaining(RegExp(r'^en cours')), findsWidgets, reason: 'tranche en cours signalée');
+    expect(find.textContaining('favorable'), findsNothing, reason: '3.11.0 : plus de « favorable / défavorable »');
+    expect(find.byKey(const Key('chiffre_ca_lignes')), findsNothing, reason: '3.11.0 : carte « Lignes » retirée');
 
     // Regroupement par famille (feuille des filtres).
     await tester.tap(find.byKey(const Key('bouton_filtres')));
@@ -288,6 +293,7 @@ void main() {
     await attendreWidget(tester, find.byKey(const Key('detail_ca_total')));
     final d = serveur.recues(ApiCaZone.routeDetail).single.parametres;
     expect(d['ligneFamilleId'], 'FAM-TEST-1');
+    expect(d.containsKey('ligneZoneId'), isFalse, reason: '3.11.0 : pas de zone vide (= « sans emplacement ») en regroupement Famille');
     expect(d['typePeriode'], 'TROIS_ANS');
     expect(find.text('PRODUIT CA FICTIF 1'), findsOneWidget);
     await revenirALAccueil(tester);

@@ -5,6 +5,7 @@
 // affichage local par tranches (« Afficher plus » sans nouvelle requête).
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../donnees/tableau_bord_donnees.dart';
 import '../charte.dart';
@@ -177,4 +178,117 @@ mixin AffichageParTranches<W extends StatefulWidget> on State<W> {
           enCours: false,
           onPlus: () => setState(() => affichees += tranche),
         );
+}
+
+/// 3.11.0 : courbes de montants par jour (fl_chart), une série par élément de [series] (mêmes valeurs que
+/// [jours], dans le même ordre). Dates abrégées en abscisse (au plus ~6 libellés), montants abrégés en ordonnée,
+/// valeurs au toucher. Sert à la répartition du Détail CA (une courbe par mode de paiement) et aux courbes rapides
+/// des 7 derniers jours du Pilotage.
+class GraphiqueCourbes extends StatelessWidget {
+  final List<DateTime?> jours;
+  final List<(SerieGraphique, List<double>)> series;
+
+  /// Format d'une valeur au toucher (montant par défaut ; nombre pour un nombre de ventes).
+  final String Function(double) valeurTexte;
+  final String libelle;
+  const GraphiqueCourbes({super.key, required this.jours, required this.series, required this.libelle, this.valeurTexte = formaterMontantDouble});
+
+  static String formaterMontantDouble(double v) => formaterMontant(v);
+
+  @override
+  Widget build(BuildContext context) {
+    final n = jours.length;
+    List<FlSpot> points(List<double> v) {
+      final s = [for (var i = 0; i < n && i < v.length; i++) FlSpot(i.toDouble(), v[i])];
+      if (s.length == 1) s.add(FlSpot(1, s.first.y));
+      return s;
+    }
+
+    var maxY = 0.0;
+    for (final (_, v) in series) {
+      for (final y in v) {
+        if (y > maxY) maxY = y;
+      }
+    }
+    final pas = n > 6 ? (n / 6).ceilToDouble() : 1.0;
+    const style = TextStyle(color: Charte.gris, fontWeight: FontWeight.bold, fontSize: 10);
+    return Semantics(
+      label: libelle,
+      child: LineChart(LineChartData(
+        minX: 0,
+        maxX: (n <= 1 ? 1 : n - 1).toDouble(),
+        minY: 0,
+        maxY: maxY == 0 ? 10 : maxY * 1.1,
+        gridData: FlGridData(
+          show: true,
+          getDrawingHorizontalLine: (_) => const FlLine(color: Charte.ligne, strokeWidth: 0.8),
+          getDrawingVerticalLine: (_) => const FlLine(color: Charte.ligne, strokeWidth: 0.8),
+        ),
+        borderData: FlBorderData(show: true, border: Border.all(color: Charte.bordure)),
+        titlesData: FlTitlesData(
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              interval: pas,
+              getTitlesWidget: (v, meta) {
+                final i = v.toInt();
+                final d = i >= 0 && i < n ? jours[i] : null;
+                return SideTitleWidget(axisSide: meta.axisSide, space: 6, child: Text(d == null ? '' : DateFormat('dd/MM').format(d), style: style));
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 46,
+              interval: maxY > 0 ? (maxY / 4).clamp(1, double.infinity) : 1,
+              getTitlesWidget: (v, meta) => Text(graduationVisible(v, meta) ? montantCourt(v) : '', style: style),
+            ),
+          ),
+        ),
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => Charte.navy,
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
+            getTooltipItems: (touches) => [
+              for (var k = 0; k < touches.length; k++)
+                () {
+                  final t = touches[k];
+                  final i = t.x.toInt();
+                  final s = series[t.barIndex].$1;
+                  final d = i < n ? jours[i] : null;
+                  return LineTooltipItem(
+                    k == 0 && d != null ? '${DateFormat('dd/MM/yyyy').format(d)}\n' : '',
+                    const TextStyle(color: Charte.enteteGris, fontSize: 11),
+                    children: [TextSpan(text: '${s.libelle} : ${valeurTexte(t.y)}', style: const TextStyle(color: Charte.blanc, fontWeight: FontWeight.bold))],
+                  );
+                }(),
+            ],
+          ),
+        ),
+        lineBarsData: [
+          for (final (s, v) in series)
+            LineChartBarData(
+              spots: points(v),
+              isCurved: true,
+              preventCurveOverShooting: true,
+              color: s.couleur,
+              barWidth: 3,
+              dashArray: s.motif,
+              isStrokeCapRound: true,
+              dotData: FlDotData(
+                show: n < 32,
+                getDotPainter: (spot, _, __, ___) => s.carre
+                    ? FlDotSquarePainter(size: 7, color: s.couleur, strokeWidth: 0)
+                    : FlDotCirclePainter(radius: 3.5, color: s.couleur, strokeWidth: 0),
+              ),
+            ),
+        ],
+      )),
+    );
+  }
 }

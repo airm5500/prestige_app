@@ -82,7 +82,7 @@ final modules = <ModuleLent>[
       (_) => ReponseFausse.json(DonneesFictives.perimes()), cle('chiffre_lots')),
   ModuleLent('Visualisation BL', () => const VisualisationBlNouveau(), '/etat-control-bon/list', DonneesLot2.listeBons, cle('chiffre_ttc')),
   ModuleLent('Suggestions', () => const SuggestionsNouveau(), AppConstants.suggestionListEndpoint,
-      (_) => ReponseFausse.json(DonneesLot2.suggestions()), cle('chiffre_suggestions')),
+      (_) => ReponseFausse.json(DonneesLot2.suggestions()), cle('suggestion_reference_${DonneesLot2.suggestion1}')),
   ModuleLent('Tableau : Analyses', () => const TableauAnalysesNouveau(), AppConstants.tableauBordAchatsVentesEndpoint,
       (_) => ReponseFausse.json(DonneesLot3.achatsVentes()), cle('chiffre_ventes')),
   ModuleLent('Récap de caisse', () => const RecapCaisseNouveau(), '/caisse/fetch-tickez', (_) => ReponseFausse.json(DonneesLot4.ticketZ('ALL')),
