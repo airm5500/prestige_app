@@ -75,9 +75,13 @@ void main() {
     test('liste des menus : plus de « Fournisseurs », les autres menus fournisseurs restent', () {
       final titres = [for (final m in menusModules) m.titre];
       expect(titres, isNot(contains('Fournisseurs')));
-      expect(titres, containsAll(['Achats Fourn.', 'Retours Fournisseurs', 'Visualisation BL', 'Etat Contrôle Achat', 'Analyse Saisies BL']));
+      // 3.11.0 : « Etat Contrôle Achat » est l'onglet Synthèse d'« Achats Fourn. ».
+      expect(titres, containsAll(['Achats Fourn.', 'Retours Fournisseurs', 'Visualisation BL', 'Analyse Saisies BL']));
+      expect(titres, isNot(contains('Etat Contrôle Achat')));
       expect(menusModules, hasLength(35),
-          reason: '26 menus d\'origine (sans Fournisseurs ni, depuis la 3.9.0, Fiche Article) + 3 nouveaux menus de la vague 1 + 3 de la vague 2 (le Pilotage est un onglet) + 3 de la vague 3');
+          reason: '26 menus d\'origine (sans Fournisseurs ni, depuis la 3.9.0, Fiche Article ; 3.11.0 : Etat Contrôle Achat et Suivi Crédit '
+              'réunis à leur voisin) + 3 nouveaux menus de la vague 1 + 3 de la vague 2 (le Pilotage est un onglet) + 3 de la vague 3 '
+              '+ 2 de la 3.11.0 (Balance vente / caisse, Sur-stocks)');
     });
 
     testWidgets('accueil A (familles) : « Fournisseurs » absent, « Retours Fournisseurs » présent', (tester) async {
@@ -177,8 +181,13 @@ void main() {
         final largeur = tester.view.physicalSize.width / tester.view.devicePixelRatio;
         expect(zone.width, greaterThanOrEqualTo(48));
         expect(zone.height, greaterThanOrEqualTo(48));
-        expect(zone.right, greaterThan(largeur - 24), reason: 'à droite');
+        // 3.11.0 : à droite, juste avant le bouton de déconnexion (demande du pharmacien : déconnexion après Réglages).
+        expect(zone.right, greaterThan(largeur - 24 - 48), reason: 'à droite');
         expect(zone.top, lessThan(110), reason: 'en haut');
+        final deconnexion = tester.getRect(find.byKey(const Key('bouton_deconnexion')).first);
+        expect(deconnexion.left, greaterThanOrEqualTo(zone.right - 1), reason: 'déconnexion après Réglages');
+        expect(deconnexion.right, greaterThan(largeur - 24));
+        expect(find.descendant(of: find.byKey(const Key('bouton_deconnexion')).first, matching: find.byIcon(Icons.power_settings_new)), findsOneWidget);
         expect(find.byTooltip('Réglages'), findsOneWidget);
         expect(find.descendant(of: bouton, matching: find.byIcon(Icons.settings_outlined)), findsOneWidget);
         final semantique = tester.ensureSemantics();
@@ -207,7 +216,7 @@ void main() {
       tablette(tester);
       await connecter(tester, Presentation.automatique);
       final zone = tester.getRect(find.byKey(const Key('bouton_reglages')));
-      expect(zone.right, greaterThan(1280 - 24));
+      expect(zone.right, greaterThan(1280 - 24 - 48), reason: '3.11.0 : juste avant la déconnexion');
       expect(zone.top, lessThan(110));
       expect(find.byKey(const Key('barre_accueil')), findsNothing);
       await tester.tap(find.descendant(of: find.byType(AccueilNouveau), matching: find.text('Réglages')));

@@ -108,3 +108,20 @@ Future<void> ouvrirOnglet(WidgetTester tester, String nom) async {
   await tester.pump(const Duration(milliseconds: 300));
   await tester.pump(const Duration(milliseconds: 300));
 }
+
+/// 3.11.0 : menus réunis à leur voisin (onglet « Synthèse » du menu à deux onglets) : menu ouvert → parent.
+const parentsMenusFusionnes = {'Suivi Crédit': 'CA Crédit', 'Etat Contrôle Achat': 'Achats Fourn.'};
+
+/// Ouvre [tuile] par la recherche de menu de l'accueil B ; un menu réuni (3.11.0) s'ouvre par son menu parent puis
+/// l'onglet « Synthèse ».
+Future<void> ouvrirParRechercheB(WidgetTester tester, String tuile) async {
+  final parent = parentsMenusFusionnes[tuile];
+  await tester.enterText(find.byKey(const Key('recherche_menu')), parent ?? tuile);
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text(parent ?? tuile)).first);
+  if (parent != null) {
+    await attendreQue(tester, () => find.byKey(const Key('onglet_menu_1')).evaluate().isNotEmpty, raison: 'menu $parent');
+    await tester.tap(find.byKey(const Key('onglet_menu_1')));
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+}

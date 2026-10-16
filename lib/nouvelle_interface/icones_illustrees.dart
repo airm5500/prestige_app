@@ -36,9 +36,9 @@ const illustrationsMenus = <String, String>{
   'Annulation Ventes': 'interdit',
   'Retraits et abandons': 'corbeille',
   'Ventes modifiées': 'crayon',
+  'Balance vente / caisse': 'balance',
   // Crédits & clients
   'CA Crédit': 'carte_bancaire',
-  'Suivi Crédit': 'registre',
   'Avis': 'etoile',
   'Rappels traitement': 'gelule',
   // Analyses
@@ -58,8 +58,8 @@ const illustrationsMenus = <String, String>{
   'Etat de Stock': 'colis',
   'Alertes': 'cloche',
   'Prévisions': 'telescope',
+  'Sur-stocks': 'boite_fiches',
   // Fournisseurs & achats
-  'Etat Contrôle Achat': 'coche',
   'Analyse Saisies BL': 'memo',
   'Achats Fourn.': 'chariot',
   'Retours Fournisseurs': 'fleche_retour',

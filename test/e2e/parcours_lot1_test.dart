@@ -42,9 +42,8 @@ Future<void> retourSysteme(WidgetTester tester) async {
 
 /// Ouvre [m] par la recherche de menu de l'accueil B et attend son nouvel écran.
 Future<void> ouvrir(WidgetTester tester, ModuleLot1 m) async {
-  await tester.enterText(find.byKey(const Key('recherche_menu')), m.tuile);
-  await tester.pump(const Duration(milliseconds: 300));
-  await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text(m.tuile)).first);
+  // 3.11.0 : « Suivi Crédit » et « Etat Contrôle Achat » s'ouvrent par l'onglet Synthèse de leur menu voisin.
+  await ouvrirParRechercheB(tester, m.tuile);
   await attendreWidget(tester, find.byType(m.typeNouveau));
   expect(find.widgetWithText(AppBar, m.titreEcran), findsOneWidget);
 }
@@ -139,6 +138,10 @@ void main() {
     expect(serveur.recues('/stats-recette-caisse/modes'), isEmpty, reason: 'aucun appel à l\'ouverture');
     final defilement = find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first;
     await tester.scrollUntilVisible(find.byKey(const Key('deplier_mobile')), 300, scrollable: defilement);
+    // Entièrement à l'écran (3.11.0 : la courbe de répartition décale la ligne ; le défilement par pas de 300 dp peut
+    // la laisser à moitié sous la barre, ce que la sémantique marque « cachée »).
+    await tester.ensureVisible(find.byKey(const Key('deplier_mobile')));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(tester.getSemantics(find.byKey(const Key('deplier_mobile'))),
         matchesSemantics(label: 'Détail Mobile Money\nTotal Mobile Money\n${formaterMontant(237750)}', isButton: true, hasExpandedState: true, isExpanded: false, hasTapAction: true,
             hint: 'Déplier le détail par opérateur', isFocusable: true, hasFocusAction: true),

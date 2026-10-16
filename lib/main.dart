@@ -288,11 +288,11 @@ class AuthWrapper extends StatelessWidget {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 licenceProvider.checkLicence(context);
               });
-              return const SplashScreen();
+              return const SplashScreen(etape: EtapeChargement.reglages);
             }
 
             if (licenceProvider.status == LicenceStatus.checking) {
-              return const SplashScreen();
+              return const SplashScreen(etape: EtapeChargement.licence);
             }
 
             // Serveur injoignable (ou erreur du serveur) : la licence n'est PAS en cause.
@@ -311,7 +311,7 @@ class AuthWrapper extends StatelessWidget {
             return Consumer<AuthProvider>(
               builder: (context, auth, child) {
                 if (auth.isLoading) {
-                  return const SplashScreen();
+                  return const SplashScreen(etape: EtapeChargement.serveur);
                 }
                 if (auth.isLoggedIn) {
                   return InterfaceVersion.home(nouvelle: InterfaceVersion.nouvelle(context));

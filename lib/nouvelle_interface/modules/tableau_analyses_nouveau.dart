@@ -137,7 +137,11 @@ class _TableauAnalysesNouveauState extends State<TableauAnalysesNouveau> with Ch
         const Text('Touchez la courbe pour lire les montants d\'un jour.', style: TextStyle(color: Charte.grisTexte, fontSize: 13, fontWeight: FontWeight.w600)),
       ],
       const TitreSection('Jour par jour'),
-      _JourParJour(lignes: l, total: ['Total', formaterMontant(achats), formaterMontant(ventes), '', formaterRatio(ratio)], detail: _detail),
+      // Téléphone : une carte par élément de la liste, construite à son arrivée à l'écran (3 ans = 1 096 cartes).
+      if (MediaQuery.sizeOf(context).width - 32 >= largeurTableau)
+        _JourParJour(lignes: l, total: ['Total', formaterMontant(achats), formaterMontant(ventes), '', formaterRatio(ratio)], detail: _detail)
+      else
+        for (var i = 0; i < l.length; i++) _JourParJour.carte(l, i, _detail),
     ];
   }
 }
@@ -210,7 +214,12 @@ class _JourParJour extends StatelessWidget {
         ];
       },
       total: total,
-      carte: (i) => CarteLigne(
+      carte: (i) => carte(l, i, detail),
+    );
+  }
+
+  /// Carte d'un jour (téléphone).
+  static Widget carte(List<TableauBordAchatsVentes> l, int i, void Function(TableauBordAchatsVentes) detail) => CarteLigne(
         key: Key('jour_$i'),
         titre: _date(l[i]),
         lignes: ['Ratio ${formaterRatio(l[i].ratio)}'],
@@ -225,9 +234,7 @@ class _JourParJour extends StatelessWidget {
         libelleValeur: 'Ventes',
         valeur: formaterMontant(l[i].montantVente),
         onTap: () => detail(l[i]),
-      ),
-    );
-  }
+      );
 }
 
 /// Courbes achats / ventes (fl_chart) : mêmes points que les graphiques d'origine (x = rang du jour, y = montant).

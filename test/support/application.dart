@@ -71,6 +71,9 @@ void preparerTelephone(FauxServeurPrestige serveur,
     InterfaceVersion.cle: nouvelle,
     if (tailleEcranPreparee != TailleEcran.automatique) TailleEcranReglage.cle: tailleEcranPreparee.name,
     PresentationPrefs.cle: presentation.name,
+    // Téléphone déjà passé à la 3.11.0 : la présentation demandée par le test est gardée (la migration vers le
+    // tableau de bord a ses propres tests).
+    if (!autres.containsKey(PresentationPrefs.cleMigration)) PresentationPrefs.cleMigration: true,
     if (affichageMenus != AffichageMenus.unePage) ApparenceAccueilPrefs.cleAffichage: affichageMenus.valeur,
     if (styleIcones != null) ApparenceAccueilPrefs.cleStyle: styleIcones.name,
     ...autres,

@@ -24,6 +24,7 @@ import 'donnees_fictives.dart';
 import 'donnees_vague1.dart';
 import 'donnees_vague2.dart';
 import 'donnees_vague3.dart';
+import 'donnees_vague4.dart';
 
 /// Requête reçue par le faux serveur.
 class RequeteRecue {
@@ -268,6 +269,7 @@ class FauxServeurPrestige {
     installerRoutesVague1(this);
     installerRoutesVague2(this);
     installerRoutesVague3(this);
+    installerRoutesVague4(this);
   }
 
   static List<Map<String, Object?>> _filtrer(List<Map<String, Object?>> liste, String champ, String? recherche) {

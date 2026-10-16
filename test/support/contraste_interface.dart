@@ -116,6 +116,15 @@ class ContrasteInterface extends MinimumTextContrastGuideline {
     final texteSeul = MatrixUtils.transformRect(globalTransform, renderBox.paintBounds);
     final ecran = Rect.fromLTWH(0, 0, largeur * facteur, hauteur * facteur);
     if (texteSeul.top < ecran.top - 0.5 || texteSeul.bottom > ecran.bottom + 0.5) return const Evaluation.pass();
+    // Même chose au bord de sa LISTE (3.11.0) : un titre arrêté à moitié sous la barre du bas est coupé par la liste
+    // qui défile ; la photo prendrait la couleur de la barre pour celle du fond du texte.
+    for (RenderObject? o = renderBox.parent; o != null; o = o.parent) {
+      if (o is RenderViewportBase) {
+        final liste = MatrixUtils.transformRect(o.getTransformTo(null), Offset.zero & o.size);
+        if (texteSeul.top < liste.top - 0.5 || texteSeul.bottom > liste.bottom + 0.5) return const Evaluation.pass();
+        break;
+      }
+    }
     final histogramme = _couleurs(octets, dansImage, largeur, hauteur);
     if (histogramme.isEmpty) return const Evaluation.pass();
     final (clair, fonce) = _clairEtFonce(histogramme);

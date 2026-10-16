@@ -21,26 +21,23 @@ import 'package:flutter/material.dart';
 import '../presences/presences_screen.dart';
 import '../providers/home_settings_provider.dart';
 import 'charte.dart';
-import 'modules/achats_fournisseurs_nouveau.dart';
 import 'modules/ajustements_nouveau.dart';
 import 'modules/analyse_bl_nouveau.dart';
 import 'modules/annulation_ventes_nouveau.dart';
 import 'modules/articles_nouveau.dart';
-import 'modules/ca_credit_nouveau.dart';
 import 'modules/ca_global_nouveau.dart';
-import 'modules/controle_achat_nouveau.dart';
 import 'modules/detail_ca_nouveau.dart';
 import 'modules/etat_stock_nouveau.dart';
 import 'modules/evolution_stock_nouveau.dart';
 import 'modules/fichier_journal_nouveau.dart';
 import 'modules/marge_produits_nouveau.dart';
+import 'modules/menu_deux_onglets.dart';
 import 'modules/rapport_activite_nouveau.dart';
 import 'modules/recap_caisse_nouveau.dart';
 import 'modules/retours_fournisseurs_nouveau.dart';
 import 'modules/stat_tva_nouveau.dart';
 import 'modules/suivi_2080_nouveau.dart';
 import 'modules/suggestions_nouveau.dart';
-import 'modules/suivi_credit_nouveau.dart';
 import 'modules/suivi_peremption_nouveau.dart';
 import 'modules/tableau_analyses_nouveau.dart';
 import 'modules/tableau_ratios_nouveau.dart';
@@ -55,6 +52,8 @@ import 'vague2/previsions_vague2.dart';
 import 'vague3/avis_vague3.dart';
 import 'vague3/pointage_vague3.dart';
 import 'vague3/rappels_vague3.dart';
+import 'vague4/balance_vague4.dart';
+import 'vague4/surstock_vague4.dart';
 
 enum Famille { ventes, credits, analyses, stock, fournisseurs, equipe }
 
@@ -130,13 +129,18 @@ class MenuModule {
 
 /// Menus de l'ancien accueil volontairement absents de la nouvelle interface (demandes du pharmacien). Leur place
 /// dans l'ordre mémorisé et leur état masqué restent intacts pour l'ancienne interface.
-const menusRetiresNouvelle = {'Fournisseurs', 'Fiche Article'};
+const menusRetiresNouvelle = {'Fournisseurs', 'Fiche Article', ...menusFusionnes};
+
+/// 3.11.0 (décision du pharmacien) : menus réunis dans un menu voisin à deux onglets « Détail | Synthèse »
+/// (modules/menu_deux_onglets.dart) : « Etat Contrôle Achat » dans « Achats Fourn. », « Suivi Crédit » dans
+/// « CA Crédit ». L'ancienne interface les garde séparés.
+const menusFusionnes = {'Etat Contrôle Achat', 'Suivi Crédit'};
 
 final menusModules = <MenuModule>[
   MenuModule('Détail CA', 'Comptant, crédit, modes de paiement', Icons.payments_outlined, Famille.ventes, Question.vendu,
       () => const DetailCaNouveau()),
-  MenuModule('CA Crédit', 'Ventes à crédit par client', Icons.credit_card_outlined, Famille.credits, Question.credits,
-      () => const CaCreditNouveau()),
+  MenuModule('CA Crédit', 'Ventes à crédit et suivi des crédits', Icons.credit_card_outlined, Famille.credits, Question.credits,
+      () => const CreditsMenu()), // Détail | Synthèse (Suivi Crédit), 3.11.0
   MenuModule('CA Global', 'Chiffre d\'affaires jour par jour', Icons.receipt_long_outlined, Famille.ventes, Question.vendu,
       () => const CaGlobalNouveau()),
   MenuModule('Récap de caisse', 'Encaissements par caissier et période', Icons.point_of_sale_outlined, Famille.ventes,
@@ -145,14 +149,10 @@ final menusModules = <MenuModule>[
       Question.vendu, () => const RapportActiviteNouveau()),
   MenuModule('Fichier Journal', 'Actions des utilisateurs', Icons.history_edu_outlined, Famille.equipe, Question.equipe,
       () => const FichierJournalNouveau()),
-  MenuModule('Etat Contrôle Achat', 'Contrôle des bons sur l\'année', Icons.fact_check_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const ControleAchatNouveau()),
   MenuModule('Marge Produits Vendus', 'Marge par produit', Icons.percent_outlined, Famille.analyses, Question.vendu,
       () => const MargeProduitsNouveau()),
   MenuModule('Analyse Saisies BL', 'Saisie des bons de livraison', Icons.document_scanner_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const AnalyseBlNouveau()),
-  MenuModule('Suivi Crédit', 'Reste à payer par client', Icons.request_quote_outlined, Famille.credits, Question.credits,
-      () => const SuiviCreditNouveau()),
   MenuModule('Tableau: Analyses', 'Évolutions des ventes et des achats', Icons.analytics_outlined, Famille.analyses,
       Question.vendu, () => const TableauAnalysesNouveau()),
   MenuModule('Tableau: Ratios', 'Ratios achats / ventes', Icons.compare_arrows_outlined, Famille.analyses, Question.vendu,
@@ -171,8 +171,8 @@ final menusModules = <MenuModule>[
       () => const ValorisationVague1(), responsables: true), // réservée (décision du pharmacien, 3.1.0)
   MenuModule('Suivi Ajustements', 'Corrections de stock', Icons.rule_folder_outlined, Famille.stock, Question.commander,
       () => const AjustementsNouveau()),
-  MenuModule('Achats Fourn.', 'Achats par fournisseur', Icons.shopping_cart_checkout_outlined, Famille.fournisseurs,
-      Question.fournisseurs, () => const AchatsFournisseursNouveau()),
+  MenuModule('Achats Fourn.', 'Achats par fournisseur, contrôle des achats', Icons.shopping_cart_checkout_outlined, Famille.fournisseurs,
+      Question.fournisseurs, () => const AchatsFournisseursMenu()), // Détail | Synthèse (État de contrôle), 3.11.0
   MenuModule('Retours Fournisseurs', 'Retours et avoirs', Icons.assignment_return_outlined, Famille.fournisseurs,
       Question.fournisseurs, () => const RetoursFournisseursNouveau()),
   MenuModule('Suggestions', 'Suggestions de commande', Icons.lightbulb_outline, Famille.stock, Question.commander,
@@ -200,6 +200,11 @@ final menusModules = <MenuModule>[
       Question.vendu, () => const AnalyseGardeScreen(), responsables: true),
   MenuModule('CA emplacement / famille', 'Chiffre d\'affaires comparé par rayon et famille', Icons.stacked_bar_chart, Famille.analyses,
       Question.vendu, () => const CaZoneScreen(), responsables: true),
+  // 3.11.0 (lecture seule) : administrateur et pharmacien seulement.
+  MenuModule('Balance vente / caisse', 'Balance, analyse comparative, modes, alertes', Icons.balance_outlined, Famille.ventes,
+      Question.vendu, () => const BalanceCaisseScreen(), responsables: true),
+  MenuModule('Sur-stocks', 'Produits au-delà de la couverture visée', Icons.inventory_outlined, Famille.stock, Question.commander,
+      () => const SurstocksScreen(), responsables: true),
   // Vague 3 (écritures légères dont le droit est vérifié par le serveur, 3.4.0) : administrateur et pharmacien
   // seulement. Aucun envoi de message (WhatsApp, SMS, e-mail) depuis le mobile.
   MenuModule('Pointage BL', 'Pointer les BL et avoirs d\'un grossiste', Icons.playlist_add_check, Famille.fournisseurs,

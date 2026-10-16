@@ -60,9 +60,8 @@ Future<void> ouvrir(WidgetTester tester, ModuleLot1 m) async {
     expect(find.widgetWithText(AppBar, m.titreEcran), findsOneWidget);
     return;
   }
-  await tester.enterText(find.byKey(const Key('recherche_menu')), m.tuile);
-  await tester.pump(const Duration(milliseconds: 300));
-  await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text(m.tuile)).first);
+  // 3.11.0 : « Suivi Crédit » et « Etat Contrôle Achat » s'ouvrent par l'onglet Synthèse de leur menu voisin.
+  await ouvrirParRechercheB(tester, m.tuile);
   await attendreWidget(tester, find.byType(m.typeNouveau));
   expect(find.widgetWithText(AppBar, m.titreEcran), findsOneWidget);
 }

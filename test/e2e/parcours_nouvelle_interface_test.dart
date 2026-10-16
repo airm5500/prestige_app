@@ -168,7 +168,7 @@ void main() {
       ..parDefaut = ((_) => ReponseFausse.json(DonneesFictives.listeVide()));
   });
 
-  testWidgets('nouvelle interface PAR DÉFAUT (aucun choix mémorisé) : connexion, accueil A, chiffres du jour, déconnexion',
+  testWidgets('nouvelle interface PAR DÉFAUT (aucun choix mémorisé) : connexion, TABLEAU DE BORD (3.11.0), chiffres du jour, déconnexion',
       (tester) async {
     telephone(tester);
     // Téléphone qui n'a jamais choisi : aucune clé d'interface ni de présentation.
@@ -177,7 +177,8 @@ void main() {
     PresentationPrefs.choix.value = Presentation.compact;
     await tester.runAsync(InterfaceVersion.load);
     expect(InterfaceVersion.useNew.value, isTrue, reason: 'nouvelle interface par défaut');
-    expect(PresentationPrefs.choix.value, Presentation.automatique, reason: 'présentation automatique (A sur téléphone)');
+    // 3.11.0 : le tableau de bord est l'accueil par défaut (migration faite au chargement des réglages).
+    expect(PresentationPrefs.choix.value, Presentation.tableauPrestige, reason: 'tableau de bord par défaut');
 
     await lancerApplication(tester);
     await attendreWidget(tester, find.byKey(const Key('connexion_se_connecter')));
@@ -192,11 +193,9 @@ void main() {
     await seConnecterNouvelle(tester);
     await attendreWidget(tester, find.byType(AccueilNouveau));
     expect(find.byType(HomeScreen), findsNothing);
-    // Accueil A : chiffres du jour lus sur les routes existantes, avec la session de la connexion.
-    await attendreTexte(tester, '1 245 300 F');
-    await attendreTexte(tester, '3 / 4');
-    expect(serveur.recues('/recap/dashboard').last.sessionEnvoyee, serveur.derniereSession);
-    expect(serveur.recues('/rh/presence').last.sessionEnvoyee, serveur.derniereSession);
+    // Tableau de bord : chiffres du jour lus sur la route du tableau de bord, avec la session de la connexion.
+    await attendreWidget(tester, find.byKey(const Key('chiffre_tb_ca')));
+    expect(serveur.recues('/tableau-bord/tuiles').last.sessionEnvoyee, serveur.derniereSession);
     expect(find.text(DonneesFictives.nomOfficine), findsOneWidget);
 
     await tester.tap(find.byTooltip('Déconnexion').first);

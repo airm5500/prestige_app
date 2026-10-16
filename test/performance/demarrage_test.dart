@@ -110,6 +110,8 @@ void main() {
     ('B · icônes illustrées (P4)', Presentation.compact, AffichageMenus.unePage, StyleIcones.p4),
     // 3.10.1 : défaut (style jamais choisi → P4, tout sur une page).
     ('A · défaut 3.10.1 (P4 jamais choisi)', Presentation.tableauDeBord, AffichageMenus.unePage, null),
+    // 3.11.0 : le tableau de bord, accueil par défaut.
+    ('Tableau de bord (défaut 3.11.0)', Presentation.tableauPrestige, AffichageMenus.unePage, null),
   ]) {
     testWidgets('connexion → accueil $nom (temps, images)', (tester) async {
       telephone(tester);

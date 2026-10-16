@@ -294,28 +294,43 @@ class _AlertesScreenState extends State<AlertesScreen> with SuiviHeureAlertes {
                     ),
             ],
           ),
-          body: LayoutBuilder(builder: (context, c) {
-            final colonnes = c.maxWidth >= 640 ? 2 : 1;
-            final largeur = (c.maxWidth - 32 - (colonnes - 1) * 10) / colonnes;
-            final d = e.dernier;
-            return ListView(key: const Key('defilement_alertes'), padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
-              _EnTeteAlertes(etat: e, compter: () => alertes.actualiser(context)),
-              if (d != null) ...[
-                const SizedBox(height: 12),
-                Wrap(spacing: 10, runSpacing: 10, children: [
-                  for (final a in d.toutes)
-                    SizedBox(
-                      width: largeur,
-                      child: CarteAlerte(alerte: a, onTap: actionAlerte(context, a, suggestionsVisibles: suggestionsVisibles)),
-                    ),
-                ]),
-              ],
-            ]);
-          }),
+          body: ListView(
+            key: const Key('defilement_alertes'),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            children: [CorpsAlertes(etat: e, suggestionsVisibles: suggestionsVisibles)],
+          ),
         );
       },
     );
   }
+}
+
+/// Corps des alertes (bandeau d'état puis une carte par alerte, sur deux colonnes à partir de 640 dp), sans
+/// défilement propre : sert à l'écran « Alertes » et (3.11.0) à l'onglet « Surveiller et alertes » de la Balance.
+class CorpsAlertes extends StatelessWidget {
+  final EtatAlertesTableauDeBord etat;
+  final bool suggestionsVisibles;
+  const CorpsAlertes({super.key, required this.etat, required this.suggestionsVisibles});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
+        final colonnes = c.maxWidth >= 608 ? 2 : 1;
+        final largeur = (c.maxWidth - (colonnes - 1) * 10) / colonnes;
+        final d = etat.dernier;
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _EnTeteAlertes(etat: etat, compter: () => AlertesTableauBord.instance.actualiser(context)),
+          if (d != null) ...[
+            const SizedBox(height: 12),
+            Wrap(spacing: 10, runSpacing: 10, children: [
+              for (final a in d.toutes)
+                SizedBox(
+                  width: largeur,
+                  child: CarteAlerte(alerte: a, onTap: actionAlerte(context, a, suggestionsVisibles: suggestionsVisibles)),
+                ),
+            ]),
+          ],
+        ]);
+      });
 }
 
 /// Bandeau d'état des alertes : invitation, comptage en cours, échec, moment du dernier comptage.

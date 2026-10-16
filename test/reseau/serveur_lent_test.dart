@@ -30,6 +30,10 @@ import 'package:prestige_app/nouvelle_interface/vague1/profil_acces.dart';
 import 'package:prestige_app/nouvelle_interface/vague2/ca_zone_vague2.dart';
 import 'package:prestige_app/nouvelle_interface/vague2/previsions_vague2.dart';
 import 'package:prestige_app/nouvelle_interface/vague3/pointage_vague3.dart';
+import 'package:prestige_app/nouvelle_interface/vague4/balance_vague4.dart';
+import 'package:prestige_app/nouvelle_interface/vague4/donnees_vague4.dart';
+import 'package:prestige_app/nouvelle_interface/vague4/perimes_vague4.dart';
+import 'package:prestige_app/nouvelle_interface/vague4/surstock_vague4.dart';
 import 'package:prestige_app/screens/home_screen.dart';
 import 'package:prestige_app/screens/login_screen.dart';
 import 'package:prestige_app/utils/constants.dart';
@@ -41,6 +45,7 @@ import '../support/donnees_lot3.dart';
 import '../support/donnees_lot4.dart';
 import '../support/donnees_vague1.dart';
 import '../support/donnees_vague2.dart';
+import '../support/donnees_vague4.dart';
 import '../support/faux_serveur_prestige.dart';
 import '../support/nouvelle_interface.dart';
 import '../support/performance.dart';
@@ -91,6 +96,13 @@ final modules = <ModuleLent>[
   ModuleLent('Fichier Journal', () => const FichierJournalNouveau(), AppConstants.fichierJournalEndpoint, DonneesLot4.journalPour, cle('chiffre_actions')),
   ModuleLent('Prévisions', () => const PrevisionsScreen(), '/analyse-commande/previsions', (r) => ReponseFausse.json(DonneesVague2.previsions(r.parametres)),
       cle('previsions_total')),
+  // 3.11.0
+  ModuleLent('Balance vente / caisse', () => const BalanceCaisseScreen(), ApiBalance.route, (_) => ReponseFausse.json(DonneesVague4.balance()),
+      cle('chiffre_balance_net')),
+  ModuleLent('Sur-stocks', () => const SurstocksScreen(), ApiSurstock.route, (r) => ReponseFausse.json(DonneesVague4.surstocks(r.parametres)),
+      cle('chiffre_surstock_total')),
+  ModuleLent('Saisies en périmés', () => const SaisiesPerimesScreen(), ApiSaisiesPerimes.route,
+      (r) => ReponseFausse.json(DonneesVague4.saisiesPerimes(r.parametres)), cle('saisies_perimes_total')),
 ];
 
 /// Touche « Se connecter » (nouvelle interface) ou « Connexion » (origine) sans attendre la réponse.

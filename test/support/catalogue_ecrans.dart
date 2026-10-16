@@ -165,7 +165,9 @@ List<ModuleLot1> get modulesRefaits => [...modulesLot1, ...modulesLot2, ...modul
 /// (nouvel écran pour les modules refaits, écran d'origine sinon).
 List<ModuleAccueil> get modulesNouvelleInterface => [
       for (final m in modulesAccueil)
-        for (final menu in menusModules.where((x) => x.titre == m.tuile)) ModuleAccueil(m.tuile, m.titreEcran, ({Key? key}) => menu.ecran()),
+        // Menus auxquels le compte a droit (3.11.0 : « Evolution Stock » est dans la Valorisation pour le
+        // responsable ; « Etat Contrôle Achat » et « Suivi Crédit » sont des onglets de leur menu voisin).
+        for (final menu in menusAutorises().where((x) => x.titre == m.tuile)) ModuleAccueil(m.tuile, m.titreEcran, ({Key? key}) => menu.ecran()),
     ];
 
 /// États supplémentaires rendus par le test d'ergonomie (en plus de l'écran d'ouverture de chaque module) :

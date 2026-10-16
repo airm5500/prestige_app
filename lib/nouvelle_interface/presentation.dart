@@ -2,6 +2,10 @@
 // Présentation de la nouvelle interface (docs/ANALYSE_PRESTIGE_APP.md §4, recommandation) :
 //   A · Tableau de bord (par défaut sur téléphone), B · Compact (automatiquement sur tablette : menu latéral et
 //   deux colonnes), C · Guidé (en option).
+// 3.11.0 (décision du pharmacien) : le TABLEAU DE BORD (vague4/tableau_bord_vague4.dart, inspiré de celui de
+// Prestige web) devient l'accueil par défaut de TOUS les appareils : à la première ouverture de la 3.11.0, le choix
+// passe une fois au tableau de bord (migration [PresentationPrefs.cleMigration]) ; A, B, C et « Automatique » restent
+// proposés dans les Réglages et un choix fait ensuite est gardé.
 // Le choix est un réglage d'apparence MÉMORISÉ sur l'appareil, valable pour tous les comptes qui s'y connectent.
 // Comme dans prestige_vente_app, seul l'administrateur le change : compte « admin » directement, tout autre compte
 // doit saisir le code administrateur (le même que celui qui protège la configuration du serveur).
@@ -12,10 +16,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/pin_code_dialog.dart';
 
-enum Presentation { automatique, tableauDeBord, compact, guide }
+enum Presentation { tableauPrestige, automatique, tableauDeBord, compact, guide }
 
 extension PresentationTextes on Presentation {
   String get lettre => switch (this) {
+        Presentation.tableauPrestige => 'TB',
         Presentation.automatique => 'Auto',
         Presentation.tableauDeBord => 'A',
         Presentation.compact => 'B',
@@ -23,14 +28,16 @@ extension PresentationTextes on Presentation {
       };
 
   String get libelle => switch (this) {
+        Presentation.tableauPrestige => 'Tableau de bord',
         Presentation.automatique => 'Automatique',
-        Presentation.tableauDeBord => 'A · Tableau de bord',
+        Presentation.tableauDeBord => 'A · Chiffres du jour et menus',
         Presentation.compact => 'B · Compact',
         Presentation.guide => 'C · Guidé',
       };
 
   String get description => switch (this) {
-        Presentation.automatique => 'A sur téléphone, B sur tablette (recommandé)',
+        Presentation.tableauPrestige => 'Comme Prestige : chiffres du jour, évolution, fréquentation, valorisation… (par défaut)',
+        Presentation.automatique => 'A sur téléphone, B sur tablette',
         Presentation.tableauDeBord => 'Chiffres du jour, alertes, menus par familles',
         Presentation.compact => 'Listes denses avec recherche ; menu latéral sur tablette',
         Presentation.guide => 'Cinq questions simples, gros boutons',
@@ -48,14 +55,26 @@ class PresentationPrefs {
   /// Clé des préférences (appareil).
   static const cle = 'presentation_accueil_v1';
 
-  static final ValueNotifier<Presentation> choix = ValueNotifier<Presentation>(Presentation.automatique);
+  /// Migration de la 3.11.0 : présente (vraie) une fois le tableau de bord installé comme accueil.
+  static const cleMigration = 'presentation_tableau_bord_3_11_0';
+
+  /// Présentation par défaut (appareil sans choix) : le tableau de bord.
+  static const parDefaut = Presentation.tableauPrestige;
+
+  static final ValueNotifier<Presentation> choix = ValueNotifier<Presentation>(parDefaut);
 
   static Future<Presentation> charger() async {
     try {
-      final v = (await SharedPreferences.getInstance()).getString(cle);
-      choix.value = Presentation.values.asNameMap()[v] ?? Presentation.automatique;
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(cleMigration) != true) {
+        // Première ouverture de la 3.11.0 : le tableau de bord devient l'accueil, quel que soit le choix précédent
+        // (décision du pharmacien) ; un choix fait ensuite dans les Réglages est respecté.
+        await prefs.setString(cle, parDefaut.name);
+        await prefs.setBool(cleMigration, true);
+      }
+      choix.value = Presentation.values.asNameMap()[prefs.getString(cle)] ?? parDefaut;
     } catch (_) {
-      choix.value = Presentation.automatique;
+      choix.value = parDefaut;
     }
     return choix.value;
   }

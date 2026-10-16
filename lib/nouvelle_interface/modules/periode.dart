@@ -167,7 +167,12 @@ class SelecteurPeriode extends StatelessWidget {
           onSelected: (c) => onChanged(Periode.rapide(c, maintenant())),
           itemBuilder: (_) => [
             for (final c in autres)
-              PopupMenuItem(key: Key('periode_${c.name}'), value: c, height: 48, child: Text(c.libelle, style: const TextStyle(fontSize: 15))),
+              PopupMenuItem(
+                key: Key('periode_${c.name}'),
+                value: c,
+                height: 48,
+                child: Text(c.libelle, style: const TextStyle(fontSize: 15, color: Charte.encre, fontWeight: FontWeight.w600)),
+              ),
           ],
           child: _Puce(
             texte: autreChoisie ? periode.choix.libelle : 'Autres périodes',

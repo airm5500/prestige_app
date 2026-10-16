@@ -48,6 +48,10 @@ Future<void> exporterCsvSuggestion(BuildContext context, Suggestion s) async {
   }
 }
 
+/// « Créée le 14-10-2026 · Réf. SUG-12 » (une seule ligne, 3.11.0).
+String referenceSuggestion(Suggestion s) =>
+    [if (s.dtCreated != null) 'Créée le ${DateFormatter.toDisplayFormat(s.dtCreated!)}', 'Réf. ${s.name}'].join(' · ');
+
 class SuggestionsNouveau extends StatefulWidget {
   const SuggestionsNouveau({super.key});
 
@@ -160,8 +164,6 @@ class _SuggestionsNouveauState extends State<SuggestionsNouveau> with Chargement
 
   static bool _enCours(Suggestion s) => s.status == 'pending';
 
-  /// « Créée le 14/10/2026 · Réf. SUG-12 » (une seule ligne).
-  static String ligneReference(Suggestion s) => [if (_date(s).isNotEmpty) 'Créée le ${_date(s)}', 'Réf. ${s.name}'].join(' · ');
 
   /// Carte d'une suggestion : grossiste et statut sur la même ligne, puis date et référence sur une ligne.
   Widget _carte(Suggestion s) => Padding(
@@ -183,7 +185,7 @@ class _SuggestionsNouveauState extends State<SuggestionsNouveau> with Chargement
                 ]),
                 Padding(
                   padding: const EdgeInsets.only(top: 3),
-                  child: Text(ligneReference(s),
+                  child: Text(referenceSuggestion(s),
                       key: Key('suggestion_reference_${s.id}'), style: const TextStyle(fontSize: 13, color: Charte.gris)),
                 ),
               ]),
@@ -265,11 +267,27 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
 
   FocusNode _noeud(String itemId) => _focus[itemId] ??= FocusNode(debugLabel: 'qte_$itemId');
 
-  /// Place le curseur dans la quantité de [l] et sélectionne son texte (la saisie remplace la valeur).
-  void _placer(SuggestionItem l) {
+  /// Liste des articles (construite à la demande : une suggestion peut compter des centaines de lignes).
+  final _defilement = ScrollController();
+
+  /// Place le curseur dans la quantité de [l] et sélectionne son texte (la saisie remplace la valeur). Si sa ligne
+  /// n'est pas encore construite (plus bas dans la liste), la liste avance jusqu'à elle, puis le curseur s'y place.
+  void _placer(SuggestionItem l, {int essais = 12}) {
     final c = _champs[l.itemId];
     if (c != null) c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
-    _noeud(l.itemId).requestFocus();
+    final noeud = _noeud(l.itemId);
+    final ctx = noeud.context;
+    if (ctx != null) {
+      noeud.requestFocus();
+      Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 150));
+      return;
+    }
+    if (essais <= 0 || !_defilement.hasClients) return;
+    final p = _defilement.position;
+    p.jumpTo((p.pixels + 160).clamp(0, p.maxScrollExtent));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _placer(l, essais: essais - 1);
+    });
   }
 
   /// Après la saisie de [l] : curseur sur l'article suivant (le dernier ferme le clavier).
@@ -301,6 +319,7 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
     for (final f in _focus.values) {
       f.dispose();
     }
+    _defilement.dispose();
     super.dispose();
   }
 
@@ -409,7 +428,23 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
         ]),
         body: RefreshIndicator(
           onRefresh: _charger,
-          child: ListView(key: const Key('defilement_detail'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: _corps()),
+          child: Builder(builder: (context) {
+            final entete = _corps();
+            final lignes = _lignes ?? const <SuggestionItem>[];
+            final avecLignes = entete.isNotEmpty && entete.last is _MarqueArticles;
+            final large = MediaQuery.sizeOf(context).width - 32 >= largeurTableau;
+            // 3.11.0 : articles construits à la demande (une ligne par élément de la liste), et non une colonne de
+            // toutes les lignes : ouverture et défilement rapides sur une suggestion de plusieurs centaines d'articles.
+            return ListView.builder(
+              key: const Key('defilement_detail'),
+              controller: _defilement,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              itemCount: entete.length + (avecLignes ? lignes.length - 1 : 0),
+              itemBuilder: (context, i) => i < entete.length - (avecLignes ? 1 : 0)
+                  ? entete[i]
+                  : _ligne(lignes[i - (entete.length - 1)], large: large),
+            );
+          }),
         ),
       );
 
@@ -436,11 +471,8 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
       if (lignes.isEmpty)
         const EtatVide(titre: 'Aucun article', texte: 'Cette suggestion ne contient aucun article.', icone: Icons.inventory_2_outlined)
       else
-        LayoutBuilder(
-          builder: (context, c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            for (final x in lignes) _ligne(x, large: c.maxWidth >= largeurTableau),
-          ]),
-        ),
+        // Marque : les articles suivent, construits un par un par la liste (voir build).
+        const _MarqueArticles(),
     ];
   }
 
@@ -518,4 +550,12 @@ class _SuggestionDetailNouveauState extends State<SuggestionDetailNouveau> {
       ),
     );
   }
+}
+
+/// Marque de fin de l'en-tête d'une suggestion : à sa place, la liste construit les articles un par un.
+class _MarqueArticles extends StatelessWidget {
+  const _MarqueArticles();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

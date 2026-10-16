@@ -391,7 +391,9 @@ void main() {
       expect(proposes, contains('Suivi Péremption'));
       ProfilAcces.utilisateur.value = utilisateur('dashboard');
       expect([for (final m in menusAutorises()) m.titre], containsAll(nouveaux));
-      expect(menusAutorises(), hasLength(menusModules.length));
+      // 3.11.0 : « Evolution Stock » est dans la Valorisation pour le responsable (seul menu en moins).
+      expect(menusAutorises(), hasLength(menusModules.length - 1));
+      expect([for (final m in menusAutorises()) m.titre], isNot(contains('Evolution Stock')));
     });
 
     test('les menus réservés sont marqués « responsables », rangés dans une famille et une question', () {
@@ -399,9 +401,12 @@ void main() {
         final m = menusModules.singleWhere((x) => x.titre == n);
         expect(m.responsables, isTrue, reason: n);
       }
-      // Vague 2 (3.2.0) puis vague 3 (3.4.0) : trois menus réservés de plus chacune, à la suite.
-      expect(menusModules.where((m) => m.responsables).map((m) => m.titre),
-          [...nouveaux, 'Prévisions', 'Analyse de garde', 'CA emplacement / famille', 'Pointage BL', 'Avis', 'Rappels traitement']);
+      // Vague 2 (3.2.0), 3.11.0 (Balance, Sur-stocks) puis vague 3 (3.4.0), dans l'ordre de la liste.
+      expect(menusModules.where((m) => m.responsables).map((m) => m.titre), [
+        ...nouveaux,
+        'Prévisions', 'Analyse de garde', 'CA emplacement / famille', 'Balance vente / caisse', 'Sur-stocks', 'Pointage BL', 'Avis',
+        'Rappels traitement',
+      ]);
     });
   });
 }

@@ -14,7 +14,10 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.10.3+44** (`pubspec.yaml`) : deux messages distincts « Serveur
+Version en préparation (pas encore publiée) : **3.11.0+45** (`pubspec.yaml`) : tableau de bord en page d'accueil,
+écran de chargement « Prestige Pharmacien », Balance vente / caisse, Sur-stocks, cloche (avoirs, saisies en périmés),
+menus réunis « Détail | Synthèse », sélecteur de période, corrections du CA par emplacement et du Pilotage
+(`docs/NOTE_VERSION_3.11.0.md`). Précédentes livraisons : 3.10.3+44 : deux messages distincts « Serveur
 injoignable » / « Serveur indisponible » (connexion, démarrage, modules ; `docs/NOTE_VERSION_3.10.3.md`). Précédentes
 livraisons : 3.10.2+43 : « Serveur indisponible, veuillez
 réessayer » à la connexion pendant un redéploiement de Prestige (`docs/NOTE_VERSION_3.10.2.md`). Précédentes livraisons :

@@ -50,8 +50,11 @@ void main() {
       expect(AlerteAccueil.ruptures.dans(AlertesTableauDeBord({'ruptures': 'beaucoup'})), 0);
     });
 
-    test('plus aucune alerte de l\'accueil hors de l\'appel unique', () {
-      expect(AlerteAccueil.values.map((a) => a.cle), ['peremption', 'ruptures']);
+    test('plus aucune alerte de l\'accueil hors de l\'appel unique (3.11.0 : avoirs lus dans le même appel)', () {
+      expect(AlerteAccueil.values.map((a) => a.cle), ['peremption', 'ruptures', 'avoirs']);
+      expect(AlerteAccueil.avoirs.dans(AlertesTableauDeBord({'avoirs': 3})), 3);
+      expect(AlerteAccueil.avoirs.nombre(1), '1 vente');
+      expect(AlerteAccueil.avoirs.nombre(3), '3 ventes');
     });
   });
 

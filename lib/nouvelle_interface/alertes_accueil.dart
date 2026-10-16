@@ -10,6 +10,8 @@
 //    périmés, que liste aussi le module Suivi Péremption) ; touchée, l'alerte ouvre la liste de ces mêmes lots
 //    (GET /tableau-bord/alertes/liste?type=peremptions) ;
 //  - Ruptures de stock : produits actifs à stock nul ; touchée, l'alerte ouvre leur liste (…/liste?type=ruptures).
+//  - 3.11.0 (« cloche », administrateur et pharmacien) : ventes en avoir non clôturées (même appel) et saisies en
+//    périmés des 30 derniers jours (vague4/perimes_vague4.dart, son propre ⟳).
 // L'ancienne alerte « Contrôle des bons de livraison » (GET /etat-control-bon/list-annuelle) est retirée de
 // l'accueil (décision du pharmacien) ; le module Etat Contrôle Achat est inchangé.
 //
@@ -32,7 +34,10 @@ import 'vague1/donnees_vague1.dart';
 /// Alertes de l'accueil A : toutes lues dans l'appel unique des alertes du tableau de bord.
 enum AlerteAccueil {
   peremption('peremption', 'lot', 'lots'),
-  ruptures('ruptures', 'produit', 'produits');
+  ruptures('ruptures', 'produit', 'produits'),
+
+  /// 3.11.0 (« cloche ») : ventes en avoir non clôturées, lues dans le MÊME appel (aucune requête de plus).
+  avoirs('avoirs', 'vente', 'ventes');
 
   final String cle;
   final String unite;
@@ -49,6 +54,7 @@ enum AlerteAccueil {
   int dans(AlertesTableauDeBord r) => switch (this) {
         AlerteAccueil.peremption => r.peremptionsLots,
         AlerteAccueil.ruptures => r.ruptures,
+        AlerteAccueil.avoirs => r.avoirs,
       };
 }
 

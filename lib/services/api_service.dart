@@ -373,7 +373,9 @@ class ApiService {
     }
     bool commencePar(String s) => octets.length >= s.length && String.fromCharCodes(octets.sublist(0, s.length)) == s;
     final estPdf = type.contains('pdf'), estExcel = type.contains('spreadsheet') || type.contains('excel');
-    if ((estPdf && !commencePar('%PDF')) || (estExcel && !commencePar('PK'))) {
+    // Classeur : .xlsx (zip, « PK ») ou, depuis la 3.11.0 (sur-stocks du web), .xls (OLE : D0 CF 11 E0).
+    final estOle = octets.length >= 4 && octets[0] == 0xD0 && octets[1] == 0xCF && octets[2] == 0x11 && octets[3] == 0xE0;
+    if ((estPdf && !commencePar('%PDF')) || (estExcel && !commencePar('PK') && !estOle)) {
       throw const ApiLoadException('Fichier reçu illisible.', nature: NatureErreur.reponse);
     }
     return FichierTelecharge(octets, FichierTelecharge.nomDepuisEntete(response.headers['content-disposition'], nomParDefaut), type);

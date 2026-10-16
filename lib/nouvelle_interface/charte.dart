@@ -61,6 +61,14 @@ class Charte {
   static const grisTexte = Color(0xFF475569);
   static const vertHeure = Color(0xFF86EFAC);
 
+  // 3.11.0 : bouton de déconnexion de l'en-tête de Prestige web (header.css, « .hdr-logout ») et écran de chargement
+  // de Prestige Pharmacien (modèle du pharmacien : fond clair vert → bleu, anneau vert sur fond vert pâle).
+  static const rougeDeconnexion = Color(0xFFE74C3C);
+  static const ombreDeconnexion = Color(0x73E74C3C);
+  static const chargementAnneauFond = Color(0xFFD1EDDB);
+  static const chargementFondHaut = Color(0xFFF1F8F3);
+  static const chargementFondBas = Color(0xFFE6EEF7);
+
   // --- Couleurs par famille de menus (PROPOSITIONS de style des icônes P1 / P2 / P3, 3.9.0 ; le style « Actuel »,
   //     par défaut, ne les utilise pas). Pour chaque famille : icône (foncée), pastille (douce), fond de tuile (très
   //     clair). Icône sur pastille, sur fond de tuile et sur blanc : contraste ≥ 4,5:1 (vérifié par les tests). ---

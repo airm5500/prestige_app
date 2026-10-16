@@ -72,8 +72,9 @@ final casVague2 = <CasAffichage>[
   cas('Pilotage · comparaison au mois précédent', () => const AccueilNouveau(),
       p: Presentation.tableauDeBord, ensuite: puis([ongletAccueil('Pilotage'), toucherCle('axe_VS_M1')])),
   cas('Pilotage · À suivre', () => const AccueilNouveau(), p: Presentation.tableauDeBord, ensuite: puis([ongletAccueil('Pilotage'), ongletEcran('À suivre')])),
-  cas('Pilotage · confirmation du contrôle', () => const AccueilNouveau(),
-      p: Presentation.tableauDeBord, ensuite: puis([ongletAccueil('Pilotage'), toucherApresDefilement('pilotage_controler', 'defilement_pilotage')])),
+  // 3.11.0 : « Contrôler les chiffres » retiré ; la tuile Marge ouvre la courbe des 7 derniers jours.
+  cas('Pilotage · courbe des 7 derniers jours (marge)', () => const AccueilNouveau(),
+      p: Presentation.tableauDeBord, ensuite: puis([ongletAccueil('Pilotage'), toucherApresDefilement('tuile_courbe_marge', 'defilement_pilotage')])),
   cas('Pilotage · droit manquant', () => const AccueilNouveau(),
       p: Presentation.tableauDeBord,
       donnees: (s) => s.quand('/pilotage/onglet/synthese', ReponseFausse.json({'success': false, 'message': 'Votre profil ne donne pas accès au pilotage.'})),

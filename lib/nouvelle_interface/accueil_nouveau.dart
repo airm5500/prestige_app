@@ -36,6 +36,8 @@ import 'modules/fichier_journal_nouveau.dart';
 import 'presentation.dart';
 import 'recherche_produit_analyses.dart';
 import 'reglages_nouveaux.dart';
+import 'vague4/perimes_vague4.dart';
+import 'vague4/tableau_bord_vague4.dart';
 import 'vague1/alertes_vague1.dart';
 import 'vague1/donnees_vague1.dart' show ReglageAlerte, ReglagesAlertes, TypeAlerte, ValeursAlertes;
 import 'vague1/profil_acces.dart';
@@ -175,9 +177,6 @@ class BoutonReglages extends StatelessWidget {
       );
 }
 
-/// Rouge du bouton de déconnexion de l'en-tête de Prestige web (header.css, `.hdr-logout` : #e74c3c).
-const rougeDeconnexion = Color(0xFFE74C3C);
-
 /// Bouton de déconnexion (en-têtes). 3.11.0 (demande du pharmacien) : même bouton que l'en-tête de Prestige web
 /// (Header.js : icône « power-off » blanche dans un rond rouge #e74c3c), placé APRÈS les Réglages. Zone touchable de
 /// 48 dp, libellé accessible « Déconnexion ». [couleur] est conservé pour compatibilité (le bouton est toujours rouge).
@@ -193,9 +192,9 @@ class BoutonDeconnexion extends StatelessWidget {
           width: 34,
           height: 34,
           decoration: const BoxDecoration(
-            color: rougeDeconnexion,
+            color: Charte.rougeDeconnexion,
             shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Color(0x73E74C3C), blurRadius: 8, offset: Offset(0, 2))],
+            boxShadow: [BoxShadow(color: Charte.ombreDeconnexion, blurRadius: 8, offset: Offset(0, 2))],
           ),
           child: const Icon(Icons.power_settings_new, color: Colors.white, size: 19),
         ),
@@ -262,6 +261,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
           OngletAccueil.accueil => switch (p) {
               Presentation.compact => _AccueilCompact(recherche: _recherche, tablette: tablette),
               Presentation.guide => const _AccueilGuide(),
+              Presentation.tableauPrestige => const AccueilTableauPrestige(),
               _ => _AccueilTableauDeBord(chiffres: _chiffres, chargement: _chargementChiffres, actualiser: _chargerChiffres),
             },
         };
@@ -287,6 +287,65 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
       },
     );
   }
+}
+
+/// Alertes « À surveiller » (sans la licence ni le titre) : péremption, ruptures, et pour l'administrateur et le
+/// pharmacien (3.11.0, « cloche ») avoirs non clôturés, saisies en périmés, puis « Toutes les alertes ». Nombres
+/// comptés à la demande seulement, par UN appel (GET /tableau-bord/alertes) : le ⟳ de n'importe laquelle de ces
+/// alertes actualise tout le bloc ; jamais automatiquement (les saisies en périmés ont leur propre ⟳). Sert à
+/// l'accueil A et à l'onglet « Surveiller et alertes » de la Balance vente / caisse.
+class BlocAlertesSurveiller extends StatelessWidget {
+  final bool peremption;
+  final bool ruptures;
+  final bool toutesAlertes;
+
+  /// Carte « Toutes les alertes » (absente quand toutes les alertes sont déjà affichées dessous).
+  final bool carteToutesAlertes;
+  const BlocAlertesSurveiller({super.key, required this.peremption, required this.ruptures, required this.toutesAlertes, this.carteToutesAlertes = true});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<ValeursAlertes>(
+        valueListenable: ReglagesAlertes.valeurs,
+        builder: (context, reglages, _) {
+          final cartes = <Widget>[
+            if (peremption)
+              AlerteComptee(
+                key: const Key('alerte_peremption'),
+                alerte: AlerteAccueil.peremption,
+                bande: Charte.rouge,
+                titre: 'Produits proches de la péremption',
+                // Lots qui périment dans les N prochains mois (réglage, 6 par défaut), hors lots déjà périmés.
+                detail: 'Périment dans ${reglages.de(ReglageAlerte.per)} mois (hors lots déjà périmés)',
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.peremptions))),
+              ),
+            if (ruptures)
+              AlerteComptee(
+                key: const Key('alerte_ruptures'),
+                alerte: AlerteAccueil.ruptures,
+                bande: Charte.ambre,
+                titre: 'Ruptures de stock',
+                detail: 'Produits actifs à stock nul',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.ruptures))),
+              ),
+            if (toutesAlertes) ...[
+              AlerteComptee(
+                key: const Key('alerte_avoirs'),
+                alerte: AlerteAccueil.avoirs,
+                bande: Charte.ambre,
+                titre: 'Avoirs',
+                detail: 'Ventes en avoir non clôturées',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlertesScreen())),
+              ),
+              const AlerteSaisiesPerimes(),
+              if (carteToutesAlertes) const CarteToutesAlertes(),
+            ],
+          ];
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < cartes.length; i++) ...[if (i > 0) const SizedBox(height: 8), cartes[i]],
+          ]);
+        },
+      );
 }
 
 /// Menu latéral bleu (présentation B sur tablette).
@@ -457,39 +516,7 @@ class _AccueilTableauDeBord extends StatelessWidget {
         ),
       if (peremption != null || ruptures || toutesAlertes) ...[
         if (!parPages) const TitreSection('À surveiller') else const SizedBox(height: 8),
-        // Nombres comptés à la demande seulement, par UN appel (GET /tableau-bord/alertes) : le ⟳ de n'importe
-        // quelle alerte actualise tout le bloc ; jamais automatiquement.
-        ValueListenableBuilder<ValeursAlertes>(
-          valueListenable: ReglagesAlertes.valeurs,
-          builder: (context, reglages, _) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (peremption != null)
-              AlerteComptee(
-                key: const Key('alerte_peremption'),
-                alerte: AlerteAccueil.peremption,
-                bande: Charte.rouge,
-                titre: 'Produits proches de la péremption',
-                // Lots qui périment dans les N prochains mois (réglage), hors lots déjà périmés.
-                detail: 'Périment dans ${reglages.de(ReglageAlerte.per)} mois (hors lots déjà périmés)',
-                onTap: () =>
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.peremptions))),
-              ),
-            if (peremption != null && ruptures) const SizedBox(height: 8),
-            if (ruptures)
-              AlerteComptee(
-                key: const Key('alerte_ruptures'),
-                alerte: AlerteAccueil.ruptures,
-                bande: Charte.ambre,
-                titre: 'Ruptures de stock',
-                detail: 'Produits actifs à stock nul',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AlerteListeScreen(type: TypeAlerte.ruptures))),
-              ),
-          ]),
-        ),
-        // Vague 1 : toutes les alertes du tableau de bord (administrateur et pharmacien).
-        if (toutesAlertes) ...[
-          if (peremption != null || ruptures) const SizedBox(height: 8),
-          const CarteToutesAlertes(),
-        ],
+        BlocAlertesSurveiller(peremption: peremption != null, ruptures: ruptures, toutesAlertes: toutesAlertes),
       ],
     ];
 

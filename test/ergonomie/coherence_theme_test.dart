@@ -29,7 +29,8 @@ const plafondCouleursEnDur = <String, int>{
   // par famille des PROPOSITIONS de style des icônes (3.9.0 : 7 familles × icône / pastille / tuile, contrastes
   // vérifiés par test/unitaires/retours_3_9_0_test.dart) ; à ramener à 31 + la proposition retenue (ou 31) après le
   // choix du pharmacien. Aucun écran n'en contient.
-  'lib/nouvelle_interface/charte.dart': 52,
+  // 3.11.0 : + 5 (bouton de déconnexion de Prestige web et son ombre, écran de chargement : anneau et fond).
+  'lib/nouvelle_interface/charte.dart': 57,
   'lib/presences/fiche_employe_screen.dart': 3,
   'lib/presences/pointage_view.dart': 7,
   'lib/presences/presence_jour_view.dart': 4,

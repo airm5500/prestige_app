@@ -94,6 +94,9 @@ void main() {
     ('A · 6 tuiles par page, P4', Presentation.tableauDeBord, 4, AffichageMenus.parSix, StyleIcones.p4),
     ('B · une rubrique par page, P4', Presentation.compact, 2, AffichageMenus.parRubrique, StyleIcones.p4),
     ('A · défaut 3.10.1 (P4 jamais choisi)', Presentation.tableauDeBord, 4, AffichageMenus.unePage, null),
+    // 3.11.0 : tableau de bord (défaut) : seules les cartes affichées (ou sur le point de l'être) chargent, une
+    // requête chacune ; au plus les 7 cartes + connexion + officine.
+    ('Tableau de bord (défaut 3.11.0)', Presentation.tableauPrestige, 9, AffichageMenus.unePage, null),
   ]) {
     testWidgets('connexion + accueil $nom : plafond $plafond requêtes', (tester) async {
       telephone(tester);
@@ -149,9 +152,10 @@ void main() {
     // Ouverture : Rapport d'Activité = dashboard + crédits + totaux des crédits + règlements (4) ; Détail CA = /ca-all
     // (1, Mobile Money seulement au dépliage) ; Analyse Article = 0 (rien avant une recherche) ; Suivi Péremption =
     // une page (1) ; Suivi Crédit = /recap/credits (1). « Fiche Article » n'est plus dans la nouvelle interface.
-    const ouverture = {'Rapport d\'Activité': 4, 'Détail CA': 1, 'Analyse Article': 0, 'Suivi Péremption': 1, 'Suivi Crédit': 1};
+    // 3.11.0 : « Suivi Crédit » est l'onglet Synthèse du menu « CA Crédit » (mesuré à la suite).
+    const ouverture = {'Rapport d\'Activité': 4, 'Détail CA': 1, 'Analyse Article': 0, 'Suivi Péremption': 1};
     // Changement de période (« Hier ») : les mêmes routes, une fois chacune.
-    const periode = {'Rapport d\'Activité': 4, 'Détail CA': 1, 'Suivi Crédit': 1};
+    const periode = {'Rapport d\'Activité': 4, 'Détail CA': 1};
     for (final e in ouverture.entries) {
       final m = module(e.key);
       final rs = await compter(serveur, () => ouvrirParRecherche(tester, m));
@@ -171,6 +175,27 @@ void main() {
       final retour = await compter(serveur, () => revenir(tester));
       expect(retour, isEmpty, reason: 'retour à l\'accueil sans requête');
     }
+    // Menu réuni « CA Crédit » (3.11.0) : ouverture = le Détail seulement (/ca-credit) ; onglet Synthèse = Suivi
+    // Crédit (/recap/credits, une fois) ; revenir au Détail ne relit rien.
+    final credits = await compter(serveur, () async {
+      await tester.enterText(find.byKey(const Key('recherche_menu')), 'CA Crédit');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.descendant(of: find.byKey(const Key('defilement_menus')), matching: find.text('CA Crédit')).first);
+      await laisser(tester);
+    });
+    mesurer('Requêtes — ouverture CA Crédit (Détail)', credits.length, seuil: 1, unite: 'requêtes', detail: detailRequetes(credits));
+    expect(credits.map((r) => r.chemin), ['/ca-credit']);
+    final synthese = await compter(serveur, () async {
+      await tester.tap(find.byKey(const Key('onglet_menu_1')));
+      await laisser(tester);
+    });
+    mesurer('Requêtes — CA Crédit : onglet Synthèse (Suivi Crédit)', synthese.length, seuil: 1, unite: 'requêtes', detail: detailRequetes(synthese));
+    expect(synthese.map((r) => r.chemin), [AppConstants.suiviCreditEndpoint]);
+    final detail = await compter(serveur, () async {
+      await tester.tap(find.byKey(const Key('onglet_menu_0')));
+      await laisser(tester, secondes: 1);
+    });
+    expect(detail, isEmpty, reason: 'onglet déjà chargé : rien de relu');
     await fermerApplication(tester);
   });
 
