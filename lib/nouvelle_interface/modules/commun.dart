@@ -281,8 +281,22 @@ class CarteLigne extends StatelessWidget {
 
   /// Action en fin de carte (menu « ⋮ »…), à la place du chevron.
   final Widget? action;
+
+  /// Sous la valeur, à droite (3.11.2 : évolution du total du jour) ; la carte ne grandit pas tant que la colonne de
+  /// droite reste moins haute que celle de gauche.
+  final Widget? sousValeur;
   const CarteLigne(
-      {super.key, required this.titre, this.lignes = const [], this.valeur, this.libelleValeur, this.etiquette, this.pied, this.bande, this.onTap, this.action});
+      {super.key,
+      required this.titre,
+      this.lignes = const [],
+      this.valeur,
+      this.libelleValeur,
+      this.etiquette,
+      this.pied,
+      this.bande,
+      this.onTap,
+      this.action,
+      this.sousValeur});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -304,6 +318,7 @@ class CarteLigne extends StatelessWidget {
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 if (libelleValeur != null) Text(libelleValeur!, style: const TextStyle(fontSize: 12, color: Charte.gris)),
                 Text(valeur!, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Charte.navy)),
+                if (sousValeur != null) Padding(padding: const EdgeInsets.only(top: 2), child: sousValeur!),
               ]),
             ],
             if (action != null)

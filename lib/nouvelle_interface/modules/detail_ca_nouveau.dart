@@ -232,6 +232,9 @@ class _DetailCaNouveauState extends State<DetailCaNouveau> with ChargementSuivi<
             ],
             libelleValeur: 'Total',
             valeur: formaterMontant(c.totalPaiements),
+            // 3.11.2 (demande du pharmacien) : évolution du Total par rapport au jour précédent de la liste, sous le
+            // Total, sans agrandir la carte.
+            sousValeur: EvolutionTotalJour(evolutionTotalJour(lignes, i), key: Key('jour_evolution_$i')),
           );
         },
       ),
@@ -506,6 +509,47 @@ class _BarreRepartition extends StatelessWidget {
           Text(formaterMontant(montant), style: const TextStyle(fontWeight: FontWeight.bold, color: Charte.encre)),
         ]),
       ]),
+    );
+  }
+}
+
+/// Évolution (en %) du Total du jour [i] par rapport au jour précédent de la liste, au dixième ; null pour le premier
+/// jour ou après un jour à 0.
+double? evolutionTotalJour(List<CaComptant> l, int i) {
+  if (i <= 0 || i >= l.length) return null;
+  final avant = l[i - 1].totalPaiements, jour = l[i].totalPaiements;
+  if (avant == 0) return null;
+  return ((jour - avant) * 1000 / avant).round() / 10;
+}
+
+/// « ↑ +12,5 % » vert (hausse), « ↓ −8,0 % » rouge (baisse), « = 0,0 % » gris (égal) : flèche, signe ET couleur ;
+/// rien sans évolution. Une seule ligne, réduite si la place manque (la carte ne grandit pas).
+class EvolutionTotalJour extends StatelessWidget {
+  final double? evolution;
+  const EvolutionTotalJour(this.evolution, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = evolution;
+    if (e == null) return const SizedBox.shrink();
+    final (icone, mot, couleur) = e > 0
+        ? (Icons.arrow_upward, 'Hausse', Charte.vertTexte)
+        : e < 0
+            ? (Icons.arrow_downward, 'Baisse', Charte.rougeTexte)
+            : (Icons.drag_handle, 'Stable', Charte.grisTexte);
+    final s = e.abs().toStringAsFixed(1).replaceAll('.', ',');
+    final texte = e > 0 ? '+$s %' : (e < 0 ? '−$s %' : '0,0 %');
+    return Semantics(
+      label: '$mot de $texte par rapport au jour précédent',
+      excludeSemantics: true,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icone, size: 14, color: couleur),
+          const SizedBox(width: 2),
+          Text(texte, style: TextStyle(color: couleur, fontSize: 12.5, fontWeight: FontWeight.w700)),
+        ]),
+      ),
     );
   }
 }

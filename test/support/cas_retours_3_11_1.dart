@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prestige_app/nouvelle_interface/accueil_nouveau.dart';
+import 'package:prestige_app/nouvelle_interface/modules/detail_ca_nouveau.dart';
 import 'package:prestige_app/nouvelle_interface/presentation.dart';
 import 'package:prestige_app/nouvelle_interface/vague2/ca_zone_vague2.dart';
 import 'package:prestige_app/nouvelle_interface/vague2/donnees_vague2.dart';
@@ -56,6 +57,13 @@ void _donnees(FauxServeurPrestige s) {
 final _jourParJour = FiltresCa(type: TypePeriodeCa.libre, debut: DateTime(2026, 10, 8), fin: DateTime(2026, 10, 14));
 
 final casRetours3111 = <CasAffichage>[
+  // 3.11.2 : Détail CA, jour par jour, % d'évolution du Total.
+  CasAffichage('3.11.2 · Détail CA · jour par jour', enNouvelle(ecranConnecte(() => const DetailCaNouveau()), donnees: _donnees, ensuite: (tester) async {
+    final liste = find.descendant(of: find.byKey(const Key('defilement_module')), matching: find.byType(Scrollable)).first;
+    final position = tester.state<ScrollableState>(liste).position;
+    position.jumpTo(position.maxScrollExtent);
+    await _pomper(tester, 2);
+  })),
   CasAffichage('3.11.1 · Tableau de bord · chiffres d\'hier',
       enNouvelle(ecranConnecte(() => const AccueilNouveau()), p: Presentation.tableauPrestige, donnees: _donnees, ensuite: _toucher('chiffres_hier'))),
   CasAffichage('3.11.1 · Tableau de bord · fréquentation par heure',

@@ -14,7 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.11.1+46** (`pubspec.yaml`) : retours du pharmacien sur la 3.11.0
+Version en préparation (pas encore publiée) : **3.11.2+47** (`pubspec.yaml`) : Détail CA, « Jour par jour » :
+% d'évolution du Total par rapport au jour précédent (`docs/NOTE_VERSION_3.11.2.md`). Précédentes livraisons :
+3.11.1+46 : retours du pharmacien sur la 3.11.0
 (fréquentation horaire : part du CA, tranches de 1 h ou 2 h, plage d'heures, écart avec la veille en couleur ;
 chiffres du tableau de bord pour Aujourd'hui / Hier / un jour choisi ; évolution jour par jour du CA par emplacement ;
 camembert et barres de la Balance vente / caisse, `docs/NOTE_VERSION_3.11.1.md`). Précédentes livraisons : 3.11.0+45 : tableau de bord en page d'accueil,
