@@ -62,8 +62,10 @@ de `pubspec.yaml` avec « - » à la place du « + » : version `3.12.0+48` → 
 qui ne correspond pas à `pubspec.yaml` est refusée (message « Étiquette … attendu … ») ; sans les quatre secrets, rien
 n'est envoyé.
 
-**Le plus simple :** demander « envoie sur TestFlight » ; l'équipe pose l'étiquette de la version en cours sur la
-branche `claude/presences`.
+**Le plus simple :** demander « envoie sur TestFlight ». L'équipe écrit la version en cours (ex. `3.12.0+48`) dans
+le fichier `ios/DEMANDE_TESTFLIGHT` de la branche `claude/presences` : cette modification lance l'envoi (même
+contrôle qu'une étiquette : le contenu doit être la version de `pubspec.yaml`). Ce fichier garde aussi la trace de la
+dernière version demandée.
 
 **Vous-même, depuis GitHub :**
 1. dépôt `airm5500/prestige_app` › **Code** › **Tags** (ou **Releases**) › **Draft a new release** ;

@@ -108,3 +108,9 @@ Le bouton « Run workflow » de GitHub n'existe que pour la branche par défaut 
 des envois par étiquette : variable facultative `TESTFLIGHT_GROUP`. Mode d'emploi : `docs/ios/README.md`, « 4. Lancer un
 envoi TestFlight ». Workflows validés par actionlint 1.7.7. Aucun changement de l'application (toujours 3.12.0+48).
 
+
+
+## Complément — demande d'envoi TestFlight par fichier
+
+En plus de l'étiquette `ios-v<version>-<build>`, l'envoi TestFlight se lance en écrivant la version de `pubspec.yaml`
+dans `ios/DEMANDE_TESTFLIGHT` sur `claude/presences` (contrôlé contre `pubspec.yaml`). Pas de changement de l'application.
