@@ -78,12 +78,13 @@ jobs:
           fi
           echo "::notice title=Étiquette::$ETIQUETTE = pubspec.yaml $version"
 
-      # Demande par fichier : ios/DEMANDE_TESTFLIGHT doit contenir exactement la version de pubspec.yaml.
+      # Demande par fichier : la 1re ligne de ios/DEMANDE_TESTFLIGHT doit être exactement la version de pubspec.yaml
+      # (les lignes suivantes gardent l'historique des demandes ; en ajouter une relance l'envoi).
       - name: Demande conforme à pubspec.yaml
         if: github.ref_type == 'branch' && github.event_name == 'push'
         run: |
           version=$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '[:space:]')
-          demande=$(tr -d '[:space:]' < ios/DEMANDE_TESTFLIGHT)
+          demande=$(head -n 1 ios/DEMANDE_TESTFLIGHT | tr -d '[:space:]')
           if [ "$demande" != "$version" ]; then
             echo "::error title=Demande TestFlight::ios/DEMANDE_TESTFLIGHT ($demande) ne correspond pas à pubspec.yaml ($version)"
             exit 1
@@ -166,7 +167,7 @@ jobs:
           echo "Version $nom ($numero)"
 
       - name: Préparation Flutter (configuration Xcode, sans signature)
-        run: flutter build ios --release --config-only --build-name "$NOM_VERSION" --build-number "$NUMERO_BUILD"
+        run: flutter build ios --release --config-only --no-codesign --build-name "$NOM_VERSION" --build-number "$NUMERO_BUILD"
 
       - name: Archive signée (signature automatique par la clé API)
         run: |
