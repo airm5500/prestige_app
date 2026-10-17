@@ -111,9 +111,11 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 90
     env:
-      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Valeurs brutes des secrets ; ASC_KEY_ID, ASC_ISSUER_ID et APPLE_TEAM_ID (nettoyées) sont posées par l'étape
+      # « Forme des secrets » pour les étapes suivantes.
+      SECRET_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      SECRET_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      SECRET_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       ASC_BYPASS_KEYCHAIN: '1'
       ASC_TELEMETRY_DISABLED: '1'
       DO_NOT_TRACK: '1'
@@ -139,6 +141,37 @@ jobs:
           bundle=$(sed -n 's/^PRESTIGE_BUNDLE_ID *= *//p' ios/Flutter/Prestige.xcconfig)
           echo "Identifiant : $bundle"
           echo "BUNDLE_ID=$bundle" >> "$GITHUB_ENV"
+
+      # Contrôle de FORME des secrets (sans jamais les afficher) et retrait des espaces / retours à la ligne collés
+      # par erreur autour des identifiants.
+      - name: Forme des secrets App Store Connect
+        env:
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          kid=$(printf '%s' "$SECRET_KEY_ID" | tr -d '[:space:]')
+          iss=$(printf '%s' "$SECRET_ISSUER_ID" | tr -d '[:space:]')
+          team=$(printf '%s' "$SECRET_TEAM_ID" | tr -d '[:space:]')
+          # Valeurs nettoyées masquées dans les journaux, comme les secrets d'origine.
+          for v in "$kid" "$iss" "$team"; do [ -n "$v" ] && echo "::add-mask::$v"; done
+          erreurs=0
+          if ! [[ "$kid" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo "::error title=APP_STORE_CONNECT_KEY_ID::doit faire 10 caractères (lettres majuscules et chiffres), actuellement ${#kid}. N'est-ce pas l'Issuer ID ou le Team ID ?"; erreurs=1
+          fi
+          if ! [[ "$iss" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error title=APP_STORE_CONNECT_ISSUER_ID::doit avoir la forme xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (${#iss} caractères actuellement). N'est-ce pas le Key ID ou le Team ID ?"; erreurs=1
+          fi
+          if ! [[ "$team" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo "::error title=APPLE_TEAM_ID::doit faire 10 caractères (lettres majuscules et chiffres), actuellement ${#team}."; erreurs=1
+          fi
+          if ! printf '%s' "$PRIVATE_KEY" | grep -q -- '-----BEGIN PRIVATE KEY-----' || ! printf '%s' "$PRIVATE_KEY" | grep -q -- '-----END PRIVATE KEY-----'; then
+            echo "::error title=APP_STORE_CONNECT_PRIVATE_KEY::doit contenir tout le fichier .p8, lignes -----BEGIN PRIVATE KEY----- et -----END PRIVATE KEY----- comprises."; erreurs=1
+          fi
+          if [ "$kid" = "$team" ]; then
+            echo "::error title=Secrets::APP_STORE_CONNECT_KEY_ID et APPLE_TEAM_ID sont identiques : le Key ID est celui de la clé (AuthKey_XXXX.p8), pas le Team ID."; erreurs=1
+          fi
+          [ "$erreurs" = 0 ] || exit 1
+          { echo "ASC_KEY_ID=$kid"; echo "ASC_ISSUER_ID=$iss"; echo "APPLE_TEAM_ID=$team"; } >> "$GITHUB_ENV"
+          echo "::notice title=Secrets::forme correcte (Key ID 10 car., Issuer ID au format UUID, Team ID 10 car., clé .p8 complète)."
 
       - name: Clé API (fichier temporaire, droits 600)
         env:
