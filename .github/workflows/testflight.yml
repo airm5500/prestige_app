@@ -1,0 +1,180 @@
+# Envoi de Prestige Pharmacien vers TestFlight (iPhone et iPad) — 3.12.0. Mode d'emploi : docs/ios/README.md.
+#
+# Lancement : GitHub › Actions › « TestFlight (iOS) » › Run workflow (à la main seulement).
+# Rien ne se passe tant que les QUATRE secrets ne sont pas déposés par le pharmacien (Settings › Secrets and
+# variables › Actions) : APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_PRIVATE_KEY
+# (contenu du fichier .p8) et APPLE_TEAM_ID. Variable facultative du dépôt : IOS_BUNDLE_ID (sinon la valeur de
+# ios/Flutter/Prestige.xcconfig).
+#
+# Signature : automatique, gérée par Apple (xcodebuild -allowProvisioningUpdates avec la clé API : aucun certificat
+# ni profil à déposer). Envoi : asc (App Store Connect CLI, open source, licence MIT,
+# https://github.com/rorkai/App-Store-Connect-CLI), version ÉPINGLÉE et empreinte SHA-256 vérifiée.
+# Secrets : jamais écrits dans le dépôt ni affichés ; la clé .p8 est écrite dans le dossier temporaire du runner
+# (droits 600) puis supprimée, même en cas d'échec.
+name: TestFlight (iOS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      numero_build:
+        description: "Numéro de build (vide : <N de pubspec>.<numéro du run>, toujours unique)."
+        required: false
+        default: ''
+      groupe:
+        description: "Groupe de testeurs TestFlight (vide : aucun ; les testeurs internes reçoivent la build d'office)."
+        required: false
+        default: ''
+      quoi_tester:
+        description: "Notes « Quoi tester » (vide : texte par défaut)."
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+env:
+  ASC_VERSION: '5.14.3'
+  ASC_SHA256_MACOS_ARM64: '8445a2110c4472e926bac69cf90ebcec91a28e4eb142b6d2c81fc4addb16aaae'
+
+jobs:
+  # Les secrets ne peuvent pas être lus dans un « if » de job : ce petit job dit seulement s'ils existent tous.
+  verifier:
+    runs-on: ubuntu-latest
+    outputs:
+      pret: ${{ steps.secrets.outputs.pret }}
+    steps:
+      - id: secrets
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$PRIVATE_KEY" ] && [ -n "$TEAM_ID" ]; then
+            echo "pret=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pret=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=TestFlight::Secrets App Store Connect absents : rien n'est envoyé (docs/ios/README.md)."
+          fi
+
+  testflight:
+    needs: verifier
+    if: needs.verifier.outputs.pret == 'true'
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_BYPASS_KEYCHAIN: '1'
+      ASC_TELEMETRY_DISABLED: '1'
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        run: flutter pub get
+
+      - name: Identifiant de l'application (variable IOS_BUNDLE_ID, sinon Prestige.xcconfig)
+        env:
+          IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+        run: |
+          if [ -n "$IOS_BUNDLE_ID" ]; then
+            printf 'PRESTIGE_BUNDLE_ID = %s\n' "$IOS_BUNDLE_ID" > ios/Flutter/Prestige.xcconfig
+          fi
+          bundle=$(sed -n 's/^PRESTIGE_BUNDLE_ID *= *//p' ios/Flutter/Prestige.xcconfig)
+          echo "Identifiant : $bundle"
+          echo "BUNDLE_ID=$bundle" >> "$GITHUB_ENV"
+
+      - name: Clé API (fichier temporaire, droits 600)
+        env:
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          umask 077
+          dossier="$RUNNER_TEMP/cle_asc"
+          mkdir -p "$dossier"
+          printf '%s\n' "$PRIVATE_KEY" > "$dossier/AuthKey_${ASC_KEY_ID}.p8"
+          echo "ASC_PRIVATE_KEY_PATH=$dossier/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      # Numéro de build unique pour TestFlight : <N de pubspec>.<numéro du run> (ex. 48.7) ; version = pubspec.
+      - name: Version et numéro de build
+        env:
+          NUMERO: ${{ inputs.numero_build }}
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | tr -d '[:space:]')
+          nom=${version%%+*}
+          numero="${version##*+}.${GITHUB_RUN_NUMBER}"
+          if [ -n "$NUMERO" ]; then
+            case "$NUMERO" in (*[!0-9.]*|.*|*.) echo "Numéro de build invalide : $NUMERO"; exit 1;; esac
+            numero=$NUMERO
+          fi
+          echo "NOM_VERSION=$nom" >> "$GITHUB_ENV"
+          echo "NUMERO_BUILD=$numero" >> "$GITHUB_ENV"
+          echo "Version $nom ($numero)"
+
+      - name: Préparation Flutter (configuration Xcode, sans signature)
+        run: flutter build ios --release --config-only --build-name "$NOM_VERSION" --build-number "$NUMERO_BUILD"
+
+      - name: Archive signée (signature automatique par la clé API)
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Runner.xcarchive" archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_PRIVATE_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic
+
+      - name: Export de l'IPA (App Store Connect)
+        run: |
+          opts="$RUNNER_TEMP/ExportOptions.plist"
+          plutil -create xml1 "$opts"
+          plutil -insert method -string app-store-connect "$opts"
+          plutil -insert destination -string export "$opts"
+          plutil -insert signingStyle -string automatic "$opts"
+          plutil -insert teamID -string "$APPLE_TEAM_ID" "$opts"
+          plutil -insert uploadSymbols -bool YES "$opts"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/ipa" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_PRIVATE_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ipa=$(ls "$RUNNER_TEMP"/ipa/*.ipa | head -1)
+          echo "IPA=$ipa" >> "$GITHUB_ENV"
+
+      - name: Installation de asc (version épinglée, empreinte vérifiée)
+        run: |
+          fichier="asc_${ASC_VERSION}_macOS_arm64"
+          mkdir -p "$RUNNER_TEMP/outil_asc"
+          curl -fsSL -o "$RUNNER_TEMP/outil_asc/asc" "https://github.com/rorkai/App-Store-Connect-CLI/releases/download/${ASC_VERSION}/${fichier}"
+          # Empreinte épinglée ICI (relevée sur asc_5.14.3_checksums.txt) : un binaire remplacé est refusé.
+          echo "${ASC_SHA256_MACOS_ARM64}  $RUNNER_TEMP/outil_asc/asc" | shasum -a 256 -c -
+          chmod +x "$RUNNER_TEMP/outil_asc/asc"
+          echo "ASC=$RUNNER_TEMP/outil_asc/asc" >> "$GITHUB_ENV"
+
+      - name: Envoi vers TestFlight (« Quoi tester » en français)
+        env:
+          NOTES: ${{ inputs.quoi_tester }}
+        run: |
+          notes=${NOTES:-"Prestige Pharmacien $NOM_VERSION ($NUMERO_BUILD) : connexion au serveur de l'officine, tableau de bord, menus, exports et impressions. Signalez tout écran mal affiché sur iPhone ou iPad."}
+          "$ASC" builds upload --app "$BUNDLE_ID" --ipa "$IPA" \
+            --test-notes "$notes" --locale fr-FR --wait --output table
+
+      - name: Groupe de testeurs
+        if: inputs.groupe != ''
+        env:
+          GROUPE: ${{ inputs.groupe }}
+        run: |
+          "$ASC" builds add-groups --app "$BUNDLE_ID" --build-number "$NUMERO_BUILD" --version "$NOM_VERSION" \
+            --platform IOS --group "$GROUPE" --output table
+
+      - name: Nettoyage de la clé API
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/cle_asc" "$RUNNER_TEMP/ExportOptions.plist" "$HOME/.asc" || true

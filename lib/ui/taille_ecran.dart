@@ -32,6 +32,8 @@ import 'dart:ui' show DisplayFeature;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../plateforme/capacites.dart';
+
 /// Taille de l'interface choisie dans les réglages.
 enum TailleEcran {
   automatique('Automatique', 1.0),
@@ -102,8 +104,12 @@ class TailleEcranReglage {
 
   /// Taille réellement appliquée pour le choix [choisie] sur l'écran [ecran] (dp) : Automatique devient
   /// Compact sur un petit écran ; Compact et Très compact (choix manuels) restent prioritaires.
-  static TailleEcran effective(TailleEcran choisie, Size ecran) =>
-      choisie == TailleEcran.automatique && petitEcran(ecran) ? TailleEcran.compact : choisie;
+  static TailleEcran effective(TailleEcran choisie, Size ecran) => !Capacites.actuelles.reglageTailleEcran
+      // 3.12.0 : iPhone / iPad — taille du système, jamais réduite (réglage masqué ; voir lib/plateforme/capacites.dart).
+      ? TailleEcran.automatique
+      : choisie == TailleEcran.automatique && petitEcran(ecran)
+          ? TailleEcran.compact
+          : choisie;
 
   /// Taille logique RÉELLE de l'écran (dp), lue sur la vue : la même à l'intérieur de l'interface
   /// réduite (dont la MediaQuery est agrandie).

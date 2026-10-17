@@ -26,6 +26,7 @@ import '../charte.dart';
 import '../composants.dart';
 import 'commun.dart';
 import 'commun_lot2.dart';
+import '../../plateforme/capacites.dart';
 
 /// Export CSV d'une suggestion (relit ses lignes, comme l'écran d'origine), avec message de résultat.
 Future<void> exporterCsvSuggestion(BuildContext context, Suggestion s) async {
@@ -41,7 +42,7 @@ Future<void> exporterCsvSuggestion(BuildContext context, Suggestion s) async {
     if (nom == null) {
       messageResultat(context, 'Export impossible : permission de stockage refusée.', echec: true);
     } else {
-      messageResultat(context, 'Fichier enregistré dans Téléchargements : $nom');
+      messageResultat(context, 'Fichier enregistré dans ${Capacites.actuelles.emplacementExport} : $nom');
     }
   } catch (e) {
     if (context.mounted) messageResultat(context, 'Export impossible : ${DiagnosticErreur.de(e).message}', echec: true);

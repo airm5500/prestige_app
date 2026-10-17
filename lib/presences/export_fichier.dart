@@ -9,6 +9,7 @@ import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../plateforme/capacites.dart';
 import '../services/api_service.dart';
 
 class ExportFichier {
@@ -31,8 +32,19 @@ class ExportFichier {
     return fichier.path;
   }
 
+  /// Point d'ancrage de la fenêtre de partage (iPad, 3.12.0 : sans lui, elle ne s'ouvre pas) : le centre de l'écran
+  /// qui a demandé l'export, relevé par [proposer].
+  static Rect? ancrage;
+
   static Future<void> _partager(String chemin, String type, String sujet) async {
-    await Share.shareXFiles([XFile(chemin, mimeType: type)], subject: sujet);
+    await Share.shareXFiles([XFile(chemin, mimeType: type)], subject: sujet, sharePositionOrigin: Capacites.actuelles.partageAncre ? ancrage : null);
+  }
+
+  /// Centre (1 × 1) de la zone de [context], ou null si elle n'est pas encore mesurée.
+  static Rect? ancrageDe(BuildContext context) {
+    final r = context.findRenderObject();
+    if (r is! RenderBox || !r.hasSize) return null;
+    return Rect.fromCenter(center: r.localToGlobal(r.size.center(Offset.zero)), width: 1, height: 1);
   }
 
   static Future<String?> _ouvrir(String chemin, String type) async {
@@ -53,6 +65,7 @@ class ExportFichier {
       return;
     }
     if (!context.mounted) return;
+    ancrage = ancrageDe(context);
     final type = f.type.split(';').first.trim();
     await showModalBottomSheet<void>(
       context: context,

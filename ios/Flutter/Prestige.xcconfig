@@ -1,0 +1,8 @@
+// ios/Flutter/Prestige.xcconfig — réglages iOS propres à Prestige Pharmacien (3.12.0), inclus par Debug.xcconfig et
+// Release.xcconfig.
+//
+// Identifiant de l'application (bundle ID) dans App Store Connect. Le « _ » est interdit dans un bundle ID iOS :
+// valeur proposée en attendant la confirmation du pharmacien. Pour la changer : ici, ou dans GitHub (variable
+// IOS_BUNDLE_ID du dépôt, reprise par le workflow TestFlight). L'applicationId Android (com.example.prestige_app)
+// n'est PAS concerné et reste inchangé.
+PRESTIGE_BUNDLE_ID = com.dici.prestige-app

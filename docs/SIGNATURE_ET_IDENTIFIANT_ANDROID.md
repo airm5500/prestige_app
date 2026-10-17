@@ -8,7 +8,7 @@
 
 | Élément | Valeur | Conséquence |
 |---|---|---|
-| `applicationId` | `com.example.prestige_app` (`android/app/build.gradle.kts`) | Nom provisoire « example » ; refusé par le Play Store. |
+| `applicationId` | `com.dici.prestige_app` depuis la 3.12.0 (`android/app/build.gradle.kts` ; avant : `com.example.prestige_app`) | Nouvelle application : réinstaller et ressaisir les réglages (`docs/NOTE_VERSION_3.12.0.md`). Le namespace Kotlin reste `com.example.prestige_app`. |
 | Signature release | clé **debug** (`signingConfig = signingConfigs.getByName("debug")`) | La clé debug est propre à **chaque ordinateur** (`~/.android/debug.keystore`). |
 | Version | `version:` de `pubspec.yaml` (depuis l'étape 0), ex. `2.3.0+23` | `versionCode` = nombre après `+` : il doit toujours augmenter. |
 

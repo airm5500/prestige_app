@@ -14,7 +14,12 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.11.2+47** (`pubspec.yaml`) : Détail CA, « Jour par jour » :
+Version en préparation (pas encore publiée) : **3.12.0+48** (`pubspec.yaml`) : iPhone et iPad (TestFlight) et
+**nouvel identifiant Android `com.dici.prestige_app`** (avant : `com.example.prestige_app`). **Attention : c'est une
+nouvelle application pour Android et pour le magasin Sunmi** — elle ne met pas à jour l'ancienne : l'installer,
+ressaisir l'adresse du serveur et les réglages (liste dans `docs/NOTE_VERSION_3.12.0.md`), puis désinstaller l'ancienne
+Prestige Pharmacien. Sur le magasin Sunmi, la publier comme une nouvelle application (nouveau nom de paquet).
+Précédentes livraisons : 3.11.2+47 : Détail CA, « Jour par jour » :
 % d'évolution du Total par rapport au jour précédent (`docs/NOTE_VERSION_3.11.2.md`). Précédentes livraisons :
 3.11.1+46 : retours du pharmacien sur la 3.11.0
 (fréquentation horaire : part du CA, tranches de 1 h ou 2 h, plage d'heures, écart avec la veille en couleur ;

@@ -24,9 +24,10 @@ void main() {
       expect(RegExp(r'versionName\s*=\s*"').hasMatch(gradle), isFalse);
     });
 
-    test('applicationId inchangé (mises à jour des installations existantes)', () {
+    test('applicationId : com.dici.prestige_app depuis la 3.12.0 (décision du pharmacien : nouvelle application)', () {
       final gradle = File('android/app/build.gradle.kts').readAsStringSync();
-      expect(gradle, contains('applicationId = "com.example.prestige_app"'));
+      expect(gradle, contains('applicationId = "com.dici.prestige_app"'));
+      expect(gradle, isNot(contains('applicationId = "com.example')));
     });
   });
 

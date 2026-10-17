@@ -27,6 +27,7 @@ import 'menus.dart';
 import 'presentation.dart';
 import '../version_app.dart';
 import '../widgets/taille_ecran_reglage.dart';
+import '../plateforme/capacites.dart';
 
 /// Page des Réglages (bouton engrenage en haut à droite de l'accueil).
 class ReglagesScreen extends StatelessWidget {
@@ -95,7 +96,8 @@ class OngletReglages extends StatelessWidget {
               ),
               const Divider(height: 1),
               // Affichage : taille de l'écran (appliquée au prochain lancement) ; compte « admin » : sans code (3.8.0).
-              TailleEcranSetting(couleurAide: Charte.gris, administrateur: admin),
+              // 3.12.0 : Android seulement (terminaux Sunmi) ; masqué sur iPhone / iPad.
+              if (Capacites.actuelles.reglageTailleEcran) TailleEcranSetting(couleurAide: Charte.gris, administrateur: admin),
             ],
           ),
           CarteSection(

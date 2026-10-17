@@ -14,6 +14,7 @@ import '../interface_version.dart';
 import '../nouvelle_interface/charte.dart';
 import '../nouvelle_interface/composants.dart';
 import '../version_app.dart';
+import '../plateforme/capacites.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -218,7 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Retour à la nouvelle interface (choix mémorisé sur le téléphone).
                 const InterfaceVersionTile(),
                 // Taille de l'écran (code administrateur, appliquée au prochain lancement ; docs/TAILLE_ECRAN.md).
-                const TailleEcranSetting(),
+                if (Capacites.actuelles.reglageTailleEcran) const TailleEcranSetting(), // Android seulement (3.12.0)
                 const SizedBox(height: 12),
                 Padding(key: const Key('reglages_version'), padding: const EdgeInsets.only(bottom: 8), child: VersionAffichee(couleur: Colors.grey.shade700)),
               ],

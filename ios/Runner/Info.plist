@@ -3,9 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>fr</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>fr</string>
+	</array>
 	<key>CFBundleDisplayName</key>
-	<string>Prestige App</string>
+	<string>Prestige Pharmacien</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +17,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>prestige_app</string>
+	<string>Prestige</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -41,6 +45,25 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Réseau : le serveur Prestige de l'officine est joint en HTTP sur le réseau local (adresse IP ou nom saisis
+	     par l'utilisateur) ; HTTPS (serveur distant) n'a besoin d'aucune exception. NSAllowsLocalNetworking ouvre le
+	     HTTP au réseau local seulement ; NSAllowsArbitraryLoads n'est PAS utilisé (docs/ios/README.md). -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- iOS 14 et plus : autorisation « réseau local » demandée au premier accès au serveur de l'officine. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Prestige Pharmacien se connecte au serveur Prestige de votre officine, sur le réseau local (Wi-Fi), pour afficher vos chiffres, vos stocks et vos alertes.</string>
+	<!-- Exports CSV des suggestions : visibles dans l'app Fichiers (Sur mon iPhone / iPad › Prestige Pharmacien). -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<!-- Chiffrement : seulement HTTPS / Keychain du système (exempté) : pas de question d'exportation à chaque envoi. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
