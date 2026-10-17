@@ -147,7 +147,8 @@ jobs:
           umask 077
           dossier="$RUNNER_TEMP/cle_asc"
           mkdir -p "$dossier"
-          printf '%s\n' "$PRIVATE_KEY" > "$dossier/AuthKey_${ASC_KEY_ID}.p8"
+          # Retours chariot Windows retirés (clé collée depuis le Bloc-notes).
+          printf '%s\n' "$PRIVATE_KEY" | tr -d '\r' > "$dossier/AuthKey_${ASC_KEY_ID}.p8"
           echo "ASC_PRIVATE_KEY_PATH=$dossier/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
 
       # Numéro de build unique pour TestFlight : <N de pubspec>.<numéro du run> (ex. 48.7) ; version = pubspec.
@@ -165,6 +166,32 @@ jobs:
           echo "NOM_VERSION=$nom" >> "$GITHUB_ENV"
           echo "NUMERO_BUILD=$numero" >> "$GITHUB_ENV"
           echo "Version $nom ($numero)"
+
+      - name: Installation de asc (version épinglée, empreinte vérifiée)
+        run: |
+          fichier="asc_${ASC_VERSION}_macOS_arm64"
+          mkdir -p "$RUNNER_TEMP/outil_asc"
+          curl -fsSL -o "$RUNNER_TEMP/outil_asc/asc" "https://github.com/rorkai/App-Store-Connect-CLI/releases/download/${ASC_VERSION}/${fichier}"
+          # Empreinte épinglée ICI (relevée sur asc_5.14.3_checksums.txt) : un binaire remplacé est refusé.
+          echo "${ASC_SHA256_MACOS_ARM64}  $RUNNER_TEMP/outil_asc/asc" | shasum -a 256 -c -
+          chmod +x "$RUNNER_TEMP/outil_asc/asc"
+          echo "ASC=$RUNNER_TEMP/outil_asc/asc" >> "$GITHUB_ENV"
+
+      # Diagnostic avant la signature : la clé est-elle acceptée par Apple, et l'application existe-t-elle ?
+      # (un 401 d'Apple pendant l'archive ne dit pas lequel des réglages est faux). Aucun secret affiché.
+      - name: Vérification de la clé API et de l'application
+        run: |
+          if ! "$ASC" apps list --bundle-id "$BUNDLE_ID" --output json > "$RUNNER_TEMP/apps.json" 2> "$RUNNER_TEMP/asc_err.txt"; then
+            sed -E 's/[A-Za-z0-9+\/=_-]{40,}/<masqué>/g' "$RUNNER_TEMP/asc_err.txt" | head -20
+            echo "::error title=Clé App Store Connect refusée::Apple refuse la clé. Vérifiez : 1) clé d'ÉQUIPE (Team Keys, pas « Individual ») ; 2) APP_STORE_CONNECT_KEY_ID = Key ID de cette clé (celui du nom AuthKey_XXXX.p8) ; 3) APP_STORE_CONNECT_ISSUER_ID = Issuer ID affiché au-dessus de la liste des clés ; 4) APP_STORE_CONNECT_PRIVATE_KEY = tout le fichier .p8, lignes BEGIN/END comprises ; 5) clé non révoquée."
+            exit 1
+          fi
+          nb=$(jq '[.data[]? | select(.attributes.bundleId == env.BUNDLE_ID)] | length' "$RUNNER_TEMP/apps.json")
+          if [ "$nb" = "0" ]; then
+            echo "::error title=Application introuvable::La clé est acceptée, mais aucune application « $BUNDLE_ID » dans App Store Connect (Apps › + › Nouvelle app, ou vérifiez l'identifiant)."
+            exit 1
+          fi
+          echo "::notice title=App Store Connect::Clé acceptée, application $BUNDLE_ID trouvée."
 
       - name: Préparation Flutter (configuration Xcode, sans signature)
         run: flutter build ios --release --config-only --no-codesign --build-name "$NOM_VERSION" --build-number "$NUMERO_BUILD"
@@ -192,16 +219,6 @@ jobs:
             -authenticationKeyPath "$ASC_PRIVATE_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
           ipa=$(ls "$RUNNER_TEMP"/ipa/*.ipa | head -1)
           echo "IPA=$ipa" >> "$GITHUB_ENV"
-
-      - name: Installation de asc (version épinglée, empreinte vérifiée)
-        run: |
-          fichier="asc_${ASC_VERSION}_macOS_arm64"
-          mkdir -p "$RUNNER_TEMP/outil_asc"
-          curl -fsSL -o "$RUNNER_TEMP/outil_asc/asc" "https://github.com/rorkai/App-Store-Connect-CLI/releases/download/${ASC_VERSION}/${fichier}"
-          # Empreinte épinglée ICI (relevée sur asc_5.14.3_checksums.txt) : un binaire remplacé est refusé.
-          echo "${ASC_SHA256_MACOS_ARM64}  $RUNNER_TEMP/outil_asc/asc" | shasum -a 256 -c -
-          chmod +x "$RUNNER_TEMP/outil_asc/asc"
-          echo "ASC=$RUNNER_TEMP/outil_asc/asc" >> "$GITHUB_ENV"
 
       - name: Envoi vers TestFlight (« Quoi tester » en français)
         env:
