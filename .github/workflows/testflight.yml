@@ -224,6 +224,26 @@ jobs:
         run: |
           if ! "$ASC" apps list --bundle-id "$BUNDLE_ID" --output json > "$RUNNER_TEMP/apps.json" 2> "$RUNNER_TEMP/asc_err.txt"; then
             sed -E 's/[A-Za-z0-9+\/=_-]{40,}/<masqué>/g' "$RUNNER_TEMP/asc_err.txt" | head -20
+            # Contre-vérification indépendante d'asc : jeton ES256 fait ici (PyJWT), appel direct à l'API d'Apple.
+            # Seul le code HTTP est affiché.
+            python3 -m venv "$RUNNER_TEMP/venv_jwt" >/dev/null 2>&1 || true
+            "$RUNNER_TEMP/venv_jwt/bin/pip" install --quiet --disable-pip-version-check pyjwt cryptography >/dev/null 2>&1 || true
+            code=$("$RUNNER_TEMP/venv_jwt/bin/python" - <<'PY' 2>/dev/null || echo "erreur"
+          import os, time, urllib.request, urllib.error, jwt
+          cle = open(os.environ["ASC_PRIVATE_KEY_PATH"]).read()
+          maintenant = int(time.time())
+          jeton = jwt.encode({"iss": os.environ["ASC_ISSUER_ID"], "iat": maintenant, "exp": maintenant + 600,
+                              "aud": "appstoreconnect-v1"}, cle, algorithm="ES256",
+                             headers={"kid": os.environ["ASC_KEY_ID"], "typ": "JWT"})
+          requete = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/apps?limit=1",
+                                           headers={"Authorization": "Bearer " + jeton})
+          try:
+              print(urllib.request.urlopen(requete, timeout=30).status)
+          except urllib.error.HTTPError as e:
+              print(e.code)
+          PY
+            )
+            echo "::notice title=Contre-vérification::appel direct à l'API App Store Connect : HTTP $code (200 = clé acceptée, 401 = identifiants refusés)."
             # Diagnostic : la même clé est-elle acceptée comme clé INDIVIDUELLE (sans Issuer ID) ?
             if ASC_KEY_TYPE=individual "$ASC" apps list --bundle-id "$BUNDLE_ID" --output json > /dev/null 2>&1; then
               echo "::error title=Clé individuelle::Apple accepte cette clé comme clé INDIVIDUELLE (onglet « Individual Keys »). La signature automatique exige une clé d'ÉQUIPE : App Store Connect › Utilisateurs et accès › Intégrations › App Store Connect API › Team Keys › +, accès Admin, puis remplacez les trois secrets."
