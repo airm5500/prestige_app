@@ -103,6 +103,28 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      # 3.13.1 : l'APK (terminaux Sunmi, PC du pharmacien) garde l'API cible de Flutter (35) ; seul le build Google Play
+      # passe à 36 (play.yml).
+      - name: API cible de l'APK (35, pas 36)
+        shell: bash
+        run: |
+          manifeste=$(find build/app/intermediates -path '*merged_manifest*' -path '*elease*' -name AndroidManifest.xml | head -1)
+          cible=$(grep -o 'android:targetSdkVersion="[0-9]*"' "$manifeste" | head -1)
+          echo "APK : $cible ($manifeste)"
+          if [ "$cible" != 'android:targetSdkVersion="35"' ]; then echo "::error title=API cible de l'APK::$cible (attendu : 35)"; exit 1; fi
+          echo "::notice title=API cible de l'APK::$cible"
+
+      # 3.13.1 : le build Google Play (targetSdk / compileSdk 36) est construit ici aussi, SANS clé (signé debug, jamais
+      # publié) : une incompatibilité d'Android 16 (greffon, Gradle) se voit à chaque envoi de code, même sans secrets.
+      - name: Contrôle du build Google Play (App Bundle targetSdk 36, sans clé)
+        shell: bash
+        run: |
+          flutter build appbundle --release --android-project-arg=pharmacienTargetSdk=36
+          manifeste=$(find build/app/intermediates -path '*merged_manifest*' -path '*elease*' -name AndroidManifest.xml | head -1)
+          grep -q 'android:targetSdkVersion="36"' "$manifeste" || { echo "::error title=Build Google Play::targetSdk 36 non appliqué"; exit 1; }
+          [ -s build/app/outputs/bundle/release/app-release.aab ] || { echo "::error title=Build Google Play::App Bundle absent"; exit 1; }
+          echo "::notice title=Build Google Play::App Bundle targetSdk 36 construit (signé debug, contrôle seulement)"
+
       - uses: actions/upload-artifact@v4
         with:
           name: prestige-pharmacien-apk

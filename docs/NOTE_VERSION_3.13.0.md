@@ -65,3 +65,6 @@ Play : désinstaller, installer depuis Play, ressaisir l'adresse du serveur et l
 - Workflows validés par actionlint 1.7.7 avec shellcheck 0.10.0.
 - Toutes les catégories lancées comme `ci.yml` avant l'envoi du code ; la construction réelle de l'APK (targetSdk 36)
   est faite par la CI.
+
+> **Révisé en 3.13.1** : l'API cible 36 ne s'applique plus qu'au paquet Google Play ; les APK restent en 35 et le poste
+> du pharmacien n'a pas besoin de la plateforme Android 16 (`docs/NOTE_VERSION_3.13.1.md`).

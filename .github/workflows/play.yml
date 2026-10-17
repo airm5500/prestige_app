@@ -2,7 +2,7 @@
 #
 # 1. aab (à chaque envoi de code sur claude/presences, et à la main) : SI les quatre secrets de la clé d'envoi
 #    existent (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD), construit
-#    l'App Bundle (.aab) signé avec cette clé et le publie en artefact « prestige-pharmacien-aab » (le PREMIER envoi
+#    l'App Bundle (.aab) signé avec cette clé, en targetSdk 36 (exigence Play ; les APK gardent 35) et le publie en artefact « prestige-pharmacien-aab » (le PREMIER envoi
 #    d'une nouvelle application se fait à la main dans la Play Console avec cet artefact). Sans ces secrets : rien
 #    (Google refuse un bundle signé avec la clé debug). L'APK de ci.yml n'est pas touché.
 # 2. envoi : SEULEMENT quand android/DEMANDE_PLAY est modifié (1re ligne = version de pubspec.yaml, ex. 3.13.0+50) et
@@ -138,11 +138,19 @@ jobs:
           { echo "ANDROID_KEYSTORE_PATH=$fichier"; echo "ANDROID_KEY_ALIAS=$alias"; } >> "$GITHUB_ENV"
           echo "::notice title=Clé d'envoi::fichier lisible, alias trouvé."
 
-      - name: App Bundle signé (.aab)
+      # targetSdk / compileSdk 36 pour Google Play SEULEMENT (build.gradle.kts : propriété pharmacienTargetSdk ; les
+      # APK Sunmi et de ci.yml restent en 35) ; la valeur appliquée est contrôlée sur le manifeste fusionné.
+      - name: App Bundle signé (.aab, targetSdk 36)
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: flutter build appbundle --release
+        run: |
+          flutter build appbundle --release --android-project-arg=pharmacienTargetSdk=36
+          manifeste=$(find build/app/intermediates -path '*merged_manifest*' -path '*elease*' -name AndroidManifest.xml | head -1)
+          if [ -z "$manifeste" ] || ! grep -q 'android:targetSdkVersion="36"' "$manifeste"; then
+            echo "::error title=AAB::targetSdk 36 non appliqué (exigence Google Play)."; exit 1
+          fi
+          echo "::notice title=AAB::targetSdk 36"
 
       - name: Contrôle du bundle (signé par la clé d'envoi, version)
         run: |

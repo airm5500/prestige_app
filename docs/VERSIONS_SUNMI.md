@@ -14,7 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.13.0+50** (`pubspec.yaml`) : diffusion Google Play (test interne),
+Version en préparation (pas encore publiée) : **3.13.1+51** (`pubspec.yaml`) : API cible 36 pour le seul paquet Google
+Play ; APK (Sunmi, PC du pharmacien) en API 35 comme avant (`docs/NOTE_VERSION_3.13.1.md`). Précédentes livraisons :
+3.13.0+50 : diffusion Google Play (test interne),
 clé d'envoi (repli sur la clé debug sans elle : APK Sunmi construits sur le PC inchangés), targetSdk 36
 (`docs/NOTE_VERSION_3.13.0.md`, `docs/android/README.md`). Précédentes livraisons : 3.12.1+49 : iOS 15 au minimum (TestFlight),
 Android inchangé (`docs/NOTE_VERSION_3.12.1.md`). Précédentes livraisons : 3.12.0+48 : iPhone et iPad (TestFlight) et

@@ -16,7 +16,7 @@ quatre** : la créer une fois (étape 3) et déposer les **mêmes** secrets dans
 | Nom du paquet (package name) | **`com.dici.prestige_app`** (depuis la 3.13.0 ; ne peut plus jamais changer sur Play) |
 | Piste | Test interne (`internal`) |
 | Format envoyé | App Bundle `.aab`, signé par **votre** clé d'envoi, re-signé par Google (Play App Signing) |
-| Android minimum / cible | Android 5.0 (API 21) / Android 16 (API 36, exigé par Google depuis le 31/08/2026) |
+| Android minimum / cible | Android 5.0 (API 21) / Android 16 (API 36, exigé par Google depuis le 31/08/2026 ; pour le seul paquet Google Play) |
 
 ## 1. Compte Google Play Console
 
@@ -163,9 +163,12 @@ Store (description, captures, icône 512 × 512, image 1024 × 500) et examen pa
   `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` (environnement) ou `storeFile`, `storePassword`, `keyAlias`,
   `keyPassword` (`android/key.properties`, ignoré par git) ; sinon **repli sur la clé debug** avec un avertissement
   (builds locaux et APK de la CI inchangés).
-- `targetSdk` / `compileSdk` **36** (Flutter 3.32.8 propose 35 ; AGP 8.7.3 : `android.suppressUnsupportedCompileSdk=36`
-  dans `android/gradle.properties`). Un poste qui construit l'APK doit avoir la plateforme « Android 16 (API 36) »
-  (SDK Manager d'Android Studio ; Gradle la télécharge sinon si les licences sont acceptées).
+- API cible : **36 pour le seul build Google Play** (`flutter build appbundle --android-project-arg=pharmacienTargetSdk=36`,
+  exigé par Google depuis le 31/08/2026) ; les APK (PC du pharmacien, terminaux Sunmi, `ci.yml`) restent en **35**
+  (valeur de Flutter 3.32.8) : aucun changement de comportement pour eux (retour prédictif d'Android 16 non activé) et
+  aucune plateforme « Android 16 » à installer sur le poste. AGP 8.7.3 avec compileSdk 36 :
+  `android.suppressUnsupportedCompileSdk=36` (`android/gradle.properties`). `ci.yml` contrôle l'APK à 35 et construit
+  un App Bundle de contrôle à 36, sans clé.
 - Workflow : `.github/workflows/play.yml` (AAB en artefact si la clé existe ; envoi seulement si `android/DEMANDE_PLAY`
   change et si `PLAY_SERVICE_ACCOUNT_JSON` existe ; action `r0adkll/upload-google-play` épinglée par SHA, v1.1.5).
   L'APK reste construit par `ci.yml`.

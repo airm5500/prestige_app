@@ -29,11 +29,17 @@ val motDePasseFichierCle = reglageCle("ANDROID_KEYSTORE_PASSWORD", "storePasswor
 val aliasCle = reglageCle("ANDROID_KEY_ALIAS", "keyAlias")
 val motDePasseCle = reglageCle("ANDROID_KEY_PASSWORD", "keyPassword")
 
+// 3.13.1 — API CIBLE. Google Play exige targetSdk 36 (Android 16) depuis le 31/08/2026 ; Flutter 3.32.8 propose 35.
+// SEUL le build Google Play passe à 36 (play.yml : flutter build appbundle --android-project-arg=pharmacienTargetSdk=36) ;
+// les APK construits sur le PC du pharmacien (terminaux Sunmi) et par ci.yml restent en 35 : comportements d'Android 16
+// (retour prédictif activé par défaut, bord à bord imposé, orientation sur grand écran) inchangés pour eux, et aucune
+// plateforme « Android 16 » à installer sur le poste (docs/NOTE_VERSION_3.13.1.md). Même principe que Prestige
+// Inventaire (propriété prestinvTargetSdk).
+val apiCiblePlay: Int? = (findProperty("pharmacienTargetSdk") as String?)?.trim()?.toIntOrNull()
+
 android {
     namespace = "com.example.prestige_app"
-    // 3.13.0 : Google Play exige targetSdk 36 (Android 16) pour les nouvelles applications et les mises à jour depuis
-    // le 31/08/2026 ; Flutter 3.32.8 propose 35. compileSdk suit.
-    compileSdk = 36
+    compileSdk = apiCiblePlay ?: 35
     ndkVersion = flutter.ndkVersion
 
     ndkVersion = "27.0.12077973"
@@ -50,7 +56,7 @@ android {
     defaultConfig {
         applicationId = "com.dici.prestige_app"
         minSdk = 21 // Recommandé
-        targetSdk = 36
+        targetSdk = apiCiblePlay ?: flutter.targetSdkVersion
         // Une seule source pour le numéro de version : `version:` de pubspec.yaml (nom + numéro de build).
         versionCode = flutter.versionCode
         versionName = flutter.versionName

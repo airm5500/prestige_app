@@ -47,9 +47,20 @@ void main() {
   });
 
   group('Exigences Google Play', () {
-    test('targetSdk et compileSdk 36 (obligatoires depuis le 31/08/2026) ; identifiant com.dici.prestige_app', () {
-      expect(gradle, contains('targetSdk = 36'));
-      expect(gradle, contains('compileSdk = 36'));
+    test('API cible 36 pour le SEUL build Google Play (propriété pharmacienTargetSdk) ; APK : 35 comme avant', () {
+      expect(gradle, contains('findProperty("pharmacienTargetSdk")'));
+      expect(gradle, contains('targetSdk = apiCiblePlay ?: flutter.targetSdkVersion'));
+      expect(gradle, contains('compileSdk = apiCiblePlay ?: 35'));
+      expect(gradle, isNot(contains('targetSdk = 36')));
+      final play = lire('.github/workflows/play.yml');
+      final ci = lire('.github/workflows/ci.yml');
+      expect(play, contains('flutter build appbundle --release --android-project-arg=pharmacienTargetSdk=36'));
+      expect(ci, contains('flutter build appbundle --release --android-project-arg=pharmacienTargetSdk=36'), reason: 'AAB de contrôle sans clé');
+      expect(ci, contains('android:targetSdkVersion="35"'), reason: 'l\'APK est contrôlé à 35');
+      expect(RegExp(r'run: flutter build apk --release\n').hasMatch(ci), isTrue, reason: 'APK construit sans la propriété');
+    });
+
+    test('identifiant com.dici.prestige_app, version tirée de pubspec', () {
       expect(gradle, contains('applicationId = "com.dici.prestige_app"'));
       expect(gradle, contains('versionCode = flutter.versionCode'));
     });
@@ -85,7 +96,7 @@ void main() {
       expect(play, contains('status: completed'));
       expect(play, contains('status: draft'));
       expect(play, contains('name: prestige-pharmacien-aab'));
-      expect(play, contains('flutter build appbundle --release'));
+      expect(play, contains('flutter build appbundle --release --android-project-arg=pharmacienTargetSdk=36'));
       expect(play, contains('CN=Android Debug'), reason: 'un bundle signé en debug est refusé avant l\'envoi');
       expect(play, contains('rm -rf "\$RUNNER_TEMP/cle_android"'));
       expect(play, contains('umask 077'));
@@ -96,6 +107,24 @@ void main() {
       final ci = lire('.github/workflows/ci.yml');
       expect(ci, contains('run: flutter build apk --release'));
       expect(ci, contains('name: prestige-pharmacien-apk'));
+    });
+  });
+
+  // Android 16 (API 36, build Google Play) active le RETOUR PRÉDICTIF par défaut. Flutter le gère avec PopScope ;
+  // WillPopScope (ancien) ne fonctionne pas avec lui. Les écrans qui interceptent le retour sont listés ici : tout
+  // nouvel écran doit être revu (docs/NOTE_VERSION_3.13.1.md).
+  group('Retour prédictif (Android 16)', () {
+    test('aucun WillPopScope ; seuls deux écrans interceptent le retour, avec PopScope', () {
+      final interceptions = <String>{};
+      for (final f in Directory('lib').listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'))) {
+        final t = f.readAsStringSync();
+        expect(t, isNot(contains('WillPopScope(')), reason: f.path);
+        if (t.contains('PopScope(')) interceptions.add(f.path.replaceAll('\\', '/'));
+      }
+      expect(interceptions, {
+        'lib/nouvelle_interface/accueil_nouveau.dart', // autre onglet → retour à Accueil
+        'lib/nouvelle_interface/modules/annulation_ventes_nouveau.dart', // annulation en cours : retour refusé
+      });
     });
   });
 }
