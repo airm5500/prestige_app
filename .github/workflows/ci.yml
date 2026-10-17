@@ -118,6 +118,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Apple exige le SDK iOS 26 (Xcode 26 ou plus) pour tout envoi à App Store Connect / TestFlight.
+      - name: Xcode 26 ou plus récent
+        run: |
+          xcode=$(ls -d /Applications/Xcode_2[6-9]*.app /Applications/Xcode_[3-9][0-9]*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$xcode" ]; then
+            echo "Xcode présents :"; ls -d /Applications/Xcode*.app
+            echo "::error title=Xcode::aucun Xcode 26 (ou plus) stable sur cette machine : Apple refuse les envois faits avec un SDK plus ancien."
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.8'
