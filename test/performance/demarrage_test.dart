@@ -97,6 +97,19 @@ void main() {
     await fermerApplication(tester);
   });
 
+  // Préchauffage (non mesuré, 3.12.1) : la PREMIÈRE construction de la nouvelle interface dans ce processus de test
+  // paie la compilation à la volée (JIT) de tous ses widgets — 450 à 630 ms selon la charge de la machine, contre 150 à
+  // 330 ms ensuite — ce qui faisait varier le premier cas mesuré autour du seuil. Sur le téléphone (code compilé
+  // d'avance, AOT), ce coût n'existe pas. Les mesures ci-dessous portent donc toutes sur une interface déjà compilée.
+  testWidgets('préchauffage de la nouvelle interface (non mesuré)', (tester) async {
+    telephone(tester);
+    preparerNouvelle(serveur, p: Presentation.tableauDeBord, affichage: AffichageMenus.unePage, style: StyleIcones.actuel);
+    donneesAccueil(serveur);
+    await demarrer(tester);
+    await connecter(tester, find.byType(AccueilNouveau));
+    await fermerApplication(tester);
+  });
+
   for (final (String nom, Presentation p, AffichageMenus affichage, StyleIcones? style) in [
     ('A · Tableau de bord', Presentation.tableauDeBord, AffichageMenus.unePage, StyleIcones.actuel),
     ('B · Compact', Presentation.compact, AffichageMenus.unePage, StyleIcones.actuel),

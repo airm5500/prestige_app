@@ -3,7 +3,7 @@
 //    export CSV dans l'app Fichiers, partage ancré (iPad) ;
 //  - ios/ : Info.plist en français (nom affiché, réseau local, ATS limité au réseau local, AUCUN
 //    NSAllowsArbitraryLoads, fichiers visibles, chiffrement exempté, orientations iPhone et iPad), identifiant
-//    (bundle ID) en paramètre xcconfig sans « _ », iOS 13 au minimum partout, Podfile, icônes opaques aux bonnes
+//    (bundle ID) en paramètre xcconfig sans « _ », iOS 15 au minimum partout (3.12.1, ITMS-90068), Podfile, icônes opaques aux bonnes
 //    tailles, écran de lancement aux couleurs de l'écran de chargement ;
 //  - Android : nouvel applicationId (com.dici.prestige_app), namespace et MainActivity inchangés.
 // Lancé aussi sur macOS par le job « ios » de la CI.
@@ -89,7 +89,7 @@ void main() {
       expect(RegExp('UIInterfaceOrientation').allMatches(ipad), hasLength(4), reason: 'iPad : les 4 orientations (multitâche)');
     });
 
-    test('identifiant en paramètre (xcconfig), sans « _ » ; plus aucun com.example ; iOS 13 au minimum', () {
+    test('identifiant en paramètre (xcconfig), sans « _ » ; plus aucun com.example ; iOS 15 au minimum', () {
       final xc = lire('ios/Flutter/Prestige.xcconfig');
       final bundle = RegExp(r'^PRESTIGE_BUNDLE_ID = (\S+)$', multiLine: true).firstMatch(xc)!.group(1)!;
       expect(bundle, 'com.dici.prestige-app');
@@ -102,9 +102,9 @@ void main() {
       expect(projet, isNot(contains('com.example')));
       expect(RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = "\$\(PRESTIGE_BUNDLE_ID\)";').allMatches(projet), hasLength(3), reason: 'Debug, Release, Profile');
       final cibles = RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);').allMatches(projet).map((m) => m.group(1)).toSet();
-      expect(cibles, {'13.0'});
-      expect(lire('ios/Podfile'), contains("platform :ios, '13.0'"));
-      expect(lire('ios/Flutter/AppFrameworkInfo.plist'), contains('<string>13.0</string>'));
+      expect(cibles, {'15.0'});
+      expect(lire('ios/Podfile'), contains("platform :ios, '15.0'"));
+      expect(lire('ios/Flutter/AppFrameworkInfo.plist'), contains('<string>15.0</string>'));
       expect(projet, contains('TARGETED_DEVICE_FAMILY = "1,2";'), reason: 'iPhone ET iPad');
     });
 

@@ -14,7 +14,8 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.12.0+48** (`pubspec.yaml`) : iPhone et iPad (TestFlight) et
+Version en préparation (pas encore publiée) : **3.12.1+49** (`pubspec.yaml`) : iOS 15 au minimum (TestFlight),
+Android inchangé (`docs/NOTE_VERSION_3.12.1.md`). Précédentes livraisons : 3.12.0+48 : iPhone et iPad (TestFlight) et
 **nouvel identifiant Android `com.dici.prestige_app`** (avant : `com.example.prestige_app`). **Attention : c'est une
 nouvelle application pour Android et pour le magasin Sunmi** — elle ne met pas à jour l'ancienne : l'installer,
 ressaisir l'adresse du serveur et les réglages (liste dans `docs/NOTE_VERSION_3.12.0.md`), puis désinstaller l'ancienne

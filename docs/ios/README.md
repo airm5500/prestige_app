@@ -13,7 +13,7 @@ nouvelle version s'envoie en un clic depuis GitHub.
 | Identifiant de l'application (bundle ID) | **`com.dici.prestige-app`** (le « _ » est interdit sur iOS ; Android garde `com.dici.prestige_app`) |
 | Compte | Apple Developer Program (payant), accès à App Store Connect |
 | Clé API App Store Connect | rôle **Admin** (la signature automatique crée certificat et profil au besoin) |
-| iPhone / iPad des testeurs | iOS / iPadOS 13 ou plus récent, application **TestFlight** (gratuite, App Store) |
+| iPhone / iPad des testeurs | iOS / iPadOS **15** ou plus récent (iPhone 6s / SE 1re génération et plus récents), application **TestFlight** (gratuite, App Store) |
 
 ## 1. Enregistrer l'identifiant et créer l'application
 
@@ -123,7 +123,7 @@ problème.
 
 ## Pour les développeurs
 
-- Projet iOS : iOS 13 minimum, iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`), version lue dans `pubspec.yaml`,
+- Projet iOS : iOS 15 minimum (depuis la 3.12.1 ; Apple l’exigera à partir d’avril 2027, avertissement ITMS-90068), iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`), version lue dans `pubspec.yaml`,
   identifiant dans `ios/Flutter/Prestige.xcconfig` (`PRESTIGE_BUNDLE_ID`), `ios/Podfile` versionné.
 - `Info.plist` : nom affiché « Prestige Pharmacien », français ; ATS : **`NSAllowsLocalNetworking`** seulement (HTTP
   limité au réseau local ; **pas** de `NSAllowsArbitraryLoads`, que l'examen d'Apple demande de justifier). Les

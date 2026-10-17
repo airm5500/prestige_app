@@ -276,7 +276,9 @@ class _CaZoneScreenState extends State<CaZoneScreen> with ChargementSuivi<CaZone
       TitreSection('Par ${f.regroupement.libelle.toLowerCase()} (${grouperMilliers(d.lignes.length)})'),
       // Largeur utile = largeur de l'écran − marges de la liste (16 + 16), comme le LayoutBuilder d'origine.
       if (MediaQuery.sizeOf(context).width - 32 >= largeurTableau)
-        LayoutBuilder(builder: (context, c) => _tableau(d, f, c.maxWidth))
+        // 3.12.1 : tableau gardé en mémoire quand il sort de l'écran : il n'est plus reconstruit (60 colonnes × lignes
+        // visibles, jusqu'à 0,7 s pour une image) à chaque retour en haut de la liste.
+        _TableauGardeEnVie(child: LayoutBuilder(builder: (context, c) => _tableau(d, f, c.maxWidth)))
       else
         // 3.10.3 : une carte par élément de la liste défilante (construite à la demande), et non une seule colonne de
         // toutes les cartes : sur téléphone, l'arrivée de la colonne entière à l'écran coûtait une image de 0,4 à
@@ -509,5 +511,25 @@ class _CaLigneDetailScreenState extends State<CaLigneDetailScreen> with Chargeme
         ],
       ]),
     );
+  }
+}
+
+/// Garde son enfant en mémoire dans une liste défilante (AutomaticKeepAlive).
+class _TableauGardeEnVie extends StatefulWidget {
+  final Widget child;
+  const _TableauGardeEnVie({required this.child});
+
+  @override
+  State<_TableauGardeEnVie> createState() => _TableauGardeEnVieState();
+}
+
+class _TableauGardeEnVieState extends State<_TableauGardeEnVie> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

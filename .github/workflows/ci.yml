@@ -159,4 +159,6 @@ jobs:
           [ "$(lire NSAppTransportSecurity:NSAllowsLocalNetworking)" = "true" ] || { echo "::error title=ATS::NSAllowsLocalNetworking absent"; exit 1; }
           if lire NSAppTransportSecurity:NSAllowsArbitraryLoads > /dev/null 2>&1; then echo "::error title=ATS::NSAllowsArbitraryLoads ne doit pas être présent"; exit 1; fi
           lire NSLocalNetworkUsageDescription > /dev/null || { echo "::error title=Info.plist::NSLocalNetworkUsageDescription absent"; exit 1; }
-          echo "::notice title=Application iOS::$version · $(lire CFBundleIdentifier)"
+          # 3.12.1 : iOS 15 au minimum (avertissement ITMS-90068 d'Apple sur iOS 13).
+          [ "$(lire MinimumOSVersion)" = "15.0" ] || { echo "::error title=iOS minimal::$(lire MinimumOSVersion) ≠ 15.0"; exit 1; }
+          echo "::notice title=Application iOS::$version · $(lire CFBundleIdentifier) · iOS $(lire MinimumOSVersion) minimum"
