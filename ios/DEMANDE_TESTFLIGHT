@@ -9,3 +9,4 @@
 # 2026-10-17 : 8e demande, après vérification des secrets par le pharmacien
 # 2026-10-17 : 9e demande, contre-vérification directe de la clé (sans asc)
 # 2026-10-17 : 10e demande, nouvelle clé unique (Key ID copié du nom du fichier)
+# 2026-10-17 : 11e demande, Key ID et Team ID corrigés
