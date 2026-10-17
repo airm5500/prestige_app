@@ -279,10 +279,17 @@ jobs:
           plutil -insert signingStyle -string automatic "$opts"
           plutil -insert teamID -string "$APPLE_TEAM_ID" "$opts"
           plutil -insert uploadSymbols -bool YES "$opts"
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+          set -o pipefail
+          if ! xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/ipa" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_PRIVATE_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyPath "$ASC_PRIVATE_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee "$RUNNER_TEMP/export.log"; then
+            if grep -q "Cloud signing permission error" "$RUNNER_TEMP/export.log"; then
+              echo "::error title=Rôle de la clé API::Apple refuse la signature de distribution (« Cloud signing permission error ») : la clé n'a pas l'accès Admin. Créez une clé d'équipe avec l'accès « Admin » (App Store Connect › Utilisateurs et accès › Intégrations › Team Keys › +) et remplacez APP_STORE_CONNECT_KEY_ID et APP_STORE_CONNECT_PRIVATE_KEY."
+            fi
+            exit 1
+          fi
           ipa=$(ls "$RUNNER_TEMP"/ipa/*.ipa | head -1)
           echo "IPA=$ipa" >> "$GITHUB_ENV"
 
