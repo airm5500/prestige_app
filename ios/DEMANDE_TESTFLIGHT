@@ -6,3 +6,4 @@
 # 2026-10-17 : 5e demande, après remplacement de la clé API par le pharmacien
 # 2026-10-17 : 6e demande, avec contrôle de la clé .p8 (5e envoi : nouvelle clé toujours refusée par Apple)
 # 2026-10-17 : 7e demande, diagnostic clé individuelle / clé d équipe (6e : .p8 valide, clé toujours refusée)
+# 2026-10-17 : 8e demande, après vérification des secrets par le pharmacien
