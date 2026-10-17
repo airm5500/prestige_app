@@ -50,17 +50,39 @@ Dépôt `airm5500/prestige_app` › **Settings** › **Secrets and variables** �
 Facultatif, onglet **Variables** : `IOS_BUNDLE_ID` si l'identifiant devait changer un jour (sinon la valeur de
 `ios/Flutter/Prestige.xcconfig`, `com.dici.prestige-app`, est utilisée).
 
+Facultatif aussi : `TESTFLIGHT_GROUP` (groupe de testeurs pour les envois par étiquette, voir l'étape 4).
+
 Tant que ces quatre secrets n'existent pas, l'envoi ne fait rien (message « Secrets App Store Connect absents ») ;
 la construction iOS de contrôle (sans signature) tourne de toute façon à chaque envoi de code (job « ios » de la CI).
 
-## 4. Envoyer une version vers TestFlight
+## 4. Lancer un envoi TestFlight
 
-GitHub › **Actions** › **TestFlight (iOS)** › **Run workflow** :
+L'envoi se lance par une **étiquette (tag) Git** `ios-v<version>-<build>`, où `<version>-<build>` reprend la version
+de `pubspec.yaml` avec « - » à la place du « + » : version `3.12.0+48` → étiquette **`ios-v3.12.0-48`**. Une étiquette
+qui ne correspond pas à `pubspec.yaml` est refusée (message « Étiquette … attendu … ») ; sans les quatre secrets, rien
+n'est envoyé.
 
-- **Numéro de build** : laisser vide (automatique : `<numéro de pubspec>.<numéro de l'envoi>`, par ex. `48.3` —
-  toujours différent, comme l'exige Apple) ;
-- **Groupe de testeurs** : nom d'un groupe TestFlight (étape 5), ou vide ;
-- **Quoi tester** : texte affiché aux testeurs dans TestFlight (vide : texte par défaut, en français).
+**Le plus simple :** demander « envoie sur TestFlight » ; l'équipe pose l'étiquette de la version en cours sur la
+branche `claude/presences`.
+
+**Vous-même, depuis GitHub :**
+1. dépôt `airm5500/prestige_app` › **Code** › **Tags** (ou **Releases**) › **Draft a new release** ;
+2. **Choose a tag** : saisir `ios-v3.12.0-48` (la version en cours) › **Create new tag on publish** ;
+3. **Target** : choisir la branche **`claude/presences`** ;
+4. titre libre (ex. « TestFlight 3.12.0 ») › **Publish release** ;
+5. suivre l'envoi dans **Actions** › **TestFlight (iOS)**.
+
+Une même étiquette ne sert qu'une fois. Pour renvoyer la même version (correction de dernière minute sans changer
+`pubspec.yaml`), relancer le run depuis **Actions** (bouton **Re-run all jobs**) : le numéro de build change tout
+seul.
+
+Réglages des envois par étiquette (facultatif, **Settings** › **Secrets and variables** › **Actions** › onglet
+**Variables**) : `TESTFLIGHT_GROUP` = nom du groupe de testeurs à qui donner chaque build (sinon : testeurs internes
+seulement).
+
+Détails : numéro de build automatique `<numéro de pubspec>.<numéro de l'envoi>` (ex. `48.3`, toujours différent comme
+l'exige Apple) ; notes « Quoi tester » en français. Le bouton **Actions** › **TestFlight (iOS)** › **Run workflow**
+(numéro de build, groupe et notes au choix) n'apparaît que lorsque le workflow est sur la branche par défaut du dépôt.
 
 Compter 20 à 40 minutes : construction, signature automatique, envoi, puis traitement par Apple (la build passe
 « En traitement » puis « Prête à tester » dans App Store Connect › TestFlight). Apple envoie un e-mail en cas de
@@ -111,7 +133,8 @@ problème.
   `test/e2e/parcours_ios_test.dart`, `test/ergonomie/ios_affichage_test.dart`, `test/performance/ios_test.dart`,
   `test/reseau/ios_test.dart`).
 - CI : job **ios** de `.github/workflows/ci.yml` (macOS : tests iOS, `flutter build ios --release --no-codesign`,
-  contrôle de l'`Info.plist` produit). Envoi : `.github/workflows/testflight.yml`.
+  contrôle de l'`Info.plist` produit). Envoi : `.github/workflows/testflight.yml`, déclenché par une étiquette
+  `ios-v*` (vérifiée contre `pubspec.yaml`) ou à la main depuis la branche par défaut.
 - Outil d'envoi : **asc** (App Store Connect CLI, <https://github.com/rorkai/App-Store-Connect-CLI>, licence MIT),
   version **5.14.3** épinglée, binaire macOS arm64 vérifié par son empreinte SHA-256 écrite dans le workflow ;
   télémétrie coupée (`ASC_TELEMETRY_DISABLED`, `DO_NOT_TRACK`) ; authentification par variables d'environnement

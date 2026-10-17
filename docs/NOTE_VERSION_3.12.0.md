@@ -98,3 +98,13 @@ de l'iPad ; Face ID non concerné.
 - Réseau : `test/reseau/ios_test.dart` (serveur coupé, serveur lent, adresses http / https acceptées).
 - Captures iPhone SE, iPhone 430 pt et iPad : `docs/maquettes/captures_3_12_0/`
   (`CAPTURES_3_11=1 flutter test test/captures_3_12_0_test.dart --update-goldens`).
+
+## Complément (sans nouvelle version de l'application) — envoi TestFlight par étiquette
+
+Le bouton « Run workflow » de GitHub n'existe que pour la branche par défaut (master), que l'on ne touche pas.
+`.github/workflows/testflight.yml` se déclenche donc AUSSI par une étiquette Git **`ios-v<version>-<build>`** (ex.
+`ios-v3.12.0-48` pour 3.12.0+48), posée sur `claude/presences` : le job vérifie que l'étiquette correspond à
+`pubspec.yaml` (sinon il s'arrête avec un message) et ne fait toujours rien sans les quatre secrets. Groupe de testeurs
+des envois par étiquette : variable facultative `TESTFLIGHT_GROUP`. Mode d'emploi : `docs/ios/README.md`, « 4. Lancer un
+envoi TestFlight ». Workflows validés par actionlint 1.7.7. Aucun changement de l'application (toujours 3.12.0+48).
+

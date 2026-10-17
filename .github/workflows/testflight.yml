@@ -1,10 +1,11 @@
 # Envoi de Prestige Pharmacien vers TestFlight (iPhone et iPad) — 3.12.0. Mode d'emploi : docs/ios/README.md.
 #
-# Lancement : GitHub › Actions › « TestFlight (iOS) » › Run workflow (à la main seulement).
+# Lancement : étiquette « ios-v<version>-<build> » (ex. ios-v3.12.0-48), ou GitHub › Actions › « TestFlight (iOS) »
+# › Run workflow (ce bouton n'existe que pour la branche par défaut).
 # Rien ne se passe tant que les QUATRE secrets ne sont pas déposés par le pharmacien (Settings › Secrets and
 # variables › Actions) : APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_PRIVATE_KEY
-# (contenu du fichier .p8) et APPLE_TEAM_ID. Variable facultative du dépôt : IOS_BUNDLE_ID (sinon la valeur de
-# ios/Flutter/Prestige.xcconfig).
+# (contenu du fichier .p8) et APPLE_TEAM_ID. Variables facultatives du dépôt : IOS_BUNDLE_ID (sinon la valeur de
+# ios/Flutter/Prestige.xcconfig), TESTFLIGHT_GROUP (groupe de testeurs, envois par étiquette).
 #
 # Signature : automatique, gérée par Apple (xcodebuild -allowProvisioningUpdates avec la clé API : aucun certificat
 # ni profil à déposer). Envoi : asc (App Store Connect CLI, open source, licence MIT,
@@ -14,6 +15,12 @@
 name: TestFlight (iOS)
 
 on:
+  # Étiquette (tag) « ios-v<version>-<build> » poussée sur n'importe quelle branche (ex. ios-v3.12.0-48 sur
+  # claude/presences) : envoi de cette version, sans passer par la branche par défaut. Le tag doit correspondre à
+  # pubspec.yaml.
+  push:
+    tags:
+      - 'ios-v*'
   workflow_dispatch:
     inputs:
       numero_build:
@@ -21,7 +28,7 @@ on:
         required: false
         default: ''
       groupe:
-        description: "Groupe de testeurs TestFlight (vide : aucun ; les testeurs internes reçoivent la build d'office)."
+        description: "Groupe de testeurs TestFlight (vide : variable TESTFLIGHT_GROUP, sinon aucun)."
         required: false
         default: ''
       quoi_tester:
@@ -47,6 +54,22 @@ jobs:
     outputs:
       pret: ${{ steps.secrets.outputs.pret }}
     steps:
+      - uses: actions/checkout@v4
+
+      # Étiquette : « ios-v » + version de pubspec.yaml avec « - » à la place du « + » (3.12.0+48 → ios-v3.12.0-48).
+      - name: Étiquette conforme à pubspec.yaml
+        if: github.ref_type == 'tag'
+        env:
+          ETIQUETTE: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '[:space:]')
+          attendu="ios-v${version/+/-}"
+          if [ "$ETIQUETTE" != "$attendu" ]; then
+            echo "::error title=Étiquette::$ETIQUETTE ne correspond pas à pubspec.yaml ($version) : attendu $attendu"
+            exit 1
+          fi
+          echo "::notice title=Étiquette::$ETIQUETTE = pubspec.yaml $version"
+
       - id: secrets
         env:
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -168,9 +191,9 @@ jobs:
             --test-notes "$notes" --locale fr-FR --wait --output table
 
       - name: Groupe de testeurs
-        if: inputs.groupe != ''
+        if: inputs.groupe != '' || vars.TESTFLIGHT_GROUP != ''
         env:
-          GROUPE: ${{ inputs.groupe }}
+          GROUPE: ${{ inputs.groupe || vars.TESTFLIGHT_GROUP }}
         run: |
           "$ASC" builds add-groups --app "$BUNDLE_ID" --build-number "$NUMERO_BUILD" --version "$NOM_VERSION" \
             --platform IOS --group "$GROUPE" --output table
