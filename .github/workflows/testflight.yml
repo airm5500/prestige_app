@@ -182,6 +182,14 @@ jobs:
           mkdir -p "$dossier"
           # Retours chariot Windows retirés (clé collée depuis le Bloc-notes).
           printf '%s\n' "$PRIVATE_KEY" | tr -d '\r' > "$dossier/AuthKey_${ASC_KEY_ID}.p8"
+          # La clé doit être une clé privée EC P-256 lisible (sinon la signature des jetons est refusée par Apple).
+          if ! openssl pkey -in "$dossier/AuthKey_${ASC_KEY_ID}.p8" -noout 2>/dev/null; then
+            echo "::error title=APP_STORE_CONNECT_PRIVATE_KEY::le contenu n'est pas une clé privée lisible : recopiez tout le fichier .p8 sans le modifier."; exit 1
+          fi
+          if ! openssl pkey -in "$dossier/AuthKey_${ASC_KEY_ID}.p8" -text -noout 2>/dev/null | grep -q 'prime256v1\|P-256'; then
+            echo "::error title=APP_STORE_CONNECT_PRIVATE_KEY::ce n'est pas une clé App Store Connect (EC P-256 attendue)."; exit 1
+          fi
+          echo "::notice title=Clé .p8::clé privée EC P-256 lisible."
           echo "ASC_PRIVATE_KEY_PATH=$dossier/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
 
       # Numéro de build unique pour TestFlight : <N de pubspec>.<numéro du run> (ex. 48.7) ; version = pubspec.
