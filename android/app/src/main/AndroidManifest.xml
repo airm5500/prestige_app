@@ -1,10 +1,12 @@
 <manifest xmlns:tools="http://schemas.android.com/tools"
     xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <!-- Stockage : seulement jusqu'à Android 12 (API 32), pour l'export CSV dans Téléchargements ; à partir
+         d'Android 13, l'application n'en a pas besoin et ne le demande pas (3.13.0, Google Play). -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <application
-        android:label="prestige_app"
+        android:label="Prestige Pharmacien"
         android:icon="@mipmap/launcher_icon"
         tools:ignore="ExtraText,UnusedAttribute"
         android:networkSecurityConfig="@xml/network_security_config"
