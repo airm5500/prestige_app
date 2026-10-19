@@ -1,4 +1,4 @@
-3.12.0+48
+3.13.1+51
 # 2026-10-17 07:30 UTC : 1re demande (échec : préparation Flutter sans --no-codesign)
 # 2026-10-17 : 2e demande après correction
 # 2026-10-17 : 3e demande, avec vérification préalable de la clé (2e envoi : 401 d Apple à la signature)
@@ -15,3 +15,4 @@
 # 2026-10-17 : 14e demande, Team ID corrigé
 # 2026-10-17 : 15e demande, clé Admin remise
 # 2026-10-17 : 16e demande, Key ID corrigé (10 caractères)
+# 2026-10-19 : envoi 3.13.1+51 (iOS 15 minimum)
