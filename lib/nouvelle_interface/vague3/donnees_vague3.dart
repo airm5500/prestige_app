@@ -337,7 +337,13 @@ class MontantGrossiste {
   final double totalBl;
   final double totalAvoirs;
   final int pieces;
-  const MontantGrossiste({required this.grossisteId, required this.libelle, this.totalBl = 0, this.totalAvoirs = 0, this.pieces = 0});
+
+  /// Pièces pointées / à pointer de ce grossiste (« parGrossiste » du serveur depuis la demande 45, 15/10/2026) ;
+  /// null : non fourni (détail calculé par l'application, ou serveur qui ne les donne pas).
+  final int? pointes;
+  final int? nonPointes;
+  const MontantGrossiste(
+      {required this.grossisteId, required this.libelle, this.totalBl = 0, this.totalAvoirs = 0, this.pieces = 0, this.pointes, this.nonPointes});
 
   double get net => totalBl + totalAvoirs;
 
@@ -348,6 +354,8 @@ class MontantGrossiste {
         // Le serveur rend les avoirs en négatif (comme « totalAvoirs ») : un positif est remis en négatif.
         totalAvoirs: -decimalTolerant(j['totalAvoirs']).abs(),
         pieces: entierTolerant(j['pieces'] ?? j['total']),
+        pointes: j['pointes'] == null ? null : entierTolerant(j['pointes']),
+        nonPointes: j['nonPointes'] == null ? null : entierTolerant(j['nonPointes']),
       );
 }
 

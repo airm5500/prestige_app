@@ -363,7 +363,16 @@ class _PointageBlScreenState extends State<PointageBlScreen> with ChargementSuiv
             Padding(
               key: Key('pointage_grossiste_du_groupe_${m.grossisteId}'),
               padding: const EdgeInsets.only(top: 4),
-              child: LigneDetail(m.libelle, formaterMontant(m.net)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                LigneDetail(m.libelle, formaterMontant(m.net)),
+                // 3.14.1 : pointées / à pointer de chaque grossiste, quand le serveur les donne (demande 45).
+                if (m.pointes != null && m.nonPointes != null)
+                  Text(
+                      '${formaterNombre(m.pieces)} pièce${m.pieces > 1 ? 's' : ''} · ${formaterNombre(m.pointes!)} pointée${m.pointes! > 1 ? 's' : ''}'
+                      ' · ${formaterNombre(m.nonPointes!)} à pointer',
+                      key: Key('pointage_compteurs_grossiste_${m.grossisteId}'),
+                      style: const TextStyle(fontSize: 12.5, color: Charte.grisTexte)),
+              ]),
             ),
         ] else if (groupe)
           const Padding(
