@@ -288,7 +288,7 @@ void main() {
       expect(serveur.recues(ApiRappels.routeAnalyse).single.parametres, {'dtStart': '2026-05-01', 'dtEnd': '2026-10-14'});
     });
 
-    testWidgets('marquer : POST ?statut= {ids} une fois ; statut « Racheté » et sélection vide refusés sans requête', (tester) async {
+    testWidgets('marquer : POST ?statut= {ids} une fois ; « Racheté » envoyé (3.14.0) ; sélection vide refusée sans requête', (tester) async {
       final app = await connecte(tester);
       final (n, _) = await essayer(tester, () => ApiRappels.marquer(app.ctx, ['RAP-TEST-1', 'RAP-TEST-2', 'RAP-TEST-1'], StatutRappel.prepare));
       expect(n, 2);
@@ -297,9 +297,16 @@ void main() {
       expect(r.parametres, {'statut': 'PREPARE'});
       expect(r.json, {'ids': ['RAP-TEST-1', 'RAP-TEST-2']});
       expect(etatVague3.rappels.first['statut'], 'PREPARE');
+      // 3.14.0 : « Racheté » se marque à la main (serveur du 19/10/2026).
+      final (n2, _) = await essayer(tester, () => ApiRappels.marquer(app.ctx, ['RAP-TEST-3'], StatutRappel.achete));
+      expect(n2, 1);
+      expect(serveur.recues(ApiRappels.routeMarquer).last.parametres, {'statut': 'ACHETE'});
+      expect(etatVague3.rappels.firstWhere((x) => x['id'] == 'RAP-TEST-3')['statut'], 'ACHETE');
+      // Serveur plus ancien : refus « Statut inconnu. » traduit en message clair.
+      etatVague3.serveurAncienRappels = true;
+      final (_, e) = await essayer(tester, () => ApiRappels.marquer(app.ctx, ['RAP-TEST-4'], StatutRappel.achete));
+      expect(e, isA<ApiLoadException>().having((x) => x.message, 'message', StatutRappel.messageServeurAncien));
       final avant = serveur.requetes.length;
-      final (_, e) = await essayer(tester, () => ApiRappels.marquer(app.ctx, ['RAP-TEST-3'], StatutRappel.achete));
-      expect(e, nature(NatureErreur.refus));
       final (_, e2) = await essayer(tester, () => ApiRappels.marquer(app.ctx, const [], StatutRappel.ecarte));
       expect(e2, nature(NatureErreur.refus));
       expect(serveur.requetes, hasLength(avant));

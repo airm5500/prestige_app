@@ -5,8 +5,8 @@
 //    l'ouverture ; liste NON paginée par le serveur, 2000 lignes au plus) affichée de façon VIRTUALISÉE (seules les
 //    lignes visibles sont construites) ; compteur « à préparer » (GET /rappels-habitude/compteur) ; recherche
 //    (client, téléphone, produit, CIP) ; date prévue dans la feuille des filtres ;
-//  - action « Marquer » : sélection multiple → Préparé / Écarté / À préparer (statuts acceptés par le serveur ;
-//    « Racheté » est posé par le serveur lui-même), confirmation, POST /rappels-habitude/marquer?statut= {ids}, un
+//  - action « Marquer » : sélection multiple → Préparé / Racheté / Écarté / À préparer (« Racheté » à la main depuis la
+//    3.14.0, serveur du 19/10/2026 ; serveur plus ancien : message clair), confirmation, POST /rappels-habitude/marquer?statut= {ids}, un
 //    envoi par appui, puis relecture de la liste et du compteur ;
 //  - onglet « Analyse » : GET /rappels-habitude/analyse (6 mois par défaut ; 3 ou 12 mois au choix).
 //  - « Actualiser la liste » (3.8.0, demande du pharmacien : le serveur ne recalcule pas tout seul) : POST
@@ -286,12 +286,16 @@ class _RappelsScreenState extends State<RappelsScreen> with SingleTickerProvider
               Text('${_pluriel(_choisis.length, 'rappel choisi', 'rappels choisis')} · marquer :',
                   key: const Key('rappels_choisis'), style: const TextStyle(color: Charte.encre, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              Row(children: [
-                for (final s in StatutRappel.marquables) ...[
-                  if (s != StatutRappel.marquables.first) const SizedBox(width: 8),
-                  Expanded(child: _boutonMarquer(s)),
-                ],
-              ]),
+              // 3.14.0 : quatre statuts (« Racheté » ajouté) sur deux rangées, lisibles sur un Sunmi de 360 dp.
+              for (var r = 0; r < StatutRappel.marquables.length; r += 2) ...[
+                if (r > 0) const SizedBox(height: 6),
+                Row(children: [
+                  for (final s in StatutRappel.marquables.skip(r).take(2)) ...[
+                    if (s != StatutRappel.marquables[r]) const SizedBox(width: 8),
+                    Expanded(child: _boutonMarquer(s)),
+                  ],
+                ]),
+              ],
             ]),
           ),
         ),

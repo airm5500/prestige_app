@@ -270,6 +270,9 @@ class EtatVague3 {
   final pieces = DonneesVague3.piecesInitiales();
   final avis = [for (var i = 1; i <= DonneesVague3.nombreAvis; i++) DonneesVague3.avis(i)];
   final rappels = [for (var i = 1; i <= DonneesVague3.nombreRappels; i++) DonneesVague3.rappel(i)];
+
+  /// Serveur antérieur au 19/10/2026 : « Racheté » refusé à la main (« Statut inconnu. »).
+  bool serveurAncienRappels = false;
 }
 
 /// Dernier état installé (tests : vérifier ce que le serveur a gardé).
@@ -390,7 +393,9 @@ void installerRoutesVague3(FauxServeurPrestige s) {
       methode: 'GET');
   s.route('/rappels-habitude/marquer', (r) {
     final statut = (r.parametres['statut'] ?? '').toUpperCase();
-    if (!['A_PREPARER', 'PREPARE', 'ECARTE'].contains(statut)) return ReponseFausse.json({'success': false, 'msg': 'Statut inconnu.'});
+    // Serveur du 19/10/2026 : ACHETE accepté (décision 38) ; e.serveurAncienRappels simule le serveur d'avant.
+    final acceptes = ['A_PREPARER', 'PREPARE', 'ECARTE', if (!e.serveurAncienRappels) 'ACHETE'];
+    if (!acceptes.contains(statut)) return ReponseFausse.json({'success': false, 'msg': 'Statut inconnu.'});
     final c = r.json;
     final ids = c is Map && c['ids'] is List ? [for (final i in c['ids'] as List) '$i'] : (c is List ? [for (final i in c) '$i'] : <String>[]);
     if (ids.isEmpty) return ReponseFausse.json({'success': false, 'msg': 'Aucune ligne choisie.'});

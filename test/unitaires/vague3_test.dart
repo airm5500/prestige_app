@@ -260,9 +260,8 @@ void main() {
       expect(const FiltresRappels(statut: FiltreStatutRappel.tous).parametres(now)['statut'], 'TOUS');
     });
 
-    test('statuts « marquables » = ceux du serveur (Racheté exclu) ; sélection contrôlée', () {
-      expect(StatutRappel.marquables.map((s) => s.code), ['PREPARE', 'ECARTE', 'A_PREPARER']);
-      expect(StatutRappel.marquables, isNot(contains(StatutRappel.achete)));
+    test('statuts « marquables » = ceux du serveur (3.14.0 : Racheté à la main compris) ; sélection contrôlée', () {
+      expect(StatutRappel.marquables.map((s) => s.code), ['PREPARE', 'ACHETE', 'ECARTE', 'A_PREPARER']);
       expect(ControleRappels.erreurSelection(0), isNotNull);
       expect(ControleRappels.erreurSelection(1), isNull);
       expect(ControleRappels.erreurSelection(2001), isNotNull);

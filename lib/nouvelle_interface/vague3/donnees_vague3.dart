@@ -11,7 +11,7 @@
 //    préchargement ; POST /avis-clients/avis/{id}/traiter {statut, noteInterne} si droits.repondre ;
 //  - Rappels traitement (web « rappelstraitement », droit P_SM_RAPPELS_HABITUDE, RappelHabitudeRessource) :
 //    GET /rappels-habitude/liste (non paginée, 2000 lignes au plus), /compteur, /analyse ; POST
-//    /rappels-habitude/marquer?statut=A_PREPARER|PREPARE|ECARTE {ids} après confirmation ; depuis la 3.8.0 (réponse
+//    /rappels-habitude/marquer?statut=A_PREPARER|PREPARE|ACHETE|ECARTE {ids} après confirmation (ACHETE : 3.14.0) ; depuis la 3.8.0 (réponse
 //    du pharmacien : le serveur ne recalcule pas tout seul), POST /rappels-habitude/actualiser À LA DEMANDE (bouton
 //    « Actualiser la liste », confirmation, un appui = un appel, recalcul lourd sur un an de ventes, un seul à la fois
 //    côté serveur : refus « déjà en cours » affiché) ; aucun message n'est envoyé.
@@ -1110,9 +1110,13 @@ enum StatutRappel {
     return null;
   }
 
-  /// Statuts que le serveur accepte pour « marquer » (RappelHabitudeServiceImpl.marquer) : « Racheté » est posé par
-  /// le serveur lui-même (rachat constaté), jamais à la main.
-  static const marquables = [prepare, ecarte, aPreparer];
+  /// Statuts que le serveur accepte pour « marquer » (RappelHabitudeServiceImpl.marquer). 3.14.0 (décision 38 du
+  /// pharmacien, serveur du 19/10/2026) : « Racheté » se marque aussi à la main (client revenu acheter ailleurs, vente
+  /// non rattachée) ; un serveur plus ancien le refuse (« Statut inconnu. ») : message clair, rien de modifié.
+  static const marquables = [prepare, achete, ecarte, aPreparer];
+
+  /// Message d'un serveur antérieur au 19/10/2026 qui refuse « Racheté » à la main.
+  static const messageServeurAncien = '« Racheté » à la main demande la mise à jour du serveur Prestige (octobre 2026).';
 }
 
 /// Filtre de statut de la liste (paramètre « statut »).
@@ -1383,7 +1387,15 @@ class ApiRappels {
     final propres = [for (final i in ids.toSet()) if (i.trim().isNotEmpty) i.trim()];
     final e = ControleRappels.erreurSelection(propres.length);
     if (e != null) throw ApiLoadException(e, nature: NatureErreur.refus);
-    final j = await ApiVague3.post(context, routeMarquer, {'ids': propres}, _marquer, parametres: {'statut': statut.code});
-    return entierTolerant(j['modifies']);
+    try {
+      final j = await ApiVague3.post(context, routeMarquer, {'ids': propres}, _marquer, parametres: {'statut': statut.code});
+      return entierTolerant(j['modifies']);
+    } on ApiLoadException catch (e) {
+      // Serveur antérieur au 19/10/2026 : « Racheté » inconnu (RappelHabitudeServiceImpl.marquer → « Statut inconnu. »).
+      if (statut == StatutRappel.achete && e.message.contains('Statut inconnu')) {
+        throw ApiLoadException(StatutRappel.messageServeurAncien, nature: NatureErreur.refus, code: e.code);
+      }
+      rethrow;
+    }
   }
 }

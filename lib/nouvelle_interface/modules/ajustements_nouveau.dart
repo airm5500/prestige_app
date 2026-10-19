@@ -39,6 +39,10 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
   // Pagination (3.8.0) : total annoncé par le serveur (null : serveur sans total), filtres de la première page.
   int? _total;
   bool _suiteEnCours = false;
+
+  /// 3.14.0 : page suivante demandée d'elle-même en arrivant en bas de la liste (une fois par page ; après un échec,
+  /// seulement par « Afficher plus », pour ne pas relancer en boucle).
+  bool _suiteEnEchec = false;
   int _lecture = 0;
   ({Periode periode, String typeId})? _filtresLus;
 
@@ -69,6 +73,7 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
     setState(() {
       _total = null;
       _suiteEnCours = false;
+      _suiteEnEchec = false;
     });
     return charger(() async {
       final p = await Ajustements.page(context, f.periode.debut, f.periode.fin, typeId: f.typeId, start: 0, onSessionInvalid: sessionInvalide(context));
@@ -102,7 +107,10 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
       });
     } catch (e) {
       if (!mounted || g != _lecture) return;
-      setState(() => _suiteEnCours = false);
+      setState(() {
+        _suiteEnCours = false;
+        _suiteEnEchec = true;
+      });
       messageResultat(context, DiagnosticErreur.de(e).message, echec: true);
     }
   }
@@ -140,17 +148,25 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Suivi des Ajustements'), actions: [BoutonFiltres(actifs: _type == null ? 0 : 1, onPressed: _filtres)]),
-        body: RefreshIndicator(
-          onRefresh: _charger,
-          child: ListView(key: const Key('defilement_module'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-            SelecteurPeriode(periode: _periode, onChanged: _changerPeriode, maintenant: widget.maintenant),
-            EtiquettesFiltres(etiquettes: [if (_type != null) 'Motif : ${_type!.libelle}'], onRetirer: () {
-              setState(() => _type = null);
-              _charger();
-            }),
-            const SizedBox(height: 8),
-            ..._corps(),
-          ]),
+        body: NotificationListener<ScrollNotification>(
+          // 3.14.0 (décision 38) : en approchant du bas de la liste, la page suivante (start = déjà chargés, mêmes
+          // filtres, « total » du serveur) est demandée d'elle-même ; « Afficher plus » reste disponible.
+          onNotification: (n) {
+            if (n.metrics.axis == Axis.vertical && n.metrics.extentAfter < 400 && _aSuite && !_suiteEnCours && !_suiteEnEchec) _suite();
+            return false;
+          },
+          child: RefreshIndicator(
+            onRefresh: _charger,
+            child: ListView(key: const Key('defilement_module'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+              SelecteurPeriode(periode: _periode, onChanged: _changerPeriode, maintenant: widget.maintenant),
+              EtiquettesFiltres(etiquettes: [if (_type != null) 'Motif : ${_type!.libelle}'], onRetirer: () {
+                setState(() => _type = null);
+                _charger();
+              }),
+              const SizedBox(height: 8),
+              ..._corps(),
+            ]),
+          ),
         ),
       );
 
@@ -198,7 +214,14 @@ class _AjustementsNouveauState extends State<AjustementsNouveau> with Chargement
           onTap: () => _ouvrir(l[i]),
         ),
       ),
-      if (_total != null && total > Ajustements.taillePage) PiedPagination(affichees: l.length, total: total, enCours: _suiteEnCours, onPlus: _suite),
+      if (_total != null && total > Ajustements.taillePage) PiedPagination(
+            affichees: l.length,
+            total: total,
+            enCours: _suiteEnCours,
+            onPlus: () {
+              _suiteEnEchec = false;
+              _suite();
+            }),
     ];
   }
 }

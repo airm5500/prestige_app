@@ -14,7 +14,9 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.13.1+51** (`pubspec.yaml`) : API cible 36 pour le seul paquet Google
+Version en préparation (pas encore publiée) : **3.14.0+52** (`pubspec.yaml`) : rappels « Racheté » à la main, ajustements
+par pages au défilement (serveur du 19/10/2026, `docs/NOTE_VERSION_3.14.0.md`). Précédentes livraisons :
+3.13.1+51 : API cible 36 pour le seul paquet Google
 Play ; APK (Sunmi, PC du pharmacien) en API 35 comme avant (`docs/NOTE_VERSION_3.13.1.md`). Précédentes livraisons :
 3.13.0+50 : diffusion Google Play (test interne),
 clé d'envoi (repli sur la clé debug sans elle : APK Sunmi construits sur le PC inchangés), targetSdk 36
