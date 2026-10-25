@@ -10,6 +10,9 @@
 //  - statut de traitement (À traiter / Réclamé / Avoir reçu) : PUT …/{id}/statut?statut= — le SERVEUR vérifie le droit
 //    (P_BL_MOBILE_ACCEPTER_PEREMPTION_COURTE) ; refus → message « Droit manquant », le statut ne change pas et le
 //    changement n'est plus proposé sur cet écran ;
+//  - 3.15.1 (demande serveur 55, a30b33d9) : la liste dit si le compte a ce droit (« peutChangerStatut ») : false →
+//    statut en lecture seule dès l'ouverture ; true → proposé ; absent (serveur plus ancien) → comme la 3.15.0. Le
+//    refus du PUT reste géré (droit retiré entre la liste et le changement) ;
 //  - serveur sans ces routes (404) : « Indisponible sur ce serveur » (liste) ou « Export indisponible » (fichiers).
 // Rien n'est gardé sur l'appareil (ni préférence, ni cache) ; le journal de l'application ne note que le chemin.
 import 'package:flutter/material.dart';
@@ -25,7 +28,7 @@ import '../modules/periode.dart';
 import '../vague1/donnees_vague1.dart' show OptionListe;
 import '../vague2/commun_vague2.dart' show ChoixListe;
 import '../vague2/donnees_vague2.dart' show ApiVague2, grouperMilliers;
-import '../vague3/donnees_vague3.dart' show ApiVague3, entierTolerant, texteTolerant;
+import '../vague3/donnees_vague3.dart' show ApiVague3, booleenTolerant, entierTolerant, texteTolerant;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Données
@@ -149,7 +152,11 @@ class ListePeremptionsCourtes {
   final List<PeremptionCourte> lignes;
   final int total;
   final int valeur;
-  const ListePeremptionsCourtes(this.lignes, this.total, this.valeur);
+
+  /// Le compte peut changer le statut (droit P_BL_MOBILE_ACCEPTER_PEREMPTION_COURTE) ; null : serveur qui ne le dit
+  /// pas (avant la demande 55).
+  final bool? peutChangerStatut;
+  const ListePeremptionsCourtes(this.lignes, this.total, this.valeur, {this.peutChangerStatut});
 }
 
 class ApiPeremptionsCourtes {
@@ -174,7 +181,8 @@ class ApiPeremptionsCourtes {
       ];
       // Serveur sans total ou valeur : calculés sur les lignes reçues.
       return ListePeremptionsCourtes(l, j['total'] == null ? l.length : entierTolerant(j['total']),
-          j['valeur'] == null ? l.fold<int>(0, (s, x) => s + x.valeur) : entierTolerant(j['valeur']));
+          j['valeur'] == null ? l.fold<int>(0, (s, x) => s + x.valeur) : entierTolerant(j['valeur']),
+          peutChangerStatut: j['peutChangerStatut'] == null ? null : booleenTolerant(j['peutChangerStatut']));
     }, 'les péremptions courtes');
   }
 
@@ -223,6 +231,9 @@ class _PeremptionsCourtesScreenState extends State<PeremptionsCourtesScreen> {
   /// Le serveur a refusé le changement de statut (droit manquant) : plus proposé sur cet écran.
   String? _droitRefuse;
 
+  /// Droit annoncé par la liste (3.15.1) : false → statut en lecture seule ; null → serveur qui ne le dit pas.
+  bool? _peutChanger;
+
   List<OptionListe>? _grossistes;
   Object? _erreurGrossistes;
   final _versionOptions = ValueNotifier<int>(0);
@@ -256,6 +267,7 @@ class _PeremptionsCourtesScreenState extends State<PeremptionsCourtesScreen> {
         _lignes.addAll(l.lignes);
         _total = l.total;
         _valeur = l.valeur;
+        _peutChanger = l.peutChangerStatut;
         _enCours = false;
         _charge = true;
       });
@@ -328,9 +340,12 @@ class _PeremptionsCourtesScreenState extends State<PeremptionsCourtesScreen> {
     }
   }
 
+  /// Changement de statut proposé : pas refusé par le serveur sur cet écran, et pas annoncé interdit par la liste.
+  bool get _statutModifiable => _droitRefuse == null && _peutChanger != false;
+
   Future<void> _changerStatut(int i) async {
     final l = _lignes[i];
-    if (_droitRefuse != null || _envois.contains(l.id)) return;
+    if (!_statutModifiable || _envois.contains(l.id)) return;
     final choix = await showModalBottomSheet<StatutPeremptionCourte>(
       context: context,
       showDragHandle: true,
@@ -452,6 +467,12 @@ class _PeremptionsCourtesScreenState extends State<PeremptionsCourtesScreen> {
         ChiffreCle(libelle: 'Lignes', valeur: grouperMilliers(_total), id: 'pc_total', enAvant: true),
         ChiffreCle(libelle: 'Valeur', valeur: formaterMontant(_valeur), id: 'pc_valeur', detail: 'quantité × prix d\'achat'),
       ]),
+      if (_droitRefuse == null && _peutChanger == false)
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text('Statut en lecture seule : ce compte n\'a pas le droit de le changer (accepter une péremption courte).',
+              key: Key('pc_statut_lecture_seule'), style: TextStyle(color: Charte.gris, fontSize: 13)),
+        ),
       if (_droitRefuse != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -466,7 +487,7 @@ class _PeremptionsCourtesScreenState extends State<PeremptionsCourtesScreen> {
     final l = _lignes[i];
     final s = l.statutConnu;
     final envoi = _envois.contains(l.id);
-    final modifiable = _droitRefuse == null && !envoi && l.id.isNotEmpty;
+    final modifiable = _statutModifiable && !envoi && l.id.isNotEmpty;
     final saisie = [
       if (l.le.isNotEmpty) 'Saisi le ${PeremptionCourte.date(l.le)}${PeremptionCourte.heure(l.le).isEmpty ? '' : ' à ${PeremptionCourte.heure(l.le)}'}',
       if (l.utilisateur.isNotEmpty) 'par ${l.utilisateur}',

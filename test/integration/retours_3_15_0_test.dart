@@ -250,8 +250,8 @@ void main() {
       await demonter(tester);
     });
 
-    testWidgets('droit manquant (403) : statut inchangé, message, changement plus proposé (aucun autre PUT)', (tester) async {
-      DonneesVague4.statutPcInterdit = true;
+    testWidgets('droit manquant (403) malgré peutChangerStatut=true : statut inchangé, message, changement plus proposé', (tester) async {
+      DonneesVague4.statutPcInterdit = true; // droit retiré entre la liste et le changement
       await ecran(tester);
       await toucher(tester, 'pc_statut_ligne_0');
       await tester.tap(cle('pc_choix_AVOIR_RECU'));

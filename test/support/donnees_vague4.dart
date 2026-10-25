@@ -178,6 +178,9 @@ class DonneesVague4 {
   /// Le compte n'a pas P_BL_MOBILE_ACCEPTER_PEREMPTION_COURTE : PUT refusé (403, Droits.interdit).
   static bool statutPcInterdit = false;
 
+  /// « peutChangerStatut » de la liste (demande 55, a30b33d9) : true / false ; null → champ absent (serveur plus ancien).
+  static bool? peutChangerStatutPc = true;
+
   static const idsPc = ['PC-1', 'PC-2', 'PC-3', 'PC-4'];
 
   static List<Map<String, Object?>> lignesPc() => [
@@ -205,7 +208,13 @@ class DonneesVague4 {
       if (st.isNotEmpty && x['statut'] != st) continue;
       data.add(x..remove('g'));
     }
-    return {'success': true, 'total': data.length, 'valeur': data.fold<int>(0, (s, x) => s + (x['valeur']! as int)), 'data': data};
+    return {
+      'success': true,
+      'total': data.length,
+      'valeur': data.fold<int>(0, (s, x) => s + (x['valeur']! as int)),
+      if (peutChangerStatutPc != null) 'peutChangerStatut': peutChangerStatutPc,
+      'data': data,
+    };
   }
 
   static ReponseFausse statutPc(RequeteRecue r, String id) {
@@ -246,6 +255,7 @@ void installerRoutesVague4(FauxServeurPrestige s) {
   s.quand('/recap/dashboard/daily', ReponseFausse.json(DonneesVague4.daily()), methode: 'GET');
   DonneesVague4.statutsPc.clear();
   DonneesVague4.statutPcInterdit = false;
+  DonneesVague4.peutChangerStatutPc = true;
   s.route('/reception/peremptions-courtes', (r) => ReponseFausse.json(DonneesVague4.peremptionsCourtes(r.parametres)), methode: 'GET');
   s.quand('/reception/peremptions-courtes/excel', ReponseFausse.octets([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00],
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', entetes: {'content-disposition': 'attachment; filename=peremptions_courtes.xlsx'}),

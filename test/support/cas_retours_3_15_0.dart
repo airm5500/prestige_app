@@ -12,6 +12,7 @@ import 'cas_affichage_nouvelle.dart';
 import 'donnees_lot2.dart';
 import 'donnees_lot3.dart';
 import 'donnees_vague1.dart';
+import 'donnees_vague4.dart';
 import 'faux_serveur_prestige.dart';
 
 Future<void> _pomper(WidgetTester tester, [int fois = 6]) async {
@@ -56,4 +57,10 @@ final casRetours3150 = <CasAffichage>[
       enNouvelle(ecranConnecte(() => const PeremptionsCourtesScreen()), donnees: _donnees, ensuite: _toucher('bouton_filtres'))),
   CasAffichage('3.15.0 · Péremptions courtes · choix du statut',
       enNouvelle(ecranConnecte(() => const PeremptionsCourtesScreen()), donnees: _donnees, ensuite: _toucher('pc_statut_ligne_0'))),
+  // 3.15.1 (demande 55) : compte sans le droit → statut en lecture seule dès l'ouverture.
+  CasAffichage('3.15.1 · Péremptions courtes · statut en lecture seule',
+      enNouvelle(ecranConnecte(() => const PeremptionsCourtesScreen()), donnees: (s) {
+        _donnees(s);
+        DonneesVague4.peutChangerStatutPc = false;
+      })),
 ];
