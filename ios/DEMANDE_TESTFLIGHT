@@ -1,4 +1,4 @@
-3.15.0+54
+3.15.1+55
 # 2026-10-17 07:30 UTC : 1re demande (échec : préparation Flutter sans --no-codesign)
 # 2026-10-17 : 2e demande après correction
 # 2026-10-17 : 3e demande, avec vérification préalable de la clé (2e envoi : 401 d Apple à la signature)
@@ -19,3 +19,4 @@
 # 2026-10-19 : envoi 3.14.0+52
 # 2026-10-25 : envoi 3.14.1+53
 # 2026-10-25 : envoi 3.15.0+54
+# 2026-10-25 : envoi 3.15.1+55
