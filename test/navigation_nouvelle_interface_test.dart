@@ -78,10 +78,10 @@ void main() {
       // 3.11.0 : « Etat Contrôle Achat » est l'onglet Synthèse d'« Achats Fourn. ».
       expect(titres, containsAll(['Achats Fourn.', 'Retours Fournisseurs', 'Visualisation BL', 'Analyse Saisies BL']));
       expect(titres, isNot(contains('Etat Contrôle Achat')));
-      expect(menusModules, hasLength(35),
+      expect(menusModules, hasLength(36),
           reason: '26 menus d\'origine (sans Fournisseurs ni, depuis la 3.9.0, Fiche Article ; 3.11.0 : Etat Contrôle Achat et Suivi Crédit '
               'réunis à leur voisin) + 3 nouveaux menus de la vague 1 + 3 de la vague 2 (le Pilotage est un onglet) + 3 de la vague 3 '
-              '+ 2 de la 3.11.0 (Balance vente / caisse, Sur-stocks)');
+              '+ 2 de la 3.11.0 (Balance vente / caisse, Sur-stocks) + 1 de la 3.15.0 (Péremptions courtes)');
     });
 
     testWidgets('accueil A (familles) : « Fournisseurs » absent, « Retours Fournisseurs » présent', (tester) async {

@@ -51,14 +51,14 @@ void main() {
   testWidgets('serveur ancien (dev) : chiffres du jour par /recap/dashboard/daily ; cartes sans route « Indisponible sur ce serveur »', (tester) async {
     telephone(tester);
     for (final r in ['/tableau-bord/tuiles', '/tableau-bord/encaissements', '/tableau-bord/emplacements', '/tableau-bord/frequentation',
-      '/pilotage/suivi/frequentation', '/tableau-bord/valorisation']) {
+      '/pilotage/suivi/frequentation', '/tableau-bord/valorisation', '/tableau-bord/affluence']) {
       serveur.quand(r, ReponseFausse.introuvable());
     }
     await ouvrirEcran(tester, serveur, const AccueilNouveau(), pret: find.byKey(const Key('chiffre_tb_ca')));
-    await pomper(tester, () => find.byKey(const Key('carte_indisponible')).evaluate().length >= 3, raison: 'cartes indisponibles');
+    await pomper(tester, () => find.byKey(const Key('carte_indisponible')).evaluate().length >= 4, raison: 'cartes indisponibles');
     expect(serveur.recues(ApiTableauBord.routeDaily), hasLength(1));
     expect(find.text(formaterMontant(1245300)), findsWidgets, reason: 'chiffres du jour de l\'ancien tableau de bord');
-    expect(find.byKey(const Key('carte_indisponible')), findsNWidgets(3), reason: 'fréquentation, encaissements, top 10');
+    expect(find.byKey(const Key('carte_indisponible')), findsNWidgets(4), reason: 'fréquentation, affluence (3.15.0), encaissements, top 10');
     expect(serveur.recues('/produit/valorisation'), hasLength(1), reason: 'valorisation : calcul du jour');
     expect(find.byType(LoginScreen), findsNothing);
     await fermerApplication(tester);

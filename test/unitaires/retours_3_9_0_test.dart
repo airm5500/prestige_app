@@ -71,7 +71,7 @@ void main() {
       expect(titres, contains('Analyse Article'));
       expect(menusRetiresNouvelle, containsAll(['Fiche Article', 'Fournisseurs']));
       expect([for (final m in menusModules) if (m.ecran() is FicheArticleNouveau) m], isEmpty);
-      expect(menusModules, hasLength(35));
+      expect(menusModules, hasLength(36), reason: '3.15.0 : + Péremptions courtes');
     });
 
     test('ordre et menus masqués mémorisés : « Fiche Article » ignoré par la nouvelle interface, sans erreur', () async {

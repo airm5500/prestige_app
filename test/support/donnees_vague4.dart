@@ -149,6 +149,77 @@ class DonneesVague4 {
         'precedente': {'ventesH': _heures(30), 'caH': _heures(300000), 'jours': 6, 'debut': '2026-10-05', 'fin': '2026-10-11'},
       };
 
+  /// Affluence (3.15.0, TableauBordServiceImpl.affluence) : semaine du lundi au dimanche contenant [date]
+  /// (aaaa-mm-jj, aujourd'hui si vide ou illisible, comme le serveur) ; cases avec au moins une vente seulement
+  /// (GROUP BY jour, heure) ; jour 1 = lundi. Lundi → samedi de 8 h à 20 h, dimanche matin (garde) ; pointe le samedi à 10 h.
+  static Map<String, Object?> affluence(String date) {
+    final d = DateTime.tryParse(date) ?? DateTime.now();
+    final lundi = DateTime(d.year, d.month, d.day - (d.weekday - 1));
+    String iso(DateTime x) => '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    return {
+      'debut': iso(lundi),
+      'fin': iso(DateTime(lundi.year, lundi.month, lundi.day + 6)),
+      'cases': [
+        for (var j = 1; j <= 7; j++)
+          for (var h = 8; h <= (j == 7 ? 12 : 20); h++)
+            {'jour': j, 'heure': h, 'ventes': ventesAffluence(j, h), 'ca': ventesAffluence(j, h) * 9500},
+      ],
+      'success': true,
+    };
+  }
+
+  static int ventesAffluence(int jour, int heure) => jour == 6 && heure == 10 ? 42 : (jour == 7 ? 2 : 3 + (heure % 5) * 4 + jour);
+
+  // --- Péremptions courtes (3.15.0, ReceptionMobileService.peremptionsCourtes / statutPeremptionCourte) ---
+
+  /// Statuts changés par PUT …/{id}/statut (remis à zéro par installerRoutesVague4).
+  static final statutsPc = <String, String>{};
+
+  /// Le compte n'a pas P_BL_MOBILE_ACCEPTER_PEREMPTION_COURTE : PUT refusé (403, Droits.interdit).
+  static bool statutPcInterdit = false;
+
+  static const idsPc = ['PC-1', 'PC-2', 'PC-3', 'PC-4'];
+
+  static List<Map<String, Object?>> lignesPc() => [
+        {'id': 'PC-1', 'bl': 'BL-FICTIF-1', 'cip': '8000101', 'produit': 'PRODUIT COURT FICTIF A', 'grossiste': 'ALPHA FICTIF', 'numLot': 'L-A1',
+          'datePeremption': '2027-01-15', 'joursRestants': 92, 'quantite': 10, 'valeur': 25000, 'decision': 'ACCEPTE', 'motif': 'Produit très demandé',
+          'statut': 'A_TRAITER', 'utilisateur': 'Agent Fictif', 'le': '2026-10-15T09:30:00', 'g': 'GRO-TEST-1'},
+        {'id': 'PC-2', 'bl': 'BL-FICTIF-2', 'cip': '8000102', 'produit': 'PRODUIT COURT FICTIF B', 'grossiste': 'BETA FICTIF', 'numLot': 'L-B1',
+          'datePeremption': '2026-12-01', 'joursRestants': 45, 'quantite': 4, 'valeur': 12000, 'decision': 'REFUSE', 'motif': null,
+          'statut': 'RECLAME', 'utilisateur': 'Agent Fictif', 'le': '2026-10-12T15:05:00', 'g': 'GRO-TEST-2'},
+        {'id': 'PC-3', 'bl': 'BL-FICTIF-3', 'cip': '8000103', 'produit': 'PRODUIT COURT FICTIF C', 'grossiste': 'ALPHA FICTIF', 'numLot': 'L-C1',
+          'datePeremption': '2027-02-28', 'joursRestants': 140, 'quantite': 6, 'valeur': 18600, 'decision': 'ACCEPTE', 'motif': 'Accord du grossiste',
+          'statut': 'AVOIR_RECU', 'utilisateur': 'Agent Fictif', 'le': '2026-10-08T11:00:00', 'g': 'GRO-TEST-1'},
+        {'id': 'PC-4', 'bl': 'BL-FICTIF-4', 'cip': '8000104', 'produit': 'PRODUIT COURT FICTIF D', 'grossiste': 'BETA FICTIF', 'numLot': 'L-D1',
+          'datePeremption': '2026-11-20', 'joursRestants': 35, 'quantite': 2, 'valeur': 7400, 'decision': 'ACCEPTE', 'motif': 'Dernier lot',
+          'statut': 'A_TRAITER', 'utilisateur': 'Agent Fictif', 'le': '2026-10-02T08:45:00', 'g': 'GRO-TEST-2'},
+      ];
+
+  /// GET /reception/peremptions-courtes : filtres grossiste (identifiant) et statut comme le serveur ; total, valeur.
+  static Map<String, Object?> peremptionsCourtes(Map<String, String> p) {
+    final g = (p['grossiste'] ?? '').trim(), st = (p['statut'] ?? '').trim();
+    final data = <Map<String, Object?>>[];
+    for (final l in lignesPc()) {
+      final x = {...l, 'statut': statutsPc[l['id']] ?? l['statut']};
+      if (g.isNotEmpty && x['g'] != g) continue;
+      if (st.isNotEmpty && x['statut'] != st) continue;
+      data.add(x..remove('g'));
+    }
+    return {'success': true, 'total': data.length, 'valeur': data.fold<int>(0, (s, x) => s + (x['valeur']! as int)), 'data': data};
+  }
+
+  static ReponseFausse statutPc(RequeteRecue r, String id) {
+    if (statutPcInterdit) {
+      return ReponseFausse.json({'success': false, 'interdit': true, 'msg': 'Droit manquant : Accepter une péremption courte'}, statut: 403);
+    }
+    final s = (r.parametres['statut'] ?? '').toUpperCase();
+    if (!const ['A_TRAITER', 'RECLAME', 'AVOIR_RECU'].contains(s)) {
+      return ReponseFausse.json({'success': false, 'code': 'STATUT_INVALIDE', 'msg': 'statut : A_TRAITER, RECLAME ou AVOIR_RECU.'}, statut: 400);
+    }
+    statutsPc[id] = s;
+    return ReponseFausse.json({'success': true});
+  }
+
   /// Ancien tableau de bord web (branche dev) : nombres déjà mis en forme par le serveur.
   static Map<String, Object?> daily() => {
         'DailyCA': '1 245 300', 'DailyCount': 87, 'DailyAchatAmount': '950 000', 'DailyAchatCount': '4', 'PanierMY': '14 314', 'MARGENET': '312 800',
@@ -170,6 +241,17 @@ void installerRoutesVague4(FauxServeurPrestige s) {
   s.quand('/tableau-bord/encaissements', ReponseFausse.json(DonneesVague4.encaissements()), methode: 'GET');
   s.route('/tableau-bord/emplacements', (r) => ReponseFausse.json(DonneesVague4.emplacements(r.parametres['axe'] ?? '')), methode: 'GET');
   s.quand('/tableau-bord/frequentation', ReponseFausse.json(DonneesVague4.frequentationSemaine()), methode: 'GET');
+  s.route('/tableau-bord/affluence', (r) => ReponseFausse.json(DonneesVague4.affluence(r.parametres['date'] ?? '')), methode: 'GET');
   s.route('/pilotage/suivi/frequentation', (r) => ReponseFausse.json(DonneesVague4.frequentationPilotage(r.parametres['dtStart'] ?? '')), methode: 'GET');
   s.quand('/recap/dashboard/daily', ReponseFausse.json(DonneesVague4.daily()), methode: 'GET');
+  DonneesVague4.statutsPc.clear();
+  DonneesVague4.statutPcInterdit = false;
+  s.route('/reception/peremptions-courtes', (r) => ReponseFausse.json(DonneesVague4.peremptionsCourtes(r.parametres)), methode: 'GET');
+  s.quand('/reception/peremptions-courtes/excel', ReponseFausse.octets([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00],
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', entetes: {'content-disposition': 'attachment; filename=peremptions_courtes.xlsx'}),
+      methode: 'GET');
+  s.quand('/reception/peremptions-courtes/pdf', ReponseFausse.octets('%PDF-1.4 fictif'.codeUnits, type: 'application/pdf'), methode: 'GET');
+  for (final id in DonneesVague4.idsPc) {
+    s.route('/reception/peremptions-courtes/$id/statut', (r) => DonneesVague4.statutPc(r, id), methode: 'PUT');
+  }
 }

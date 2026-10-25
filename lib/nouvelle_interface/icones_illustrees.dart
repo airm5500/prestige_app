@@ -65,6 +65,7 @@ const illustrationsMenus = <String, String>{
   'Retours Fournisseurs': 'fleche_retour',
   'Visualisation BL': 'camion',
   'Pointage BL': 'case_cochee',
+  'Péremptions courtes': 'calendrier',
   // Équipe
   'Fichier Journal': 'carnet',
   'Présences': 'badge',

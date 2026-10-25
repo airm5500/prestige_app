@@ -53,6 +53,7 @@ import 'vague3/avis_vague3.dart';
 import 'vague3/pointage_vague3.dart';
 import 'vague3/rappels_vague3.dart';
 import 'vague4/balance_vague4.dart';
+import 'vague4/peremptions_courtes_vague4.dart';
 import 'vague4/surstock_vague4.dart';
 
 enum Famille { ventes, credits, analyses, stock, fournisseurs, equipe }
@@ -205,6 +206,9 @@ final menusModules = <MenuModule>[
       Question.vendu, () => const BalanceCaisseScreen(), responsables: true),
   MenuModule('Sur-stocks', 'Produits au-delà de la couverture visée', Icons.inventory_outlined, Famille.stock, Question.commander,
       () => const SurstocksScreen(), responsables: true),
+  // 3.15.0 : lots à péremption courte de la réception (statut changé si le serveur l'autorise) ; responsables seulement.
+  MenuModule('Péremptions courtes', 'Lots à péremption courte reçus des grossistes', Icons.event_busy_outlined, Famille.fournisseurs,
+      Question.fournisseurs, () => const PeremptionsCourtesScreen(), responsables: true),
   // Vague 3 (écritures légères dont le droit est vérifié par le serveur, 3.4.0) : administrateur et pharmacien
   // seulement. Aucun envoi de message (WhatsApp, SMS, e-mail) depuis le mobile.
   MenuModule('Pointage BL', 'Pointer les BL et avoirs d\'un grossiste', Icons.playlist_add_check, Famille.fournisseurs,

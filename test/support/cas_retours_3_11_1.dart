@@ -36,7 +36,8 @@ Future<void> _frequentation(WidgetTester tester) async {
   final liste = find.descendant(of: find.byKey(const Key('defilement_tableau_bord')), matching: find.byType(Scrollable)).first;
   await tester.scrollUntilVisible(find.byKey(const Key('carte_tableau_bord_frequentation')), 300, scrollable: liste, maxScrolls: 40);
   await _pomper(tester, 8);
-  await Scrollable.ensureVisible(tester.element(find.byKey(const Key('carte_tableau_bord_frequentation'))));
+  // La carte peut être construite juste sous le bas de l'écran (hors écran pour le finder) : 3.15.0, une carte de plus.
+  await Scrollable.ensureVisible(tester.element(find.byKey(const Key('carte_tableau_bord_frequentation'), skipOffstage: false)));
   await _pomper(tester, 4);
 }
 

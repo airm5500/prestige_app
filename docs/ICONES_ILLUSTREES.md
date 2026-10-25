@@ -70,6 +70,7 @@ Material du menu. Les icônes sont décoratives pour le lecteur d'écran (le tit
 | Retours Fournisseurs | `fleche_retour.png` | Right arrow curving left |
 | Visualisation BL | `camion.png` | Delivery truck |
 | Pointage BL | `case_cochee.png` | Check box with check |
+| Péremptions courtes (3.15.0) | `calendrier.png` | Spiral calendar |
 | Fichier Journal | `carnet.png` | Notebook |
 | Présences | `badge.png` | Identification card |
 

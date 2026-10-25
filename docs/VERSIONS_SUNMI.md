@@ -14,7 +14,7 @@ minimum_sunmi: aucune
 |---|---|---|---|
 | — | — | — | aucune publication pour l'instant |
 
-Version en préparation (pas encore publiée) : **3.14.1+53** (`pubspec.yaml`) : synchronisation serveur du 19/10/2026 (pointage BL par groupe : pièces pointées / à pointer de chaque grossiste) ; 3.14.0+52 : rappels « Racheté » à la main, ajustements
+Version en préparation (pas encore publiée) : **3.15.0+54** (`pubspec.yaml`) : carte « Affluence (jour × heure) » du tableau de bord, écran « Péremptions courtes » (`docs/NOTE_VERSION_3.15.0.md`) ; 3.14.1+53 : synchronisation serveur du 19/10/2026 (pointage BL par groupe : pièces pointées / à pointer de chaque grossiste) ; 3.14.0+52 : rappels « Racheté » à la main, ajustements
 par pages au défilement (serveur du 19/10/2026, `docs/NOTE_VERSION_3.14.0.md`). Précédentes livraisons :
 3.13.1+51 : API cible 36 pour le seul paquet Google
 Play ; APK (Sunmi, PC du pharmacien) en API 35 comme avant (`docs/NOTE_VERSION_3.13.1.md`). Précédentes livraisons :

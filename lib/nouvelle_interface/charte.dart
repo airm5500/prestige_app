@@ -59,6 +59,13 @@ class Charte {
   static const bleuClair = Color(0xFFE3ECF7);
   static const grisClair = Color(0xFFEEF1F5);
   static const grisTexte = Color(0xFF475569);
+
+  // Carte d'affluence du tableau de bord (3.15.0) : deux dégradés, clair (chiffre à l'encre) puis foncé (chiffre
+  // blanc) ; contraste ≥ 4,5 sur toute l'échelle.
+  static const affluenceClair1 = Color(0xFFDDF1F7);
+  static const affluenceClair2 = Color(0xFF7CC3D6);
+  static const affluenceFonce1 = Color(0xFF1A7590);
+  static const affluenceFonce2 = Color(0xFF0B4F63);
   static const vertHeure = Color(0xFF86EFAC);
 
   // 3.11.0 : bouton de déconnexion de l'en-tête de Prestige web (header.css, « .hdr-logout ») et écran de chargement

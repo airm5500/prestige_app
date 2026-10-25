@@ -25,7 +25,7 @@ void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
   for (final (nom, dp, dpr) in const [('iPhone 430×932', Size(430, 932), 3.0), ('iPad 1024×1366', Size(1024, 1366), 2.0)]) {
-    testWidgets('tableau de bord ($nom, iOS) : ouverture, défilement complet, 7 requêtes', (tester) async {
+    testWidgets('tableau de bord ($nom, iOS) : ouverture, défilement complet, 8 requêtes (3.15.0 : + Affluence)', (tester) async {
       tester.view.devicePixelRatio = dpr;
       tester.view.physicalSize = Size(dp.width * dpr, dp.height * dpr);
       addTearDown(tester.view.reset);
@@ -41,7 +41,7 @@ void main() {
           await deuxPassages(tester, 'Tableau de bord ($nom, iOS)', minPas: 2, cle: 'defilement_tableau_bord');
         });
         final cartes = rs.where((r) => r.chemin != '/officine' && r.chemin != '/licence/find' && r.chemin != AppConstants.authEndpoint).toList();
-        mesurer('Tableau de bord ($nom, iOS) — requêtes des cartes', cartes.length, seuil: 7, unite: 'requêtes', detail: detailRequetes(cartes));
+        mesurer('Tableau de bord ($nom, iOS) — requêtes des cartes', cartes.length, seuil: 8, unite: 'requêtes', detail: detailRequetes(cartes));
         await fermerApplication(tester);
       } finally {
         debugDefaultTargetPlatformOverride = null;

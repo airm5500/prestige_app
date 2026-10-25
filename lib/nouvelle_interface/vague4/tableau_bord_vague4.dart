@@ -9,6 +9,8 @@
 //  - Fréquentation horaire : Aujourd'hui / Hier / Personnaliser (une date) — GET /pilotage/suivi/frequentation
 //    (axe PERSO du jour au jour, comparé à la veille) ; sans droit Pilotage ou sans cette route : GET
 //    /tableau-bord/frequentation?date= (semaine du lundi au jour choisi) ;
+//  - Affluence (3.15.0) : ventes par jour et par heure d'une semaine (lundi → dimanche), semaine choisie avec ◀ ▶ —
+//    GET /tableau-bord/affluence?date=<un jour de la semaine>&frais= (serveur du 24/10/2026, af41d77d) ;
 //  - Valorisation du stock — GET /tableau-bord/valorisation ; sinon GET /produit/valorisation (calcul du jour) ;
 //  - Encaissements du jour — GET /tableau-bord/encaissements?date= ;
 //  - Top 10 des ventes du mois par emplacement / par famille — GET /tableau-bord/emplacements?date=&limite=10&axe= ;
@@ -47,6 +49,7 @@ enum CarteTableauBord {
   chiffres('Chiffres du jour', Icons.dashboard_outlined),
   evolution('Évolution du mois', Icons.show_chart),
   frequentation('Fréquentation horaire', Icons.schedule),
+  affluence('Affluence (jour × heure)', Icons.grid_on_outlined),
   valorisation('Valorisation du stock', Icons.inventory_2_outlined),
   encaissements('Encaissements du jour', Icons.payments_outlined),
   top('Top 10 des ventes du mois', Icons.emoji_events_outlined),
@@ -242,6 +245,68 @@ class AffichageFrequentationPrefs {
   }
 }
 
+/// Une case de l'affluence : [jour] 1 (lundi) à 7 (dimanche), [heure] 0 à 23 (de h à h + 1), ventes et CA.
+typedef CaseAffluence = ({int jour, int heure, int ventes, int ca});
+
+/// Affluence d'une semaine (3.15.0) : ventes par jour et par heure, du lundi [debut] au dimanche [fin].
+class AffluenceSemaine {
+  final DateTime debut;
+  final DateTime fin;
+  final Map<int, CaseAffluence> _cases;
+  AffluenceSemaine._(this.debut, this.fin, this._cases);
+
+  static const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  static const joursCourts = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  /// Lundi de la semaine de [d].
+  static DateTime lundi(DateTime d) => DateTime(d.year, d.month, d.day - (d.weekday - 1));
+
+  /// Réponse du serveur ({debut, fin, cases: [{jour, heure, ventes, ca}]}) ; [demande] : jour demandé (semaine
+  /// calculée par l'application si le serveur ne donne pas ses bornes). Cases hors bornes ignorées.
+  factory AffluenceSemaine.depuis(Map<String, dynamic> j, DateTime demande) {
+    final l = lundi(demande);
+    final debut = DateTime.tryParse(texteTolerant(j['debut'])) ?? l;
+    final d = DateTime(debut.year, debut.month, debut.day);
+    final cases = <int, CaseAffluence>{};
+    final c = j['cases'];
+    if (c is List) {
+      for (final x in c) {
+        if (x is! Map) continue;
+        final jour = entierTolerant(x['jour']), heure = entierTolerant(x['heure']);
+        if (jour < 1 || jour > 7 || heure < 0 || heure > 23) continue;
+        final v = entierTolerant(x['ventes']);
+        if (v <= 0) continue;
+        cases[jour * 100 + heure] = (jour: jour, heure: heure, ventes: v, ca: entierTolerant(x['ca']));
+      }
+    }
+    return AffluenceSemaine._(d, DateTime(d.year, d.month, d.day + 6), cases);
+  }
+
+  CaseAffluence? de(int jour, int heure) => _cases[jour * 100 + heure];
+  int ventes(int jour, int heure) => _cases[jour * 100 + heure]?.ventes ?? 0;
+
+  Iterable<CaseAffluence> get _triees => (_cases.keys.toList()..sort()).map((k) => _cases[k]!);
+
+  int get total => _cases.values.fold(0, (s, x) => s + x.ventes);
+  int get max => _cases.values.fold(0, (m, x) => x.ventes > m ? x.ventes : m);
+  int totalJour(int jour) => [for (var h = 0; h < 24; h++) ventes(jour, h)].fold(0, (s, v) => s + v);
+
+  /// Plus forte affluence (la première dans l'ordre lundi → dimanche, heure croissante), null si aucune vente.
+  CaseAffluence? get pic {
+    CaseAffluence? p;
+    for (final x in _triees) {
+      if (p == null || x.ventes > p.ventes) p = x;
+    }
+    return p;
+  }
+
+  /// Heures affichées [première, dernière] (avec au moins une vente dans la semaine), null si aucune vente.
+  (int, int)? get heures {
+    final h = [for (final x in _cases.values) x.heure]..sort();
+    return h.isEmpty ? null : (h.first, h.last);
+  }
+}
+
 class ApiTableauBord {
   ApiTableauBord._();
 
@@ -251,6 +316,7 @@ class ApiTableauBord {
   static const routeFrequentationPilotage = '/pilotage/suivi/frequentation';
   static const routeEncaissements = '/tableau-bord/encaissements';
   static const routeEmplacements = '/tableau-bord/emplacements';
+  static const routeAffluence = '/tableau-bord/affluence';
 
   static String jour(DateTime d) => DateFormatter.toApiFormat(d);
 
@@ -326,6 +392,13 @@ class ApiTableauBord {
     final p = j['precedente'] is Map ? Map<String, dynamic>.from(j['precedente'] as Map) : null;
     return FrequentationJour(
         ventes: heures(s['ventesH']), ca: heures(s['caH']), reference: p == null ? null : heures(p['ventesH']), libelle: 'semaine du lundi au jour choisi', semaine: true);
+  }
+
+  /// Affluence de la semaine de [jourChoisi] ; [frais] : recalcul demandé (⟳), sinon le cache du serveur (3 min).
+  /// Serveur sans cette route : 404 → « Indisponible sur ce serveur ».
+  static Future<AffluenceSemaine> affluence(BuildContext context, DateTime jourChoisi, {bool frais = false}) async {
+    final j = await ApiVague2.get(context, routeAffluence, {'date': jour(jourChoisi), 'frais': frais ? '1' : '0'}, 'l\'affluence');
+    return AffluenceSemaine.depuis(j, jourChoisi);
   }
 
   static Future<Valorisation> valorisation(BuildContext context, DateTime maintenant) async {
@@ -443,6 +516,7 @@ class _AccueilTableauPrestigeState extends State<AccueilTableauPrestige> {
         CarteTableauBord.chiffres => _CarteChiffres(maintenant: widget.maintenant, actualisation: _actualisation),
         CarteTableauBord.evolution => _CarteEvolution(maintenant: widget.maintenant, actualisation: _actualisation),
         CarteTableauBord.frequentation => _CarteFrequentation(maintenant: widget.maintenant, actualisation: _actualisation),
+        CarteTableauBord.affluence => _CarteAffluence(maintenant: widget.maintenant, actualisation: _actualisation),
         CarteTableauBord.valorisation => _CarteValorisation(maintenant: widget.maintenant, actualisation: _actualisation),
         CarteTableauBord.encaissements => _CarteEncaissements(maintenant: widget.maintenant, actualisation: _actualisation),
         CarteTableauBord.top => _CarteTop(maintenant: widget.maintenant, actualisation: _actualisation),
@@ -940,6 +1014,228 @@ class LigneHoraire extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CarteAffluence extends StatefulWidget {
+  final DateTime Function() maintenant;
+  final ActualisationTableauBord actualisation;
+  const _CarteAffluence({required this.maintenant, required this.actualisation});
+
+  @override
+  State<_CarteAffluence> createState() => _CarteAffluenceState();
+}
+
+class _CarteAffluenceState extends State<_CarteAffluence> with ChargementCarte<_CarteAffluence, AffluenceSemaine> {
+  /// Lundi de la semaine regardée (la semaine du jour à l'ouverture).
+  late DateTime _lundi = AffluenceSemaine.lundi(widget.maintenant());
+
+  /// Dernier ⟳ vu : un ⟳ demande un recalcul au serveur (frais=1) ; changer de semaine lit son cache.
+  late int _actualisationVue = widget.actualisation.value;
+
+  @override
+  ActualisationTableauBord get actualisation => widget.actualisation;
+
+  @override
+  Future<AffluenceSemaine> lire(BuildContext context) {
+    final frais = actualisation.value != _actualisationVue;
+    _actualisationVue = actualisation.value;
+    return ApiTableauBord.affluence(context, _lundi, frais: frais);
+  }
+
+  DateTime get _lundiCourant => AffluenceSemaine.lundi(widget.maintenant());
+
+  void _semaine(DateTime lundi) {
+    if (!mounted) return;
+    setState(() {
+      _lundi = lundi.isAfter(_lundiCourant) ? _lundiCourant : lundi;
+      donnees = null; // la semaine précédente ne reste pas affichée pendant le chargement
+    });
+    recharger();
+  }
+
+  static String _jm(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+  Widget _selecteur() {
+    final courante = !_lundi.isBefore(_lundiCourant);
+    final dimanche = DateTime(_lundi.year, _lundi.month, _lundi.day + 6);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        IconButton(
+          key: const Key('affluence_precedente'),
+          tooltip: 'Semaine précédente',
+          onPressed: () => _semaine(DateTime(_lundi.year, _lundi.month, _lundi.day - 7)),
+          icon: const Icon(Icons.chevron_left, color: Charte.navy),
+        ),
+        Expanded(
+          child: Text('Semaine du ${_jm(_lundi)} au ${_jm(dimanche)}',
+              key: const Key('affluence_semaine'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Charte.encre, fontSize: 14, fontWeight: FontWeight.w700)),
+        ),
+        IconButton(
+          key: const Key('affluence_suivante'),
+          tooltip: 'Semaine suivante',
+          onPressed: courante ? null : () => _semaine(DateTime(_lundi.year, _lundi.month, _lundi.day + 7)),
+          icon: Icon(Icons.chevron_right, color: courante ? Charte.bordure : Charte.navy),
+        ),
+      ]),
+      if (!courante)
+        Align(
+          child: TextButton(key: const Key('affluence_cette_semaine'), onPressed: () => _semaine(_lundiCourant), child: const Text('Revenir à cette semaine')),
+        ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) => _Cadre(
+        carte: CarteTableauBord.affluence,
+        action: _selecteur(),
+        child: corps((a) {
+          final p = a.pic;
+          if (p == null) return const Text('Aucune vente cette semaine.', key: Key('affluence_vide'), style: TextStyle(color: Charte.gris));
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(
+                '${grouperMilliers(a.total)} vente${a.total > 1 ? 's' : ''} · plus forte affluence : '
+                '${AffluenceSemaine.jours[p.jour - 1].toLowerCase()} ${p.heure} h – ${p.heure + 1} h (${grouperMilliers(p.ventes)})',
+                key: const Key('affluence_resume'),
+                style: const TextStyle(color: Charte.encre, fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            GrilleAffluence(affluence: a),
+            const SizedBox(height: 8),
+            LegendeAffluence(max: a.max),
+          ]);
+        }),
+      );
+}
+
+/// Couleur d'une case de l'affluence : du clair (peu de ventes) au foncé (le plus de ventes) ; gris sans vente.
+Color fondAffluence(int ventes, int max) {
+  if (ventes <= 0 || max <= 0) return Charte.grisClair;
+  final t = (ventes / max).clamp(0.0, 1.0);
+  // Deux dégradés (clair puis foncé) : aucune teinte moyenne où ni l'encre ni le blanc ne seraient lisibles.
+  return t <= 0.5
+      ? Color.lerp(Charte.affluenceClair1, Charte.affluenceClair2, t * 2)!
+      : Color.lerp(Charte.affluenceFonce1, Charte.affluenceFonce2, (t - 0.5) * 2)!;
+}
+
+/// Chiffre lisible sur [fond] : blanc sur les cases foncées, encre sur les claires (contraste ≥ 4,5 partout).
+Color texteAffluence(Color fond) => fond.computeLuminance() < 0.25 ? Charte.blanc : Charte.encre;
+
+/// Grille jour × heure (3.15.0) : une ligne par jour (lundi → dimanche, total du jour sous son nom), une colonne par
+/// heure de la première à la dernière heure avec une vente ; case colorée selon le nombre de ventes, nombre dans la
+/// case. Les noms des jours restent à gauche ; les heures défilent horizontalement si l'écran est trop étroit.
+class GrilleAffluence extends StatelessWidget {
+  final AffluenceSemaine affluence;
+  const GrilleAffluence({super.key, required this.affluence});
+
+  static const largeurJour = 42.0;
+  static const largeurMin = 21.0;
+  static const hauteur = 30.0;
+  static const ecart = 2.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = affluence, h = a.heures!, max = a.max;
+    final n = h.$2 - h.$1 + 1;
+    return LayoutBuilder(builder: (context, c) {
+      final dispo = c.maxWidth - largeurJour;
+      final defile = n * (largeurMin + ecart) > dispo;
+      final l = defile ? largeurMin : dispo / n - ecart;
+      Widget enTete(int heure) => SizedBox(
+            width: l + ecart,
+            height: 20,
+            // Décoratif pour le lecteur d'écran : chaque case dit déjà son jour et son heure.
+            child: ExcludeSemantics(
+              child: Center(
+                child: FittedBox(
+                    fit: BoxFit.scaleDown, child: Text('$heure', style: const TextStyle(fontSize: 11, color: Charte.grisTexte, fontWeight: FontWeight.w700))),
+              ),
+            ),
+          );
+      Widget case_(int jour, int heure) {
+        final v = a.ventes(jour, heure), x = a.de(jour, heure);
+        final fond = fondAffluence(v, max);
+        return Semantics(
+          label: '${AffluenceSemaine.jours[jour - 1]} $heure h – ${heure + 1} h : ${grouperMilliers(v)} vente${v > 1 ? 's' : ''}'
+              '${x != null && x.ca > 0 ? ', ${formaterMontant(x.ca)}' : ''}',
+          excludeSemantics: true,
+          child: Container(
+            key: Key('affluence_case_${jour}_$heure'),
+            width: l,
+            height: hauteur - ecart,
+            margin: const EdgeInsets.only(right: ecart, bottom: ecart),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: fond, borderRadius: BorderRadius.circular(4)),
+            child: v == 0
+                ? null
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(grouperMilliers(v),
+                        style: TextStyle(fontSize: 11, color: texteAffluence(fond), fontWeight: v == max ? FontWeight.w800 : FontWeight.w600)),
+                  ),
+          ),
+        );
+      }
+
+      final grille = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [for (var x = h.$1; x <= h.$2; x++) enTete(x)]),
+        for (var j = 1; j <= 7; j++) Row(children: [for (var x = h.$1; x <= h.$2; x++) case_(j, x)]),
+      ]);
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: largeurJour,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const SizedBox(height: 20),
+            for (var j = 1; j <= 7; j++)
+              SizedBox(
+                key: Key('affluence_jour_$j'),
+                height: hauteur,
+                // Texte agrandi (×1,3) : réduit pour tenir dans la hauteur de la ligne.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(AffluenceSemaine.joursCourts[j - 1], style: const TextStyle(fontSize: 12, color: Charte.encre, fontWeight: FontWeight.w700, height: 1.1)),
+                    Text(grouperMilliers(a.totalJour(j)), style: const TextStyle(fontSize: 10.5, color: Charte.grisTexte, height: 1.1)),
+                  ]),
+                ),
+              ),
+          ]),
+        ),
+        Expanded(
+          child: defile
+              ? SingleChildScrollView(key: const Key('affluence_defilement'), scrollDirection: Axis.horizontal, child: grille)
+              : grille,
+        ),
+      ]);
+    });
+  }
+}
+
+/// Légende de l'affluence : « Moins » ▢▢▢▢▢ « Plus », et ce que vaut la case la plus foncée.
+class LegendeAffluence extends StatelessWidget {
+  final int max;
+  const LegendeAffluence({super.key, required this.max});
+
+  @override
+  Widget build(BuildContext context) => Column(key: const Key('affluence_legende'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Wrap(spacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          const Text('Moins', style: TextStyle(fontSize: 12.5, color: Charte.grisTexte)),
+          for (final t in const [0.0, 0.25, 0.5, 0.75, 1.0])
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                  color: t == 0 ? Charte.grisClair : fondAffluence((t * 100).round(), 100), borderRadius: BorderRadius.circular(3)),
+            ),
+          const Text('Plus', style: TextStyle(fontSize: 12.5, color: Charte.grisTexte)),
+        ]),
+        const SizedBox(height: 4),
+        Text(
+            'Nombre de ventes par heure (case la plus foncée : ${grouperMilliers(max)}) ; sous chaque jour, ses ventes de la semaine. '
+            'Pour placer présences et pauses.',
+            style: const TextStyle(color: Charte.gris, fontSize: 12.5)),
+      ]);
 }
 
 class _CarteValorisation extends StatefulWidget {

@@ -401,10 +401,10 @@ void main() {
         final m = menusModules.singleWhere((x) => x.titre == n);
         expect(m.responsables, isTrue, reason: n);
       }
-      // Vague 2 (3.2.0), 3.11.0 (Balance, Sur-stocks) puis vague 3 (3.4.0), dans l'ordre de la liste.
+      // Vague 2 (3.2.0), 3.11.0 (Balance, Sur-stocks), 3.15.0 (Péremptions courtes) puis vague 3 (3.4.0), dans l'ordre de la liste.
       expect(menusModules.where((m) => m.responsables).map((m) => m.titre), [
         ...nouveaux,
-        'Prévisions', 'Analyse de garde', 'CA emplacement / famille', 'Balance vente / caisse', 'Sur-stocks', 'Pointage BL', 'Avis',
+        'Prévisions', 'Analyse de garde', 'CA emplacement / famille', 'Balance vente / caisse', 'Sur-stocks', 'Péremptions courtes', 'Pointage BL', 'Avis',
         'Rappels traitement',
       ]);
     });
