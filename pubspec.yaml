@@ -3,7 +3,7 @@ description: Application de gestion Prestige.
 
 publish_to: 'none'
 
-version: 3.17.0+57
+version: 3.17.1+58
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -15,7 +15,7 @@ dependencies:
     sdk: flutter
 
   # --- Versions Mises à Jour ---
-  http: ^1.2.1
+  http: ^1.5.0
   intl: ^0.20.2 # CORRECTION: Version compatible avec le SDK Flutter
   shared_preferences: ^2.2.3
   provider: ^6.1.2

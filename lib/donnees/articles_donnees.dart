@@ -38,10 +38,12 @@ class RechercheArticles {
   /// Produits de la réponse de /checkproduit (liste attendue ; tout autre format = null).
   static List<Produit>? lireFiche(dynamic data) => data is List ? data.map((i) => Produit.fromJson(i)).toList() : null;
 
-  static Future<List<AnalyseArticle>?> analyse(BuildContext context, String texte, {VoidCallback? onSessionInvalid}) async {
+  /// [annulation] (3.17.1) : la requête est abandonnée quand ce futur se termine (écran fermé).
+  static Future<List<AnalyseArticle>?> analyse(BuildContext context, String texte, {VoidCallback? onSessionInvalid, Future<void>? annulation}) async {
     final terme = Saisie.recherche(texte);
     if (terme.isEmpty) return null;
-    final data = await ApiService().get(context, AppConstants.infoEndpoint, queryParams: {'search': terme}, onSessionInvalid: onSessionInvalid);
+    final data = await ApiService()
+        .get(context, AppConstants.infoEndpoint, queryParams: {'search': terme}, onSessionInvalid: onSessionInvalid, annulation: annulation);
     return data == null ? null : lireAnalyse(data);
   }
 

@@ -94,6 +94,12 @@ class ApiLoadException implements Exception {
   static const messageCertificat = 'Connexion sécurisée (HTTPS) impossible : certificat du serveur refusé.';
   static const messageAdresse = 'Adresse du serveur incorrecte. Vérifiez la configuration.';
 
+  /// 3.17.1 : requête abandonnée par l'application (écran fermé) ; jamais affiché à l'utilisateur.
+  static const messageAnnulee = 'Requête annulée.';
+
+  /// La requête a été abandonnée par l'application ([ApiService.get] avec « annulation »).
+  bool get annulee => message == messageAnnulee;
+
   /// Titre des écrans quand le certificat HTTPS du serveur est refusé (≠ « Serveur injoignable », 3.9.1).
   static const titreCertificat = 'Certificat du serveur refusé';
 
@@ -259,8 +265,10 @@ class ApiService {
 
   /// [delai] : délai d'attente de cette requête (par défaut [delaiGet]) ; les calculs longs demandés explicitement
   /// (vague 2 : 3 ans, 24 / 36 mois, contrôle du pilotage) attendent plus longtemps, toujours de façon bornée.
+  /// 3.17.1 : [annulation] (facultatif) : quand ce futur se termine, la requête est ABANDONNÉE pour de bon (connexion
+  /// fermée par le client HTTP, http.AbortableRequest) et l'appel échoue avec [ApiLoadException.annulee].
   Future<dynamic> get(BuildContext context, String endpoint,
-      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai}) async {
+      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai, Future<void>? annulation}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
 
@@ -268,8 +276,17 @@ class ApiService {
       uri = uri.replace(queryParameters: queryParams);
     }
     JournalApp.debug(JournalApp.requete('GET', uri));
-    final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delai ?? delaiGet);
+    final response = await _envoyer(
+        () => annulation == null ? client.get(uri, headers: _getHeaders()) : _getAnnulable(uri, annulation), delai ?? delaiGet);
     return _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid));
+  }
+
+  /// GET abandonnable : la connexion est fermée quand [annulation] se termine (client dart:io) ; un client qui ne sait
+  /// pas abandonner (client de test) voit quand même l'appel échouer tout de suite.
+  Future<http.Response> _getAnnulable(Uri uri, Future<void> annulation) {
+    final req = http.AbortableRequest('GET', uri, abortTrigger: annulation)..headers.addAll(_getHeaders());
+    final envoi = client.send(req).then(http.Response.fromStream);
+    return Future.any([envoi, annulation.then<http.Response>((_) => throw http.RequestAbortedException(uri))]);
   }
 
   /// 3.16.0 (« CA crédit lent ») : taille de réponse à partir de laquelle [getLourd] décode HORS du fil de l'interface.
@@ -443,6 +460,8 @@ class ApiService {
       throw const ApiLoadException(ApiLoadException.messageDelai, nature: NatureErreur.delai);
     } on HandshakeException {
       throw const ApiLoadException(ApiLoadException.messageCertificat, nature: NatureErreur.reseau);
+    } on http.RequestAbortedException {
+      throw const ApiLoadException(ApiLoadException.messageAnnulee, nature: NatureErreur.refus);
     } on SocketException catch (e) {
       throw ApiLoadException(ApiLoadException.messageReseau, nature: NatureErreur.reseau, connexionRefusee: connexionRefusee(e));
     } on http.ClientException catch (e) {
@@ -460,7 +479,8 @@ class ApiService {
   /// 3.17.0 : routes récentes ESSAYÉES par l'application, avec un repli connu (ex. carte TVA de l'accueil, demande
   /// serveur 68 → api/v3/tvas). Leur 404 veut dire « serveur pas encore à jour » : aucune vérification /officine (le
   /// repli, s'il répond 404 à son tour, fait la vérification).
-  static const routesSondees = {'/tableau-bord/tva'};
+  /// 3.17.1 : /tableau-bord/version (routes annoncées) : lue en arrière-plan, son échec ne conclut rien.
+  static const routesSondees = {'/tableau-bord/tva', '/tableau-bord/version'};
 
   static const routesToujoursPresentes = {AppConstants.authEndpoint, AppConstants.officineEndpoint, '/licence/find'};
 

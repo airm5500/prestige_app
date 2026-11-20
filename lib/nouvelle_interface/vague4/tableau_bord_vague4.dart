@@ -39,6 +39,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../donnees/analyses_ventes_donnees.dart';
 import '../../donnees/cache_court.dart';
+import '../../donnees/routes_serveur.dart';
 import '../../donnees/tableau_bord_donnees.dart';
 import '../../models/stat_tva_model.dart';
 import '../../models/tableau_bord_achats_ventes_model.dart';
@@ -468,17 +469,34 @@ class ApiTableauBord {
   /// [{ taux, ht, tva, ttc }] } (une ligne par taux, mêmes montants que /api/v3/tvas TOUT du 1er du mois au jour ;
   /// cache serveur 3 min ; [frais] : ⟳, recalcul demandé). Route absente (404) ou refusée (403) : retenue pour la
   /// session et repli sur /api/v3/tvas (calcul d'avant) ; réponse de forme inattendue : repli pour cette lecture.
+  /// 3.17.1 (routes annoncées, lib/donnees/routes_serveur.dart) : la route n'est essayée que si le serveur l'annonce
+  /// (tableau-bord/version) ou, s'il n'annonce rien, si elle n'a pas répondu 404 dans les dernières 24 h (⟳ : essai
+  /// quand même) ; sinon /api/v3/tvas directement, sans requête d'essai. Après un succès sur un serveur qui n'a rien
+  /// annoncé, tableau-bord/version est lue une fois en arrière-plan pour les sessions suivantes.
   static Future<List<StatTva>> tva(BuildContext context, DateTime maintenant, {MemoireTableauBord? memoire, bool frais = false}) async {
-    if (memoire == null || !memoire.sansRoute(context, routeTva)) {
+    final serveur = RoutesServeur.serveur(context);
+    final source = CacheCourt.source(context);
+    final etat = await RoutesServeur.etat(serveur);
+    if (!context.mounted) throw const ApiLoadException('Écran fermé.', nature: NatureErreur.refus);
+    final essayer = (memoire == null || !memoire.sansRoute(context, routeTva)) &&
+        (etat.annoncees != null ? etat.annoncee(RoutesServeur.tva) : (frais || !etat.tvaAbsenteRecente(RoutesServeur.horloge())));
+    if (essayer) {
       try {
         final j = await ApiVague2.get(context, routeTva, {'date': jour(maintenant), 'frais': frais ? '1' : '0'}, 'les ventes par taux de TVA');
         final l = lireTva(j);
-        if (l != null) return l;
+        if (l != null) {
+          if (etat.tvaAbsenteLe != null) unawaited(RoutesServeur.oublierTvaAbsente(serveur));
+          if (etat.annoncees == null && !etat.sansRoutesRecent(RoutesServeur.horloge()) && context.mounted) {
+            unawaited(RoutesServeur.lire(context, source, serveur));
+          }
+          return l;
+        }
       } catch (e) {
         final absente = routeAbsente(e) || (e is ApiLoadException && e.nature == NatureErreur.droit);
         final illisible = e is ApiLoadException && e.nature == NatureErreur.reponse;
         if (!absente && !illisible) rethrow;
         if (absente && context.mounted) memoire?.noterSansRoute(context, routeTva);
+        if (routeAbsente(e)) unawaited(RoutesServeur.noterTvaAbsente(serveur));
       }
     }
     if (!context.mounted) throw const ApiLoadException('Écran fermé.', nature: NatureErreur.refus);

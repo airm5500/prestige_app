@@ -305,12 +305,23 @@ class PageCaCredit {
   final int clients;
   final List<String> tiersPayants;
   final List<CaCredit> data;
-  const PageCaCredit({required this.total, required this.montant, required this.clients, required this.tiersPayants, required this.data});
 
-  /// Objet { total, montant, clients, tiersPayants, data } ; null si la forme est inattendue.
+  /// 3.17.1 (retour du serveur du 20/11, après la demande 67) : nombre de tiers payants distincts des lignes RETENUES
+  /// (après recherche et filtre) ; null sur un serveur qui ne le donne pas (67 initial).
+  final int? tiersPayantsRetenus;
+
+  /// 3.17.1 : repère de la lecture qui sert la page (millisecondes depuis 1970) : identique tant que la même lecture
+  /// du serveur sert les pages, change à chaque relecture ; null sur un serveur qui ne le donne pas (67 initial).
+  final int? luLe;
+  const PageCaCredit(
+      {required this.total, required this.montant, required this.clients, required this.tiersPayants, required this.data, this.tiersPayantsRetenus, this.luLe});
+
+  /// Objet { total, montant, clients, tiersPayants, data [, tiersPayantsRetenus, luLe] } ; null si la forme est
+  /// inattendue. Un champ ajouté illisible est ignoré (comme absent).
   static PageCaCredit? lire(dynamic j) {
     if (j is! Map) return null;
     final total = j['total'], montant = j['montant'], clients = j['clients'], tiers = j['tiersPayants'], data = j['data'];
+    final retenus = j['tiersPayantsRetenus'], luLe = j['luLe'];
     if (total is! num || data is! List) return null;
     try {
       return PageCaCredit(
@@ -319,6 +330,8 @@ class PageCaCredit {
         clients: clients is num ? clients.toInt() : 0,
         tiersPayants: tiers is List ? [for (final t in tiers) if (t is String) t] : const [],
         data: [for (final x in data) CaCredit.fromJson(Map<String, dynamic>.from(x as Map))],
+        tiersPayantsRetenus: retenus is num && retenus >= 0 ? retenus.toInt() : null,
+        luLe: luLe is num ? luLe.toInt() : null,
       );
     } catch (_) {
       return null;

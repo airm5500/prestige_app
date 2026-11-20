@@ -7,17 +7,31 @@
 // 3.16.0 (« Analyse article lente ») : la liste d'Analyse Article vient de la recherche légère (RechercheProduit :
 // /espace-produit/recherche, replis /vente/search puis /info), l'analyse complète (GET /info?search=<CIP exact>) n'est
 // lue qu'au toucher d'un produit ; historique des mouvements sur une ligne par mouvement.
+// 3.17.1 (pharmacien : « recherche "doli" : le 2e, 3e ou 4e produit ouvert tourne longtemps avant d'afficher ») :
+//  - cause : au toucher, la fiche n'était ouverte qu'à l'ARRIVÉE de GET /info?search=<CIP> (une seule requête, la plus
+//    lourde : ventes des 6 derniers mois, puis dernière vente / dernier achat / dernier inventaire sur TOUT
+//    l'historique du produit, InfoArticleServiceImpl + ProduitExtraInfoServiceImpl côté serveur) ; pour un produit
+//    très vendu (ex. un Doliprane courant) la réponse prend plusieurs secondes, pendant lesquelles rien ne
+//    s'ouvre et les autres produits ne répondent pas au toucher (un seul produit ouvert à la fois) ;
+//  - la fiche s'ouvre TOUT DE SUITE avec ce que la liste connaît déjà (désignation, CIP, prix, stock, emplacement) ;
+//    l'analyse arrive ensuite dans la même fiche (indicateur « Analyse en cours… », Réessayer en cas d'échec) ;
+//  - sortir de la fiche n'abandonne pas l'analyse : elle finit et reste en cache court (5 min) — rouvrir le produit
+//    est immédiat, jamais relancé en double (le serveur ne s'arrête pas sur un abandon : relancer coûterait une
+//    seconde lecture) ; fermer l'écran Analyse Article ABANDONNE pour de bon les analyses en cours (connexion
+//    fermée : ApiService.get, annulation).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../donnees/articles_donnees.dart';
 import '../../donnees/recherche_produit_donnees.dart';
 import '../../models/analyse_article_model.dart';
 import '../../models/produit_model.dart';
+import '../../services/api_service.dart' show ApiLoadException;
 import '../../widgets/stock_reserve.dart';
 import '../charte.dart';
 import '../composants.dart';
 import 'commun.dart';
-import 'commun_lot2.dart' show messageResultat;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Analyse Article
@@ -41,8 +55,11 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
   final _focus = FocusNode();
   String _terme = '';
 
-  /// CIP dont l'analyse est en cours d'ouverture (un seul à la fois : anti double appui).
+  /// CIP dont la fiche est en cours d'ouverture ou ouverte (anti double appui).
   String? _ouverture;
+
+  /// 3.17.1 : se termine à la fermeture de l'écran → abandon des analyses encore en cours.
+  final _fermeture = Completer<void>();
 
   @override
   void initState() {
@@ -54,6 +71,7 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
 
   @override
   void dispose() {
+    if (!_fermeture.isCompleted) _fermeture.complete();
     _recherche.dispose();
     _focus.dispose();
     super.dispose();
@@ -68,22 +86,17 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
     charger(() => RechercheProduit.rechercher(context, texte, onSessionInvalid: sessionInvalide(context)));
   }
 
+  /// 3.17.1 : la fiche s'ouvre tout de suite (ce que la liste connaît) ; l'analyse (/info au CIP exact, cache court,
+  /// lecture en cours partagée) la complète à son arrivée.
   Future<void> _ouvrir(ProduitTrouve p) async {
     if (_ouverture != null) return;
     setState(() => _ouverture = p.cip);
+    final invalide = sessionInvalide(context);
+    Future<AnalyseArticle?> lire() =>
+        RechercheProduit.analyse(context, p, onSessionInvalid: invalide, annulation: _fermeture.future);
     try {
-      final a = await RechercheProduit.analyse(context, p, onSessionInvalid: sessionInvalide(context));
-      // Écran fermé pendant la lecture : rien n'est ouvert (la réponse remplit seulement le cache court).
-      if (!mounted) return;
-      if (a == null) {
-        messageResultat(context, 'Analyse introuvable pour le CIP ${p.cip}.', echec: true);
-        return;
-      }
-      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailAnalyseArticle(article: a)));
-    } catch (e) {
-      if (!mounted) return;
-      final d = DiagnosticErreur.de(e);
-      messageResultat(context, d.cause == CauseErreur.autre ? d.message : '${d.titre}. ${d.message}', echec: true);
+      await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => FicheAnalyseArticle(produit: p, connue: p.analyse ?? RechercheProduit.cacheAnalyses.connue(RechercheProduit.cleAnalyse(context, p)), lire: lire)));
     } finally {
       if (mounted) setState(() => _ouverture = null);
     }
@@ -106,12 +119,6 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
           ..._corps(),
         ]),
       );
-
-  Widget? _attente(ProduitTrouve p) => _ouverture == p.cip
-      ? const Padding(
-          padding: EdgeInsets.only(left: 8, top: 2),
-          child: SizedBox(key: Key('analyse_ouverture'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
-      : null;
 
   List<Widget> _corps() {
     if (enCours) return const [EtatChargement(texte: 'Recherche en cours…')];
@@ -160,11 +167,97 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
                 .join(' · '),
           ],
           valeur: l[i].prixVente == null ? null : formaterMontant(l[i].prixVente),
-          action: _attente(l[i]),
           onTap: () => _ouvrir(l[i]),
         ),
       ),
     ];
+  }
+}
+
+/// 3.17.1 — fiche d'un produit de la liste : affichée tout de suite avec ce que la liste connaît, complétée par
+/// l'analyse (même écran [DetailAnalyseArticle] qu'avant dès qu'elle arrive).
+class FicheAnalyseArticle extends StatefulWidget {
+  final ProduitTrouve produit;
+
+  /// Analyse déjà connue (cache court) : la fiche complète s'affiche d'emblée.
+  final AnalyseArticle? connue;
+
+  /// Lecture de l'analyse (partagée si elle est déjà en cours).
+  final Future<AnalyseArticle?> Function() lire;
+  const FicheAnalyseArticle({super.key, required this.produit, this.connue, required this.lire});
+
+  @override
+  State<FicheAnalyseArticle> createState() => _FicheAnalyseArticleState();
+}
+
+class _FicheAnalyseArticleState extends State<FicheAnalyseArticle> {
+  AnalyseArticle? _analyse;
+  bool _introuvable = false;
+  Object? _erreur;
+
+  @override
+  void initState() {
+    super.initState();
+    _analyse = widget.connue;
+    if (_analyse == null) _lancer();
+  }
+
+  void _lancer() {
+    if (_erreur != null || _introuvable) {
+      setState(() {
+        _erreur = null;
+        _introuvable = false;
+      });
+    }
+    widget.lire().then((a) {
+      if (!mounted) return;
+      setState(() {
+        _analyse = a;
+        _introuvable = a == null;
+      });
+    }, onError: (Object e) {
+      // Abandon (écran Analyse Article fermé) : rien à afficher.
+      if (!mounted || (e is ApiLoadException && e.annulee)) return;
+      setState(() => _erreur = e);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = _analyse;
+    if (a != null) return DetailAnalyseArticle(article: a);
+    final p = widget.produit;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Détails de l\'article')),
+      body: ListView(key: const Key('defilement_fiche_base'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+        Text(p.designation, key: const Key('fiche_base_titre'), style: const TextStyle(color: Charte.navy, fontSize: 19, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Wrap(spacing: 8, runSpacing: 4, children: [Etiquette('CIP ${p.cip}', ton: Ton.gris)]),
+        const SizedBox(height: 12),
+        GrilleKpi([
+          ChiffreCle(libelle: 'Stock actuel', valeur: p.stockTotal == null ? 'N/A' : formaterNombre(p.stockTotal!), id: 'stock', enAvant: true),
+          ChiffreCle(libelle: 'Prix de vente', valeur: p.prixVente == null ? '—' : formaterMontant(p.prixVente), id: 'prix_vente'),
+        ]),
+        const SizedBox(height: 12),
+        CarteSection(titre: 'Article', icone: Icons.article_outlined, enfants: [
+          LigneDetail('Code CIP', p.cip),
+          LigneDetail('Désignation', p.designation),
+          LigneDetail('Emplacement', p.emplacement ?? 'N/A'),
+        ]),
+        if (_erreur != null)
+          EtatErreur(erreur: _erreur!, reessayer: _lancer)
+        else if (_introuvable)
+          EtatVide(titre: 'Analyse introuvable pour le CIP ${p.cip}.', icone: Icons.search_off)
+        else
+          const CarteSection(titre: 'Analyse des ventes', icone: Icons.bar_chart, enfants: [
+            Row(children: [
+              SizedBox(key: Key('analyse_ouverture'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 12),
+              Expanded(child: Text('Analyse en cours (ventes, achats, inventaires)…', style: TextStyle(color: Charte.gris))),
+            ]),
+          ]),
+      ]),
+    );
   }
 }
 

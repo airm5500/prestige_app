@@ -161,9 +161,11 @@ class RechercheProduit {
     return [for (final j in liste) ProduitTrouve.lireVente(j)].whereType<ProduitTrouve>().toList();
   }
 
-  /// Cache court des listes (60 s) et des analyses par CIP (60 s).
+  /// Cache court des listes (60 s) et des analyses par CIP (3.17.1 : 5 min, au lieu de 60 s : revenir sur un produit
+  /// déjà ouvert ne relit pas la route la plus lourde ; statistiques sur 6 mois, stock du moment).
   static final cacheListes = CacheCourt<ResultatRechercheProduit?>(duree: const Duration(seconds: 60));
-  static final cacheAnalyses = CacheCourt<AnalyseArticle?>(duree: const Duration(seconds: 60));
+  static final cacheAnalyses = CacheCourt<AnalyseArticle?>(duree: dureeAnalyses);
+  static const dureeAnalyses = Duration(minutes: 5);
 
   /// 404 « route absente » (Prestige déployé) ou 403 : la route suivante est essayée.
   static bool _repli(ApiLoadException e) => (e.code == 404 && !e.serveurIndisponible) || e.code == 403 || e.nature == NatureErreur.droit;
@@ -196,6 +198,9 @@ class RechercheProduit {
     return ResultatRechercheProduit([for (final a in articles ?? const <AnalyseArticle>[]) ProduitTrouve.deAnalyse(a)], contient: false);
   }
 
+  /// Clé du cache des analyses (source et CIP).
+  static String cleAnalyse(BuildContext context, ProduitTrouve p) => '${CacheCourt.source(context)}|${p.cip.trim()}';
+
   /// Article de /info dont le code CIP est exactement [cip] (null si absent).
   static AnalyseArticle? choisirParCip(List<AnalyseArticle> articles, String cip) {
     final c = cip.trim();
@@ -205,12 +210,14 @@ class RechercheProduit {
     return null;
   }
 
-  /// Analyse du produit [p] : celle déjà lue (repli) ou GET /info?search=<CIP> puis le CIP exact (cache court).
-  static Future<AnalyseArticle?> analyse(BuildContext context, ProduitTrouve p, {VoidCallback? onSessionInvalid}) async {
+  /// Analyse du produit [p] : celle déjà lue (repli) ou GET /info?search=<CIP> puis le CIP exact (cache court ; une
+  /// lecture en cours du même produit est partagée, jamais relancée). [annulation] (3.17.1) : abandon de la requête
+  /// (écran fermé) ; une lecture abandonnée n'est pas gardée.
+  static Future<AnalyseArticle?> analyse(BuildContext context, ProduitTrouve p, {VoidCallback? onSessionInvalid, Future<void>? annulation}) async {
     if (p.analyse != null) return p.analyse;
     if (!context.mounted) return null;
-    return cacheAnalyses.lire('${CacheCourt.source(context)}|${p.cip.trim()}', () async {
-      final articles = await RechercheArticles.analyse(context, p.cip, onSessionInvalid: onSessionInvalid);
+    return cacheAnalyses.lire(cleAnalyse(context, p), () async {
+      final articles = await RechercheArticles.analyse(context, p.cip, onSessionInvalid: onSessionInvalid, annulation: annulation);
       return articles == null ? null : choisirParCip(articles, p.cip);
     });
   }

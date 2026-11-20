@@ -24,12 +24,21 @@
 //    période… » dès le départ, délai d'attente de 60 s pour cette route seulement (CaCreditDonnees.delai), jamais deux
 //    fois la même lecture en parallèle (⟳ ou recherche pendant la lecture : la lecture en cours est attendue, puis,
 //    si la recherche a changé, une seule nouvelle lecture, rapide car la période est gardée par le serveur).
+// 3.17.1 (retour du serveur du 20/11, commit serveur 58db6a4e, pas encore déployé en officine) :
+//  - repère « luLe » (instant de la lecture du serveur qui sert la page) : celui de la page 0 est gardé ; une page
+//    suivante servie par une AUTRE lecture (période relue entre-temps) n'est jamais ajoutée : la page 0 est relue
+//    (deux fois de suite au plus, ensuite « Réessayer »), donc ni doublon ni vente oubliée entre les pages ;
+//  - « tiersPayantsRetenus » : nombre de tiers payants des ventes retenues par la recherche / le filtre, affiché tel
+//    quel (au lieu de celui « de la période ») ;
+//  - serveur qui annonce ses routes (tableau-bord/version, lib/donnees/routes_serveur.dart) sans « ca-credit » :
+//    requête de la 3.16.0 directement ; serveur sans ces champs : comportement 3.17.0 inchangé.
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 import '../../donnees/analyses_pdf.dart';
 import '../../donnees/analyses_ventes_donnees.dart';
 import '../../donnees/cache_court.dart';
+import '../../donnees/routes_serveur.dart';
 import '../../models/ca_credit_model.dart';
 import '../../services/api_service.dart' show ApiLoadException, NatureErreur;
 import '../../utils/date_formatter.dart';
@@ -94,6 +103,13 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
   bool _suiteEnEchec = false;
   bool _fin = false;
 
+  /// Mode paginé (3.17.1) : repère « luLe » de la page 0 affichée (null : serveur qui ne le donne pas).
+  int? _luLe;
+
+  /// Relectures de la page 0 enchaînées sur un changement de « luLe » (bornées : jamais de boucle).
+  int _relecturesLuLe = 0;
+  static const relecturesLuLeMax = 2;
+
   /// Mode paginé : nombre de ventes de la période sans filtre (s'il est connu) et tiers payants de la période.
   int? _totalSansFiltre;
   List<String> _tiersPeriode = const [];
@@ -127,6 +143,7 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
   /// reprise telle quelle ; une lecture en cours sur la MÊME période (recherche changée pendant la lecture) est
   /// attendue, puis la demande du moment est lue (la période est alors gardée par le serveur : réponse rapide).
   Future<void> _charger() {
+    _relecturesLuLe = 0;
     final d = _demandeCourante();
     final v = _vol;
     if (v != null && (v.demande == d || (v.demande.periode.debut == d.periode.debut && v.demande.periode.fin == d.periode.fin))) {
@@ -149,6 +166,7 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
       _fin = false;
       _ajoutEnAttente = null;
       _periodeLue = null;
+      _luLe = null;
       if (_lue == null || _lue!.periode.debut != d.periode.debut || _lue!.periode.fin != d.periode.fin) {
         _totalSansFiltre = null;
         _tiersPeriode = const [];
@@ -161,6 +179,12 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
 
   Future<void> _lire(_Demande d, int g) async {
     final source = CacheCourt.source(context);
+    // 3.17.1 : serveur qui annonce ses routes sans « ca-credit » paginé → requête de la 3.16.0 (liste) d'emblée.
+    if (CaCreditDonnees.modeConnu(source) == null) {
+      final etat = await RoutesServeur.etat(RoutesServeur.serveur(context));
+      if (!mounted || g != _gen) return;
+      if (etat.nonAnnoncee(RoutesServeur.caCredit)) CaCreditDonnees.noterMode(source, false);
+    }
     final pagine = CaCreditDonnees.modeConnu(source) != false;
     ReponseCaCredit? r;
     Object? echec;
@@ -196,6 +220,7 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
         _lignes = p.data;
         _fin = p.data.length >= p.total;
         _tiersPeriode = p.tiersPayants;
+        _luLe = p.luLe;
         if (!d.filtree) _totalSansFiltre = p.total;
       }
     });
@@ -291,6 +316,17 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
       if (!mounted || g != _gen) return;
       final p = r?.page;
       if (p == null) throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
+      // 3.17.1 : page servie par une autre lecture que la page 0 (période relue par le serveur entre-temps) : elle
+      // n'est pas ajoutée (doublons ou oublis possibles à la jointure) ; la page 0 est relue.
+      if (_luLe != null && p.luLe != null && p.luLe != _luLe) {
+        _suiteEnCours = false;
+        if (_relecturesLuLe >= relecturesLuLeMax) throw const ApiLoadException(messageRelue, nature: NatureErreur.reponse);
+        _relecturesLuLe++;
+        _quandImmobile(() {
+          if (mounted && g == _gen) _lancer(d);
+        });
+        return;
+      }
       _quandImmobile(() {
         if (!mounted || g != _gen) return;
         setState(() {
@@ -310,6 +346,9 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
       messageResultat(context, DiagnosticErreur.de(e).message, echec: true);
     }
   }
+
+  /// Relectures successives sans lecture stable (3.17.1) : message de la page en échec (« Réessayer »).
+  static const messageRelue = 'La période vient d\'être relue par le serveur. Réessayez dans un instant.';
 
   /// Recherche ou tiers payant changés : serveur à jour → lecture serveur ; serveur ancien → filtre local (3.16.0).
   void _filtresChanges() {
@@ -605,7 +644,10 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
     // ceux des ventes chargées si tout est chargé, sinon ceux de la période (le serveur ne donne pas ce compte).
     final String tiers;
     String? detailTiers;
-    if (d != null && d.tiers.isNotEmpty) {
+    if (p.tiersPayantsRetenus != null) {
+      // 3.17.1 : compté par le serveur sur les ventes retenues (recherche et filtre appliqués).
+      tiers = formaterNombre(p.tiersPayantsRetenus!);
+    } else if (d != null && d.tiers.isNotEmpty) {
       tiers = formaterNombre(1);
     } else if (d == null || d.texte.isEmpty) {
       tiers = formaterNombre(p.tiersPayants.length);
@@ -641,6 +683,7 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with AffichageParTran
             enCours: _suiteEnCours,
             onPlus: () {
               _suiteEnEchec = false;
+              _relecturesLuLe = 0;
               _suite();
             },
           ),
