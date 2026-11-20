@@ -18,6 +18,18 @@
 // Une carte dont la route manque sur le serveur (404) affiche « Indisponible sur ce serveur » ; une erreur d'une carte
 // ne gêne jamais les autres. Chaque carte ne charge qu'à son affichage (liste construite à la demande) ; ⟳ recharge
 // tout. L'accès aux menus reste : bouton « Tous les menus » en haut et barre du bas.
+// 3.16.0 (« Accueil lent », retour du pharmacien) :
+//  - toutes les cartes affichées sont lues EN PARALLÈLE dès l'ouverture (avant : au fil du défilement) ; chacune
+//    s'affiche dès que sa réponse arrive (barre de chargement en attendant), une erreur ne gêne pas les autres ;
+//  - mémoire de l'accueil ([MemoireTableauBord], gardée par l'accueil tant que la session dure) : cache court
+//    (2 min) des cartes → revenir sur l'onglet Accueil affiche tout sans attendre ni relire ; une route absente (404)
+//    ou refusée (403) est retenue : les replis (tuiles → /recap/dashboard/daily, fréquentation du pilotage → celle
+//    du tableau de bord, valorisation → /produit/valorisation) partent directement, sans repasser par le 404 et la
+//    vérification /officine ; une carte « Indisponible sur ce serveur » ne relit rien avant ⟳ ;
+//  - ⟳ vide cette mémoire et relit tout (frais).
+// Routes : ce sont déjà les plus légères du serveur (TableauBordRessource, caches serveur de 1 à 15 min, comme le
+// tableau de bord web) ; seule la carte TVA lit une statistique générale (/api/v3/tvas) : route dédiée demandée au
+// serveur (demande 68).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -25,6 +37,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../donnees/analyses_ventes_donnees.dart';
+import '../../donnees/cache_court.dart';
 import '../../donnees/tableau_bord_donnees.dart';
 import '../../models/stat_tva_model.dart';
 import '../../models/tableau_bord_achats_ventes_model.dart';
@@ -322,18 +335,25 @@ class ApiTableauBord {
 
   /// Chiffres d'un jour ([jourChoisi], aujourd'hui par défaut ; 3.11.1 : Aujourd'hui / Hier / Personnaliser). Le
   /// serveur donne aussi l'évolution par rapport à la veille de ce jour : aucune requête de plus.
-  static Future<ChiffresTableauBord> chiffres(BuildContext context, DateTime maintenant, {DateTime? jour}) async {
+  static Future<ChiffresTableauBord> chiffres(BuildContext context, DateTime maintenant, {DateTime? jour, MemoireTableauBord? memoire}) async {
     final jourChoisi = jour ?? maintenant;
-    try {
-      final j = await ApiVague2.get(context, routeTuiles, {'date': ApiTableauBord.jour(jourChoisi)}, 'les chiffres du jour');
-      final a = j['achats'] is Map ? Map<String, dynamic>.from(j['achats'] as Map) : const <String, dynamic>{};
-      return ChiffresTableauBord(entierTolerant(j['ca']), entierTolerant(j['clients']), decimalOuNull(j['evolutionVeille']), entierTolerant(j['marge']),
-          decimalOuNull(j['tauxMarge']), entierTolerant(j['panier']), entierTolerant(a['ttc']), entierTolerant(a['bl']));
-    } catch (e) {
-      // Serveur sans /tableau-bord (branche dev) : la route du tableau de bord web historique, qui ne connaît
-      // qu'aujourd'hui. Pour un autre jour (3.11.1 : Hier / Personnaliser), le 404 est gardé : la carte dit
-      // « Indisponible sur ce serveur ».
-      if (!routeAbsente(e) || !memeJour(jourChoisi, maintenant)) rethrow;
+    final aujourdhui = memeJour(jourChoisi, maintenant);
+    // 3.16.0 : route déjà absente sur ce serveur → repli direct (aujourd'hui), « Indisponible » sinon, sans requête.
+    final connueAbsente = memoire != null && memoire.sansRoute(context, routeTuiles);
+    if (connueAbsente && !aujourdhui) throw const ApiLoadException('Route absente.', nature: NatureErreur.refus, code: 404);
+    if (!connueAbsente) {
+      try {
+        final j = await ApiVague2.get(context, routeTuiles, {'date': ApiTableauBord.jour(jourChoisi)}, 'les chiffres du jour');
+        final a = j['achats'] is Map ? Map<String, dynamic>.from(j['achats'] as Map) : const <String, dynamic>{};
+        return ChiffresTableauBord(entierTolerant(j['ca']), entierTolerant(j['clients']), decimalOuNull(j['evolutionVeille']), entierTolerant(j['marge']),
+            decimalOuNull(j['tauxMarge']), entierTolerant(j['panier']), entierTolerant(a['ttc']), entierTolerant(a['bl']));
+      } catch (e) {
+        // Serveur sans /tableau-bord (branche dev) : la route du tableau de bord web historique, qui ne connaît
+        // qu'aujourd'hui. Pour un autre jour (3.11.1 : Hier / Personnaliser), le 404 est gardé : la carte dit
+        // « Indisponible sur ce serveur ».
+        if (routeAbsente(e) && context.mounted) memoire?.noterSansRoute(context, routeTuiles);
+        if (!routeAbsente(e) || !aujourdhui) rethrow;
+      }
     }
     if (!context.mounted) throw const ApiLoadException('Écran fermé.', nature: NatureErreur.refus);
     final r = await ApiService().get(context, routeDaily);
@@ -373,18 +393,22 @@ class ApiTableauBord {
   /// Fréquentation d'une journée : ventes et CA par heure (24) et ceux du jour de comparaison (la veille) — dans la
   /// MÊME réponse (aucune requête de plus pour la veille) ; [FrequentationJour.semaine] : repli sur la route du tableau
   /// de bord (semaine du lundi au jour choisi).
-  static Future<FrequentationJour> frequentation(BuildContext context, DateTime jourChoisi) async {
+  static Future<FrequentationJour> frequentation(BuildContext context, DateTime jourChoisi, {MemoireTableauBord? memoire}) async {
     List<int> heures(Object? v) => v is List ? [for (final x in v) entierTolerant(x)] : const [];
-    try {
-      final j = await ApiVague2.get(context, routeFrequentationPilotage,
-          {'axe': 'PERSO', 'dtStart': jour(jourChoisi), 'dtEnd': jour(jourChoisi)}, 'la fréquentation');
-      final c = j['courante'] is Map ? Map<String, dynamic>.from(j['courante'] as Map) : const <String, dynamic>{};
-      final r = j['reference'] is Map ? Map<String, dynamic>.from(j['reference'] as Map) : null;
-      return FrequentationJour(
-          ventes: heures(c['ventesH']), ca: heures(c['caH']), reference: r == null ? null : heures(r['ventesH']), libelle: 'comparé à la veille', semaine: false);
-    } catch (e) {
-      final repli = routeAbsente(e) || (e is ApiLoadException && e.nature == NatureErreur.droit);
-      if (!repli) rethrow;
+    // 3.16.0 : route du pilotage déjà absente ou refusée pour ce compte → repli direct, sans requête.
+    if (memoire == null || !memoire.sansRoute(context, routeFrequentationPilotage)) {
+      try {
+        final j = await ApiVague2.get(context, routeFrequentationPilotage,
+            {'axe': 'PERSO', 'dtStart': jour(jourChoisi), 'dtEnd': jour(jourChoisi)}, 'la fréquentation');
+        final c = j['courante'] is Map ? Map<String, dynamic>.from(j['courante'] as Map) : const <String, dynamic>{};
+        final r = j['reference'] is Map ? Map<String, dynamic>.from(j['reference'] as Map) : null;
+        return FrequentationJour(
+            ventes: heures(c['ventesH']), ca: heures(c['caH']), reference: r == null ? null : heures(r['ventesH']), libelle: 'comparé à la veille', semaine: false);
+      } catch (e) {
+        final repli = routeAbsente(e) || (e is ApiLoadException && e.nature == NatureErreur.droit);
+        if (!repli) rethrow;
+        if (context.mounted) memoire?.noterSansRoute(context, routeFrequentationPilotage);
+      }
     }
     if (!context.mounted) throw const ApiLoadException('Écran fermé.', nature: NatureErreur.refus);
     final j = await ApiVague2.get(context, routeFrequentation, {'date': jour(jourChoisi)}, 'la fréquentation');
@@ -401,12 +425,15 @@ class ApiTableauBord {
     return AffluenceSemaine.depuis(j, jourChoisi);
   }
 
-  static Future<Valorisation> valorisation(BuildContext context, DateTime maintenant) async {
-    try {
-      final j = await getVague1(context, ApiValorisation.routeTableauDeBord, {'frais': '0'}, 'la valorisation du stock');
-      return Valorisation.depuisTableauDeBord(j);
-    } catch (e) {
-      if (!routeAbsente(e)) rethrow;
+  static Future<Valorisation> valorisation(BuildContext context, DateTime maintenant, {MemoireTableauBord? memoire}) async {
+    if (memoire == null || !memoire.sansRoute(context, ApiValorisation.routeTableauDeBord)) {
+      try {
+        final j = await getVague1(context, ApiValorisation.routeTableauDeBord, {'frais': '0'}, 'la valorisation du stock');
+        return Valorisation.depuisTableauDeBord(j);
+      } catch (e) {
+        if (!routeAbsente(e)) rethrow;
+        if (context.mounted) memoire?.noterSansRoute(context, ApiValorisation.routeTableauDeBord);
+      }
     }
     if (!context.mounted) throw const ApiLoadException('Écran fermé.', nature: NatureErreur.refus);
     final j = await getVague1(context, ApiValorisation.routeProduit, ApiValorisation.parametresProduit(ModeValorisation.simple, maintenant, const []),
@@ -437,6 +464,79 @@ class ApiTableauBord {
 
   static Future<List<StatTva>> tva(BuildContext context, DateTime maintenant) async =>
       await StatTvaDonnees.charger(context, DateTime(maintenant.year, maintenant.month, 1), maintenant, TypeVente.tout) ?? const [];
+
+  /// 3.16.0 : lecture d'une carte, avec ses paramètres (clé du cache court de l'accueil, et lecture). Une SEULE
+  /// définition, partagée par la carte et par la lecture en parallèle de l'ouverture ([AccueilTableauPrestige]) :
+  /// mêmes clés, donc jamais deux requêtes identiques. [frais] : ⟳ (affluence : recalcul demandé au serveur).
+  static LectureCarte lecture(CarteTableauBord carte, DateTime maintenant, MemoireTableauBord? memoire,
+      {DateTime? jourChoisi, bool famille = false, bool frais = false}) {
+    final aujourdhui = jour(maintenant);
+    final j = jourChoisi ?? Periode.jour(maintenant);
+    return switch (carte) {
+      CarteTableauBord.chiffres => (cle: 'chiffres|${jour(j)}|$aujourdhui', lire: (c) => chiffres(c, maintenant, jour: j, memoire: memoire)),
+      CarteTableauBord.evolution => (cle: 'evolution|$aujourdhui', lire: (c) => evolution(c, maintenant)),
+      CarteTableauBord.frequentation => (cle: 'frequentation|${jour(j)}', lire: (c) => frequentation(c, j, memoire: memoire)),
+      CarteTableauBord.affluence => (
+          cle: 'affluence|${jour(AffluenceSemaine.lundi(jourChoisi ?? maintenant))}',
+          lire: (c) => affluence(c, AffluenceSemaine.lundi(jourChoisi ?? maintenant), frais: frais)
+        ),
+      CarteTableauBord.valorisation => (cle: 'valorisation|$aujourdhui', lire: (c) => valorisation(c, maintenant, memoire: memoire)),
+      CarteTableauBord.encaissements => (cle: 'encaissements|$aujourdhui', lire: (c) => encaissements(c, maintenant)),
+      CarteTableauBord.top => (cle: 'top|$famille|$aujourdhui', lire: (c) => top(c, maintenant, famille: famille)),
+      CarteTableauBord.tva => (cle: 'tva|$aujourdhui', lire: (c) => tva(c, maintenant)),
+    };
+  }
+}
+
+/// Lecture d'une carte : clé du cache court et requête(s).
+typedef LectureCarte = ({String cle, Future<Object> Function(BuildContext context) lire});
+
+/// 3.16.0 — mémoire de l'accueil « tableau de bord », gardée par l'accueil (AccueilNouveau) le temps de la session :
+/// cartes lues (cache court), routes absentes ou refusées (replis directs), cartes indisponibles. Clés préfixées par la
+/// source (serveur actif et session : CacheCourt.source).
+class MemoireTableauBord {
+  MemoireTableauBord({DateTime Function()? horloge}) : cache = CacheCourt<Object>(duree: duree, horloge: horloge);
+
+  /// Durée de vie d'une carte lue (retour sur l'accueil sans relecture).
+  static const duree = Duration(minutes: 2);
+
+  final CacheCourt<Object> cache;
+  final _sansRoute = <String>{};
+  final _indisponibles = <String, Object>{};
+
+  static String _cle(BuildContext context, String cle) => '${CacheCourt.source(context)}|$cle';
+
+  /// [route] a déjà répondu 404 (absente) ou 403 (refusée) sur ce serveur, pour cette session.
+  bool sansRoute(BuildContext context, String route) => _sansRoute.contains(_cle(context, route));
+  void noterSansRoute(BuildContext context, String route) => _sansRoute.add(_cle(context, route));
+
+  /// Carte « Indisponible sur ce serveur » : l'erreur gardée (aucune relecture avant ⟳).
+  Object? indisponible(BuildContext context, String cle) => _indisponibles[_cle(context, cle)];
+  void noterIndisponible(BuildContext context, String cle, Object e) => _indisponibles[_cle(context, cle)] = e;
+
+  /// Données de la carte [cle] déjà arrivées (affichage immédiat).
+  Object? connue(BuildContext context, String cle) => cache.connue(_cle(context, cle));
+
+  /// Lecture de la carte [cle] : en cache (fraîche ou en cours), sinon [lire] ; [frais] : relecture forcée.
+  Future<Object> lire(BuildContext context, LectureCarte l, {bool frais = false}) => cache.lire(_cle(context, l.cle), () => l.lire(context), frais: frais);
+
+  /// ⟳ : tout est oublié (routes comprises : une mise à jour du serveur se voit).
+  void vider() {
+    cache.vider();
+    _sansRoute.clear();
+    _indisponibles.clear();
+  }
+
+  /// Mémoire de l'accueil au-dessus de [context] (null hors de l'accueil).
+  static MemoireTableauBord? de(BuildContext context) => context.getInheritedWidgetOfExactType<_PorteMemoire>()?.memoire;
+}
+
+class _PorteMemoire extends InheritedWidget {
+  final MemoireTableauBord memoire;
+  const _PorteMemoire({required this.memoire, required super.child});
+
+  @override
+  bool updateShouldNotify(_PorteMemoire old) => !identical(old.memoire, memoire);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -451,7 +551,10 @@ class ActualisationTableauBord extends ValueNotifier<int> {
 
 class AccueilTableauPrestige extends StatefulWidget {
   final DateTime Function() maintenant;
-  const AccueilTableauPrestige({super.key, this.maintenant = DateTime.now});
+
+  /// 3.16.0 : mémoire gardée par l'accueil entre deux ouvertures de l'onglet (sinon : propre à cet écran).
+  final MemoireTableauBord? memoire;
+  const AccueilTableauPrestige({super.key, this.maintenant = DateTime.now, this.memoire});
 
   @override
   State<AccueilTableauPrestige> createState() => _AccueilTableauPrestigeState();
@@ -459,11 +562,44 @@ class AccueilTableauPrestige extends StatefulWidget {
 
 class _AccueilTableauPrestigeState extends State<AccueilTableauPrestige> {
   final _actualisation = ActualisationTableauBord();
+  late final MemoireTableauBord _memoire = widget.memoire ?? MemoireTableauBord();
 
   @override
   void initState() {
     super.initState();
-    CartesTableauBordPrefs.charger();
+    final prefs = CartesTableauBordPrefs.charger();
+    // Après la première image, en même temps que les cartes à l'écran (un écran remplacé avant d'être affiché ne lit
+    // rien) ; puis, une fois le choix des cartes relu, celles qu'il ajouterait.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _lireEnParallele();
+      prefs.then((_) {
+        if (mounted) _lireEnParallele();
+      });
+    });
+  }
+
+  /// Cartes déjà lues en parallèle depuis l'ouverture (ou le dernier ⟳).
+  final _lues = <CarteTableauBord>{};
+
+  /// 3.16.0 : toutes les cartes affichées sont lues en même temps (les cartes encore sous l'écran trouveront leur
+  /// réponse, arrivée ou en route, dans la mémoire : jamais deux fois la même requête). Une erreur reste à la carte.
+  void _lireEnParallele() {
+    final maintenant = widget.maintenant();
+    for (final x in CartesTableauBordPrefs.cartes.value) {
+      if (!x.visible || !_lues.add(x.carte)) continue;
+      final l = ApiTableauBord.lecture(x.carte, maintenant, _memoire);
+      if (_memoire.indisponible(context, l.cle) != null) continue;
+      _memoire.lire(context, l).then((_) {}, onError: (Object _) {});
+    }
+  }
+
+  /// ⟳ : mémoire vidée, cartes construites relues (frais), puis les autres en parallèle.
+  void _actualiser() {
+    _memoire.vider();
+    _lues.clear();
+    _actualisation.lancer();
+    _lireEnParallele();
   }
 
   @override
@@ -538,7 +674,7 @@ class _AccueilTableauPrestigeState extends State<AccueilTableauPrestige> {
             IconButton(
               key: const Key('tableau_bord_actualiser'),
               tooltip: 'Actualiser',
-              onPressed: _actualisation.lancer,
+              onPressed: _actualiser,
               icon: const Icon(Icons.refresh, color: Charte.blanc),
             ),
             const BoutonReglages(),
@@ -546,7 +682,7 @@ class _AccueilTableauPrestigeState extends State<AccueilTableauPrestige> {
           ],
           enfants: [
             Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              PastilleServeur(apres: _actualisation.lancer),
+              PastilleServeur(apres: _actualiser),
               PastilleEntete('Tous les menus',
                   icone: Icons.apps,
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TousLesMenusScreen()))),
@@ -554,31 +690,35 @@ class _AccueilTableauPrestigeState extends State<AccueilTableauPrestige> {
             ]),
           ],
         );
-        // Liste construite à la demande : une carte ne charge ses données qu'à son arrivée à l'écran.
-        return RefreshIndicator(
-          onRefresh: () async => _actualisation.lancer(),
-          child: ListView.builder(
-            key: const Key('defilement_tableau_bord'),
-            padding: EdgeInsets.zero,
-            itemCount: 1 + visibles.length + 1,
-            itemBuilder: (context, i) {
-              if (i == 0) return entete;
-              if (i == visibles.length + 1) {
-                return visibles.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: EtatVide(titre: 'Aucune carte affichée', texte: 'Touchez « Cartes » pour en afficher.', icone: Icons.tune),
-                      )
-                    : const SizedBox(height: 16);
-              }
-              final c = visibles[i - 1];
-              // Gardée en vie hors de l'écran : une carte chargée ne relit rien quand elle revient à l'écran (seul
-              // ⟳ recharge) — relevé par test/performance/retours_3_11_0_test.dart (17 lectures au lieu de 7).
-              return _GardeEnVie(
-                key: Key('carte_tableau_bord_${c.name}'),
-                child: Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _carte(c)),
-              );
-            },
+        // Liste construite à la demande ; les données de toutes les cartes sont lues en parallèle dès l'ouverture
+        // (3.16.0, _lireEnParallele) et attendues dans la mémoire de l'accueil.
+        return _PorteMemoire(
+          memoire: _memoire,
+          child: RefreshIndicator(
+            onRefresh: () async => _actualiser(),
+            child: ListView.builder(
+              key: const Key('defilement_tableau_bord'),
+              padding: EdgeInsets.zero,
+              itemCount: 1 + visibles.length + 1,
+              itemBuilder: (context, i) {
+                if (i == 0) return entete;
+                if (i == visibles.length + 1) {
+                  return visibles.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: EtatVide(titre: 'Aucune carte affichée', texte: 'Touchez « Cartes » pour en afficher.', icone: Icons.tune),
+                        )
+                      : const SizedBox(height: 16);
+                }
+                final c = visibles[i - 1];
+                // Gardée en vie hors de l'écran : une carte chargée ne relit rien quand elle revient à l'écran (seul
+                // ⟳ recharge) — relevé par test/performance/retours_3_11_0_test.dart (17 lectures au lieu de 7).
+                return _GardeEnVie(
+                  key: Key('carte_tableau_bord_${c.name}'),
+                  child: Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _carte(c)),
+                );
+              },
+            ),
           ),
         );
       },
@@ -611,37 +751,59 @@ class _GardeEnVieState extends State<_GardeEnVie> with AutomaticKeepAliveClientM
 }
 
 /// Chargement d'une carte : à l'affichage, puis à chaque ⟳ ; états (chargement, erreur, indisponible).
-mixin ChargementCarte<W extends StatefulWidget, T> on State<W> {
+/// 3.16.0 : par la mémoire de l'accueil (réponse déjà arrivée → affichée tout de suite, en route → attendue, sans
+/// nouvelle requête ; ⟳ → relecture fraîche).
+mixin ChargementCarte<W extends StatefulWidget, T extends Object> on State<W> {
   T? donnees;
   Object? erreur;
   bool enCours = false;
   int _gen = 0;
 
   ActualisationTableauBord get actualisation;
-  Future<T> lire(BuildContext context);
+
+  /// Lecture de la carte avec ses paramètres du moment (ApiTableauBord.lecture).
+  LectureCarte lecture({bool frais = false});
+
+  /// Mémoire de l'accueil (propre à la carte si elle est montée seule).
+  late final MemoireTableauBord memoire = MemoireTableauBord.de(context) ?? MemoireTableauBord();
 
   @override
   void initState() {
     super.initState();
-    actualisation.addListener(recharger);
+    actualisation.addListener(_actualiser);
     WidgetsBinding.instance.addPostFrameCallback((_) => recharger());
   }
 
   @override
   void dispose() {
-    actualisation.removeListener(recharger);
+    actualisation.removeListener(_actualiser);
     super.dispose();
   }
 
-  Future<void> recharger() async {
+  void _actualiser() => recharger(frais: true);
+
+  Future<void> recharger({bool frais = false}) async {
     if (!mounted) return;
     final g = ++_gen;
+    final l = lecture(frais: frais);
+    if (!frais) {
+      final connue = memoire.connue(context, l.cle);
+      final indispo = memoire.indisponible(context, l.cle);
+      if (connue is T || indispo != null) {
+        setState(() {
+          donnees = connue is T ? connue : null;
+          erreur = indispo;
+          enCours = false;
+        });
+        return;
+      }
+    }
     setState(() {
       enCours = true;
       erreur = null;
     });
     try {
-      final d = await lire(context);
+      final d = await memoire.lire(context, l, frais: frais) as T;
       if (!mounted || g != _gen) return;
       setState(() {
         donnees = d;
@@ -649,6 +811,7 @@ mixin ChargementCarte<W extends StatefulWidget, T> on State<W> {
       });
     } catch (e) {
       if (!mounted || g != _gen) return;
+      if (routeAbsente(e)) memoire.noterIndisponible(context, l.cle, e);
       setState(() {
         erreur = e;
         enCours = false;
@@ -745,7 +908,7 @@ class _CarteChiffresState extends State<_CarteChiffres> with ChargementCarte<_Ca
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<ChiffresTableauBord> lire(BuildContext context) => ApiTableauBord.chiffres(context, widget.maintenant(), jour: _jour);
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.chiffres, widget.maintenant(), memoire, jourChoisi: _jour);
 
   void _choisir(DateTime j) {
     if (!mounted) return;
@@ -790,7 +953,7 @@ class _CarteEvolutionState extends State<_CarteEvolution> with ChargementCarte<_
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<List<(DateTime, DateTime, double, double)>> lire(BuildContext context) => ApiTableauBord.evolution(context, widget.maintenant());
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.evolution, widget.maintenant(), memoire);
 
   @override
   Widget build(BuildContext context) {
@@ -848,7 +1011,7 @@ class _CarteFrequentationState extends State<_CarteFrequentation> with Chargemen
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<FrequentationJour> lire(BuildContext context) => ApiTableauBord.frequentation(context, _jour);
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.frequentation, widget.maintenant(), memoire, jourChoisi: _jour);
 
   void _choisir(DateTime j) {
     if (!mounted) return;
@@ -1029,18 +1192,13 @@ class _CarteAffluenceState extends State<_CarteAffluence> with ChargementCarte<_
   /// Lundi de la semaine regardée (la semaine du jour à l'ouverture).
   late DateTime _lundi = AffluenceSemaine.lundi(widget.maintenant());
 
-  /// Dernier ⟳ vu : un ⟳ demande un recalcul au serveur (frais=1) ; changer de semaine lit son cache.
-  late int _actualisationVue = widget.actualisation.value;
-
   @override
   ActualisationTableauBord get actualisation => widget.actualisation;
 
+  /// Un ⟳ demande un recalcul au serveur (frais=1) ; changer de semaine lit son cache.
   @override
-  Future<AffluenceSemaine> lire(BuildContext context) {
-    final frais = actualisation.value != _actualisationVue;
-    _actualisationVue = actualisation.value;
-    return ApiTableauBord.affluence(context, _lundi, frais: frais);
-  }
+  LectureCarte lecture({bool frais = false}) =>
+      ApiTableauBord.lecture(CarteTableauBord.affluence, widget.maintenant(), memoire, jourChoisi: _lundi, frais: frais);
 
   DateTime get _lundiCourant => AffluenceSemaine.lundi(widget.maintenant());
 
@@ -1252,7 +1410,7 @@ class _CarteValorisationState extends State<_CarteValorisation> with ChargementC
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<Valorisation> lire(BuildContext context) => ApiTableauBord.valorisation(context, widget.maintenant());
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.valorisation, widget.maintenant(), memoire);
 
   @override
   Widget build(BuildContext context) => _Cadre(
@@ -1280,7 +1438,7 @@ class _CarteEncaissementsState extends State<_CarteEncaissements> with Chargemen
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<List<(String, int)>> lire(BuildContext context) => ApiTableauBord.encaissements(context, widget.maintenant());
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.encaissements, widget.maintenant(), memoire);
 
   @override
   Widget build(BuildContext context) => _Cadre(
@@ -1311,7 +1469,7 @@ class _CarteTopState extends State<_CarteTop> with ChargementCarte<_CarteTop, Li
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<List<(String, int)>> lire(BuildContext context) => ApiTableauBord.top(context, widget.maintenant(), famille: _famille);
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.top, widget.maintenant(), memoire, famille: _famille);
 
   @override
   Widget build(BuildContext context) => _Cadre(
@@ -1348,7 +1506,7 @@ class _CarteTvaState extends State<_CarteTva> with ChargementCarte<_CarteTva, Li
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  Future<List<StatTva>> lire(BuildContext context) => ApiTableauBord.tva(context, widget.maintenant());
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.tva, widget.maintenant(), memoire);
 
   @override
   Widget build(BuildContext context) => _Cadre(

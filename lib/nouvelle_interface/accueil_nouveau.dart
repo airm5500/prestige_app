@@ -215,6 +215,9 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
   bool _chiffresDemandes = false;
   final _recherche = TextEditingController();
 
+  /// 3.16.0 : mémoire du tableau de bord (cache court, routes absentes) gardée entre deux ouvertures de l'onglet.
+  final _memoireTableau = MemoireTableauBord();
+
   @override
   void dispose() {
     _recherche.dispose();
@@ -261,7 +264,7 @@ class _AccueilNouveauState extends State<AccueilNouveau> {
           OngletAccueil.accueil => switch (p) {
               Presentation.compact => _AccueilCompact(recherche: _recherche, tablette: tablette),
               Presentation.guide => const _AccueilGuide(),
-              Presentation.tableauPrestige => const AccueilTableauPrestige(),
+              Presentation.tableauPrestige => AccueilTableauPrestige(memoire: _memoireTableau),
               _ => _AccueilTableauDeBord(chiffres: _chiffres, chargement: _chargementChiffres, actualiser: _chargerChiffres),
             },
         };

@@ -131,12 +131,15 @@ void main() {
     final app = await monter(tester);
     serveur.controlerSession = false;
     serveur.quand(RechercheProduit.route, ReponseFausse.introuvable(), methode: 'GET');
+    // 3.16.0 : le repli /vente/search est essayé avant /info ; ici le serveur ancien ne l'a pas non plus.
+    serveur.quand(RechercheProduit.routeVente, ReponseFausse.introuvable(), methode: 'GET');
     final r = await appel(tester, () => RechercheProduit.rechercher(app.ctx, 'para'));
     expect(r, isA<ResultatRechercheProduit>());
     expect((r as ResultatRechercheProduit).contient, isFalse, reason: 'serveur ancien : « commence par »');
     expect(serveur.recues(AppConstants.infoEndpoint), hasLength(1));
 
     serveur.oublierRequetes();
+    RechercheProduit.cacheListes.vider(); // 3.16.0 : la même saisie serait servie par le cache court
     serveur.quand(AppConstants.officineEndpoint, ReponseFausse.introuvable(), methode: 'GET');
     final e = await appel(tester, () => RechercheProduit.rechercher(app.ctx, 'para'));
     expect((e as ApiLoadException).serveurIndisponible, isTrue);

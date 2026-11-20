@@ -213,8 +213,11 @@ class CaCreditDonnees {
 
   static List<CaCredit>? lire(dynamic data) => data is List ? data.map((item) => CaCredit.fromJson(item)).toList() : null;
 
-  static Future<List<CaCredit>?> charger(BuildContext context, DateTime debut, DateTime fin, {VoidCallback? onSessionInvalid}) async =>
-      lire(await ApiService().get(context, AppConstants.caCreditEndpoint, queryParams: parametres(debut, fin), onSessionInvalid: onSessionInvalid));
+  /// 3.16.0 (« CA crédit lent ») : la route n'est pas paginée par le serveur (ErpRessource.caCredis : dtStart, dtEnd
+  /// seulement ; demande serveur 67) ; une grande réponse est décodée et lue hors du fil de l'interface
+  /// (ApiService.getLourd).
+  static Future<List<CaCredit>?> charger(BuildContext context, DateTime debut, DateTime fin, {VoidCallback? onSessionInvalid}) =>
+      ApiService().getLourd(context, AppConstants.caCreditEndpoint, lire, queryParams: parametres(debut, fin), onSessionInvalid: onSessionInvalid);
 
   /// Recherche locale de l'écran d'origine (sans tenir compte de la casse).
   static List<CaCredit> filtrer(List<CaCredit> l, String texte) {

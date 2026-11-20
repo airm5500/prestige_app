@@ -404,7 +404,11 @@ void main() {
         'Prix de vente', 'Emplacement'],
     ),
   ]) {
+    // 3.16.0 (« Analyse article lente ») : la NOUVELLE Analyse Article liste par GET /espace-produit/recherche?q= (légère)
+    // et ne lit /info?search=<CIP exact> qu'au toucher ; mêmes articles, mêmes prix, même fiche. Historique des
+    // mouvements : « Vente · <date> » … « Qté <n> » sur une ligne (même date, même quantité qu'avant).
     testWidgets('$tuile : même requête ($champ), mêmes articles, même fiche détaillée', (tester) async {
+      final analyse = tuile == 'Analyse Article';
       ecranHaut(tester);
       await monter(tester, module(tuile).ancien, nouvelle: false);
       await tester.enterText(find.byType(TextField), recherche);
@@ -422,16 +426,36 @@ void main() {
       await tester.enterText(find.byType(TextField), recherche);
       await pomper(tester, 12);
       final reqNouvelle = requetes([chemin]);
+      final legere = requetes([AppConstants.rechercheProduitEndpoint]);
       final montantsListeN = montants();
       await tester.tap(find.text(DonneesFictives.libelleArticle1));
       await pomper(tester, 5);
-      final ficheNouvelle = {for (final l in libelles) l: norm(valeurNouvelle(l))};
+      String historique(String l) {
+        // « Dernière Vente » d'origine → ligne « Vente · <date> » / « Qté <n> » de la 3.16.0 (même date, même quantité).
+        final court = l.split(' ').last;
+        final w = find.byType(LigneDetail).evaluate().map((e) => e.widget as LigneDetail).firstWhere((w) => w.libelle.startsWith('$court · '));
+        return '${w.libelle.substring(court.length + 3)} (Qté: ${w.valeur.substring(4)})';
+      }
+
+      const mouvements = {'Dernière Vente', 'Dernier Achat', 'Dernier Inventaire'};
+      final ficheNouvelle = {for (final l in libelles) l: norm(analyse && mouvements.contains(l) ? historique(l) : valeurNouvelle(l))};
+      final detail = requetes([chemin]);
       await demonter(tester);
 
       expect(reqOrigine[chemin], [
         {parametre: recherche}
       ]);
-      expect(reqNouvelle, reqOrigine);
+      if (analyse) {
+        expect(reqNouvelle[chemin], isEmpty, reason: '3.16.0 : aucune lecture de /info pendant la saisie');
+        expect(legere[AppConstants.rechercheProduitEndpoint], [
+          {'q': recherche}
+        ]);
+        expect(detail[chemin], [
+          {parametre: '9990001'}
+        ], reason: 'au toucher : /info au CIP exact du produit, une fois');
+      } else {
+        expect(reqNouvelle, reqOrigine);
+      }
       expect(montantsListe.difference(montantsListeN), isEmpty, reason: 'prix de la liste');
       expect(ficheNouvelle, ficheOrigine);
     });

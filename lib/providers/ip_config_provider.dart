@@ -1,6 +1,7 @@
 // lib/providers/ip_config_provider.dart
 
 import 'package:flutter/foundation.dart';
+import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../utils/adresse_serveur.dart';
 import '../utils/constants.dart';
@@ -51,12 +52,15 @@ class IpConfigProvider with ChangeNotifier {
   }
 
   Future<void> updateSettings(String newLocalIp, String newRemoteIp, String newPort, int newTimeout, String newAppName) async {
-    _localIp = newLocalIp.isNotEmpty ? newLocalIp : AppConstants.defaultLocalIp;
+    // 3.16.0 : l'adresse locale saisie est gardée telle quelle (vidée volontairement → vide, comme avant), le défaut
+    // 192.168.1.50 ne sert qu'à une configuration neuve.
+    _localIp = newLocalIp;
     _remoteIp = newRemoteIp.isNotEmpty ? newRemoteIp : AppConstants.defaultRemoteIp;
     _port = newPort.isNotEmpty ? newPort : AppConstants.defaultPort;
     _sessionTimeout = newTimeout;
     _isAppConfigured = true;
     _appName = newAppName.isNotEmpty ? newAppName : AppConstants.defaultAppName; // AJOUT
+    ApiService().serveurModifie(); // 3.16.0 : caches courts (lib/donnees/cache_court.dart) d'un autre serveur oubliés
 
     await _storageService.saveAllSettings(
       localIp: _localIp, remoteIp: _remoteIp, port: _port,

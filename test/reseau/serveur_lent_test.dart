@@ -296,15 +296,23 @@ void main() {
   }
 
   group('routes lourdes (serveur qui répond en 25 s)', () {
-    testWidgets('Analyse Article : recherche /info en 25 s, chargement visible, puis résultats', (tester) async {
+    // 3.16.0 : la liste vient de la recherche légère ; /info (lourde) n'est lue qu'au toucher d'un produit.
+    testWidgets('Analyse Article : /info en 25 s au toucher d\'un produit, attente visible, puis fiche', (tester) async {
       telephone(tester);
       serveur.route(AppConstants.infoEndpoint, (r) => ReponseFausse.json(DonneesFictives.articlesAnalyse()).apres(lourd), methode: 'GET');
       await ouvrirDepuisAccueil(tester, serveur, const AnalyseArticleNouveau());
       await tester.enterText(cle('champ_recherche'), 'PARAFICTIF');
       await tester.pump(const Duration(milliseconds: 600)); // anti-rebond : la requête part
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(CarteLigne), findsWidgets, reason: 'liste affichée sans attendre /info');
+      expect(serveur.recues(AppConstants.infoEndpoint), isEmpty);
+      await tester.tap(find.text(DonneesFictives.libelleArticle1));
+      await tester.pump();
       expect(serveur.recues(AppConstants.infoEndpoint), hasLength(1));
-      await attendreServeurLent(tester, lourd, 'Analyse Article (/info)');
-      expect(find.byType(CarteLigne), findsWidgets, reason: 'résultats affichés');
+      await attendreServeurLent(tester, lourd, 'Analyse Article (/info au toucher)', attente: cle('analyse_ouverture'));
+      expect(find.byType(DetailAnalyseArticle), findsOneWidget, reason: 'fiche affichée');
       await fermerApplication(tester);
     });
 

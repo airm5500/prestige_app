@@ -94,9 +94,9 @@ void main() {
     ('A · 6 tuiles par page, P4', Presentation.tableauDeBord, 4, AffichageMenus.parSix, StyleIcones.p4),
     ('B · une rubrique par page, P4', Presentation.compact, 2, AffichageMenus.parRubrique, StyleIcones.p4),
     ('A · défaut 3.10.1 (P4 jamais choisi)', Presentation.tableauDeBord, 4, AffichageMenus.unePage, null),
-    // 3.11.0 : tableau de bord (défaut) : seules les cartes affichées (ou sur le point de l'être) chargent, une
-    // requête chacune ; au plus les 7 cartes + connexion + officine.
-    ('Tableau de bord (défaut 3.11.0)', Presentation.tableauPrestige, 9, AffichageMenus.unePage, null),
+    // 3.11.0 : tableau de bord (défaut) : une requête par carte. 3.16.0 : les 8 cartes sont lues en parallèle dès
+    // l'ouverture (même celles sous l'écran), une fois chacune : 8 cartes + connexion + officine.
+    ('Tableau de bord (défaut 3.11.0)', Presentation.tableauPrestige, 10, AffichageMenus.unePage, null),
   ]) {
     testWidgets('connexion + accueil $nom : plafond $plafond requêtes', (tester) async {
       telephone(tester);
@@ -215,8 +215,9 @@ void main() {
       await laisser(tester);
     });
     mesurer('Requêtes — recherche tapée vite (Analyse Article, 10 lettres)', rs.length, seuil: 1, unite: 'requêtes', detail: detailRequetes(rs));
-    expect(rs.single.chemin, AppConstants.infoEndpoint);
-    expect(rs.single.parametres['search'], 'PARAFICTIF', reason: 'le texte complet est cherché');
+    // 3.16.0 : recherche légère (/espace-produit/recherche) ; /info seulement au toucher d'un produit.
+    expect(rs.single.chemin, AppConstants.rechercheProduitEndpoint);
+    expect(rs.single.parametres['q'], 'PARAFICTIF', reason: 'le texte complet est cherché');
     await fermerApplication(tester);
   });
 

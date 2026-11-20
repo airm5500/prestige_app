@@ -7,6 +7,10 @@
 // (téléphone) ou tableau avec total (tablette) construits 50 par 50, détail d'une vente en feuille.
 // 3.8.0 (demande du pharmacien) : menu « Exporter » → PDF A4 (AnalysesPdf, lib/donnees/analyses_pdf.dart) des ventes
 // AFFICHÉES (recherche et tiers payant appliqués, toutes les lignes), chiffres clés et total identiques à l'écran.
+// 3.16.0 (« CA crédit lent ») : réponse décodée hors du fil de l'interface si elle est grosse (CaCreditDonnees.charger),
+// recherche et filtre calculés UNE fois par changement (mémoïsés, plus à chaque image), chiffres clés compris ; liste
+// construite à la demande (ListView.builder : seules les cartes à l'écran sont construites), toujours 50 par 50.
+// La route n'est pas paginée par le serveur : demande serveur 67.
 import 'package:flutter/material.dart';
 
 import '../../donnees/analyses_pdf.dart';
@@ -154,9 +158,17 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with ChargementSuivi<
   }
 
   /// Ventes affichées : recherche d'origine puis tiers payant.
-  List<CaCredit> _affichees(List<CaCredit> l) {
-    final r = CaCreditDonnees.filtrer(l, _texte);
-    return _tiers.isEmpty ? r : [for (final c in r) if (c.tiersPayantLibelle == _tiers) c];
+  List<CaCredit> _affichees(List<CaCredit> l) => _vue(l).lignes;
+
+  /// Dernier calcul (mémoïsé) : refait seulement si la liste, la recherche ou le tiers payant change.
+  ({List<CaCredit> source, String texte, String tiers, VueCaCredit vue})? _memo;
+
+  VueCaCredit _vue(List<CaCredit> l) {
+    final m = _memo;
+    if (m != null && identical(m.source, l) && m.texte == _texte && m.tiers == _tiers) return m.vue;
+    final v = VueCaCredit.calculer(l, _texte, _tiers);
+    _memo = (source: l, texte: _texte, tiers: _tiers, vue: v);
+    return v;
   }
 
   static String _date(CaCredit c) => c.mvtDate != null ? DateFormatter.toDisplayFormat(c.mvtDate!).replaceAll('-', '/') : 'N/A';
@@ -179,84 +191,129 @@ class _CaCreditNouveauState extends State<CaCreditNouveau> with ChargementSuivi<
         ]),
         body: RefreshIndicator(
           onRefresh: _charger,
-          child: ListView(key: const Key('defilement_module'), padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-            SelecteurPeriode(periode: _periode, onChanged: _changerPeriode, maintenant: widget.maintenant),
-            const SizedBox(height: 8),
-            ChampRecherche(
-              controleur: _recherche,
-              libelle: 'Rechercher une vente',
-              aide: 'Client, N° de facture, tiers payant',
-              onRecherche: (t) => setState(() {
-                _texte = t;
-                reinitialiserTranches();
-              }),
-            ),
-            EtiquettesFiltres(
-              etiquettes: [if (_tiers.isNotEmpty) 'Tiers payant : $_tiers'],
-              onRetirer: () => setState(() {
-                _tiers = '';
-                reinitialiserTranches();
-              }),
-            ),
-            const SizedBox(height: 8),
-            ..._corps(),
-          ]),
+          child: LayoutBuilder(builder: (context, c) {
+            // Même règle que ListeOuTableau (largeur disponible dans les marges de 16 dp).
+            final tableau = c.maxWidth - 32 >= largeurTableau;
+            final tete = <Widget>[
+              SelecteurPeriode(periode: _periode, onChanged: _changerPeriode, maintenant: widget.maintenant),
+              const SizedBox(height: 8),
+              ChampRecherche(
+                controleur: _recherche,
+                libelle: 'Rechercher une vente',
+                aide: 'Client, N° de facture, tiers payant',
+                onRecherche: (t) => setState(() {
+                  _texte = t;
+                  reinitialiserTranches();
+                }),
+              ),
+              EtiquettesFiltres(
+                etiquettes: [if (_tiers.isNotEmpty) 'Tiers payant : $_tiers'],
+                onRetirer: () => setState(() {
+                  _tiers = '';
+                  reinitialiserTranches();
+                }),
+              ),
+              const SizedBox(height: 8),
+            ];
+            final corps = _corps(tableau: tableau);
+            final avant = tete.length + corps.avant.length;
+            return ListView.builder(
+              key: const Key('defilement_module'),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              itemCount: avant + corps.cartes + corps.apres.length,
+              itemBuilder: (context, i) {
+                if (i < tete.length) return tete[i];
+                if (i < avant) return corps.avant[i - tete.length];
+                if (i < avant + corps.cartes) return _carte(corps.lignes, i - avant);
+                return corps.apres[i - avant - corps.cartes];
+              },
+            );
+          }),
         ),
       );
 
-  List<Widget> _corps() {
-    if (enCours) return const [EtatChargement(texte: 'Chargement des ventes à crédit…')];
-    if (erreur != null) return [EtatErreur(erreur: erreur!, reessayer: _charger)];
-    final tout = donnees ?? const <CaCredit>[];
+  Widget _carte(List<CaCredit> l, int i) => CarteLigne(
+        titre: l[i].clientName,
+        lignes: [
+          if (_ayantDroitDistinct(l[i])) 'Ayant droit : ${l[i].ayantDroitName}',
+          '${_date(l[i])} · Facture ${l[i].numFacturation}',
+          'Tiers payant : ${l[i].tiersPayantLibelle}',
+        ],
+        libelleValeur: 'Montant',
+        valeur: formaterMontant(l[i].montant),
+        onTap: () => _detail(l[i]),
+      );
+
+  /// Corps de la liste : éléments avant les cartes, nombre de cartes (téléphone, construites à la demande), éléments
+  /// après (tableau sur tablette, pied « Afficher plus »).
+  ({List<Widget> avant, List<CaCredit> lignes, int cartes, List<Widget> apres}) _corps({required bool tableau}) {
+    const rien = <CaCredit>[];
+    ({List<Widget> avant, List<CaCredit> lignes, int cartes, List<Widget> apres}) seul(Widget w) => (avant: [w], lignes: rien, cartes: 0, apres: const []);
+    if (enCours) return seul(const EtatChargement(texte: 'Chargement des ventes à crédit…'));
+    if (erreur != null) return seul(EtatErreur(erreur: erreur!, reessayer: _charger));
+    final tout = donnees ?? rien;
     if (tout.isEmpty) {
-      return const [EtatVide(titre: 'Aucune vente à crédit', texte: 'Aucune vente à crédit trouvée pour la période.', icone: Icons.credit_card_outlined)];
+      return seul(const EtatVide(titre: 'Aucune vente à crédit', texte: 'Aucune vente à crédit trouvée pour la période.', icone: Icons.credit_card_outlined));
     }
-    final l = _affichees(tout);
+    final v = _vue(tout);
+    final l = v.lignes;
     if (l.isEmpty) {
-      return const [EtatVide(titre: 'Aucune vente ne correspond', texte: 'Modifiez la recherche ou le filtre.', icone: Icons.filter_alt_off_outlined)];
+      return seul(const EtatVide(titre: 'Aucune vente ne correspond', texte: 'Modifiez la recherche ou le filtre.', icone: Icons.filter_alt_off_outlined));
     }
-    final total = CaCreditDonnees.total(l);
     final n = affichees.clamp(0, l.length);
-    return [
+    final avant = <Widget>[
       GrilleKpi([
-        ChiffreCle(libelle: 'Montant à crédit', valeur: formaterMontant(total), id: 'montant', enAvant: true),
+        ChiffreCle(libelle: 'Montant à crédit', valeur: formaterMontant(v.total), id: 'montant', enAvant: true),
         ChiffreCle(
           libelle: 'Ventes',
           valeur: formaterNombre(l.length),
           id: 'ventes',
           detail: l.length == tout.length ? null : 'sur ${formaterNombre(tout.length)}',
         ),
-        ChiffreCle(libelle: 'Clients', valeur: formaterNombre({for (final c in l) c.clientName}.length), id: 'clients'),
-        ChiffreCle(libelle: 'Tiers payants', valeur: formaterNombre({for (final c in l) c.tiersPayantLibelle}.length), id: 'tiers'),
+        ChiffreCle(libelle: 'Clients', valeur: formaterNombre(v.clients), id: 'clients'),
+        ChiffreCle(libelle: 'Tiers payants', valeur: formaterNombre(v.tiersPayants), id: 'tiers'),
       ]),
       const TitreSection('Ventes à crédit'),
-      ListeOuTableau(
-        nombre: n,
-        onTap: (i) => _detail(l[i]),
-        colonnes: const [
-          Colonne('Date', flex: 2),
-          Colonne('Client', flex: 4),
-          Colonne('Ayant droit', flex: 4),
-          Colonne('N° facture', flex: 3),
-          Colonne('Tiers payant', flex: 4),
-          Colonne('Montant', flex: 3, droite: true),
-        ],
-        cellules: (i) => [_date(l[i]), l[i].clientName, _ayantDroitDistinct(l[i]) ? l[i].ayantDroitName : '', l[i].numFacturation, l[i].tiersPayantLibelle,
-          formaterMontant(l[i].montant)],
-        total: n == l.length ? ['Total', '', '', '', '', formaterMontant(total)] : null,
-        carte: (i) => CarteLigne(
-          titre: l[i].clientName,
-          lignes: [
-            if (_ayantDroitDistinct(l[i])) 'Ayant droit : ${l[i].ayantDroitName}',
-            '${_date(l[i])} · Facture ${l[i].numFacturation}',
-            'Tiers payant : ${l[i].tiersPayantLibelle}',
+    ];
+    final apres = <Widget>[
+      if (tableau)
+        ListeOuTableau(
+          nombre: n,
+          onTap: (i) => _detail(l[i]),
+          colonnes: const [
+            Colonne('Date', flex: 2),
+            Colonne('Client', flex: 4),
+            Colonne('Ayant droit', flex: 4),
+            Colonne('N° facture', flex: 3),
+            Colonne('Tiers payant', flex: 4),
+            Colonne('Montant', flex: 3, droite: true),
           ],
-          libelleValeur: 'Montant',
-          valeur: formaterMontant(l[i].montant),
-          onTap: () => _detail(l[i]),
+          cellules: (i) => [_date(l[i]), l[i].clientName, _ayantDroitDistinct(l[i]) ? l[i].ayantDroitName : '', l[i].numFacturation, l[i].tiersPayantLibelle,
+            formaterMontant(l[i].montant)],
+          total: n == l.length ? ['Total', '', '', '', '', formaterMontant(v.total)] : null,
+          carte: (i) => _carte(l, i),
         ),
-      ),
       piedTranches(l.length),
     ];
+    return (avant: avant, lignes: l, cartes: tableau ? 0 : n, apres: apres);
+  }
+}
+
+/// Ventes affichées et chiffres clés, calculés une fois par (liste, recherche, tiers payant).
+class VueCaCredit {
+  final List<CaCredit> lignes;
+  final double total;
+  final int clients;
+  final int tiersPayants;
+  const VueCaCredit(this.lignes, this.total, this.clients, this.tiersPayants);
+
+  /// Nombre de calculs faits (tests : la recherche n'est pas refaite à chaque image).
+  static int calculs = 0;
+
+  static VueCaCredit calculer(List<CaCredit> tout, String texte, String tiers) {
+    calculs++;
+    final r = CaCreditDonnees.filtrer(tout, texte);
+    final l = tiers.isEmpty ? r : [for (final c in r) if (c.tiersPayantLibelle == tiers) c];
+    return VueCaCredit(l, CaCreditDonnees.total(l), {for (final c in l) c.clientName}.length, {for (final c in l) c.tiersPayantLibelle}.length);
   }
 }

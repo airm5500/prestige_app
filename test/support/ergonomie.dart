@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prestige_app/widgets/defilement.dart';
 import 'package:prestige_app/ui/taille_ecran.dart';
 
 import 'contraste_interface.dart';
@@ -86,7 +87,22 @@ Future<List<String>> evaluerAccessibilite(WidgetTester tester, {Set<String> guid
         : e.value == textContrastGuideline && facteur != 1.0
             ? ContrasteInterface(facteur)
             : e.value;
-    final r = await guide.evaluate(tester);
+    // 3.16.0 : l'indicateur de défilement (dessiné dans la marge droite, sous le contenu) n'est pas le fond d'un
+    // texte : masqué pendant la photo du contraste (on mesure chaque texte contre SON fond).
+    final contraste = e.value == textContrastGuideline;
+    if (contraste) {
+      IndicateurDefilement.masquePourMesure.value = true;
+      await tester.pump();
+    }
+    final Evaluation r;
+    try {
+      r = await guide.evaluate(tester);
+    } finally {
+      if (contraste) {
+        IndicateurDefilement.masquePourMesure.value = false;
+        await tester.pump();
+      }
+    }
     if (r.passed) continue;
     final entrees = (r.reason ?? '').split(RegExp(r'(?=SemanticsNode#)')).where((t) => t.trim().isNotEmpty);
     for (final t in entrees) {

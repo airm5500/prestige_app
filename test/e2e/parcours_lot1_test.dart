@@ -253,8 +253,10 @@ void main() {
 
   // « Fiche Article » n'est plus un menu de la nouvelle interface (3.9.0, demande du pharmacien) : son écran n'y est
   // plus ouvert (test ci-dessous) ; l'ancienne interface garde le sien (parcours_application_test.dart).
+  // 3.16.0 : la liste d'Analyse Article vient de la recherche légère (/espace-produit/recherche?q=) ; /info n'est lu
+  // qu'au toucher, au CIP exact.
   for (final (tuile, route, parametre) in [
-    ('Analyse Article', AppConstants.infoEndpoint, 'search'),
+    ('Analyse Article', AppConstants.rechercheProduitEndpoint, 'q'),
   ]) {
     testWidgets('$tuile : recherche (anti-rebond, caractères filtrés), fiche détaillée, retour', (tester) async {
       telephone(tester);
@@ -271,9 +273,13 @@ void main() {
       expect(serveur.recues(route).map((r) => r.parametres), [
         {parametre: 'parafictif'}
       ]);
+      expect(serveur.recues(AppConstants.infoEndpoint), isEmpty, reason: '3.16.0 : aucune analyse complète pendant la saisie');
       await tester.tap(find.text(DonneesFictives.libelleArticle1));
       await attendreWidget(tester, find.byKey(const Key('defilement_detail')));
       expect(find.text('Code CIP'), findsOneWidget);
+      expect(serveur.recues(AppConstants.infoEndpoint).map((r) => r.parametres), [
+        {'search': '9990001'}
+      ]);
       await retourSysteme(tester);
       await attendreQue(tester, () => find.byKey(const Key('defilement_detail')).evaluate().isEmpty, raison: 'fiche fermée');
       await revenir(tester, m);
@@ -293,16 +299,16 @@ void main() {
 
   testWidgets('recherche : la réponse d\'une recherche remplacée est ignorée (requête précédente annulée)', (tester) async {
     telephone(tester);
-    // « parafictif » répond lentement, « sirop » tout de suite.
-    serveur.route(AppConstants.infoEndpoint, (r) {
-      final q = r.parametres['search'] ?? '';
-      final liste = [for (final a in DonneesFictives.articlesAnalyse()) if ('${a['libelle']}'.toLowerCase().contains(q)) a];
-      return ReponseFausse.json(liste).apres(q == 'parafictif' ? const Duration(milliseconds: 1500) : Duration.zero);
+    // « parafictif » répond lentement, « sirop » tout de suite (3.16.0 : recherche légère /espace-produit/recherche).
+    const route = AppConstants.rechercheProduitEndpoint;
+    serveur.route(route, (r) {
+      final q = r.parametres['q'] ?? '';
+      return ReponseFausse.json(DonneesFictives.rechercheProduit(q)).apres(q == 'parafictif' ? const Duration(milliseconds: 1500) : Duration.zero);
     }, methode: 'GET');
     await jusquAccueilNouveau(tester);
     await ouvrir(tester, module('Analyse Article'));
     await tester.enterText(find.byKey(const Key('champ_recherche')), 'parafictif');
-    await attendreQue(tester, () => serveur.recues(AppConstants.infoEndpoint).isNotEmpty, raison: 'première recherche partie');
+    await attendreQue(tester, () => serveur.recues(route).isNotEmpty, raison: 'première recherche partie');
     await tester.enterText(find.byKey(const Key('champ_recherche')), 'sirop');
     await attendreTexte(tester, DonneesFictives.libelleArticle2);
     // La réponse lente de « parafictif » arrive ensuite : ignorée.
@@ -310,7 +316,8 @@ void main() {
     await stabiliser(tester);
     expect(find.text(DonneesFictives.libelleArticle2), findsOneWidget);
     expect(find.text(DonneesFictives.libelleArticle1), findsNothing);
-    expect(serveur.recues(AppConstants.infoEndpoint).map((r) => r.parametres['search']), ['parafictif', 'sirop']);
+    expect(serveur.recues(route).map((r) => r.parametres['q']), ['parafictif', 'sirop']);
+    expect(serveur.recues(AppConstants.infoEndpoint), isEmpty);
     await terminer(tester);
   });
 

@@ -65,7 +65,9 @@ void main() {
     expect(find.byKey(const Key('chiffre_tb_ca')), findsNothing);
     await toucher(tester, 'chiffres_aujourdhui');
     await pomper(tester, () => find.byKey(const Key('chiffre_tb_ca')).evaluate().isNotEmpty, raison: 'aujourd\'hui');
-    expect(serveur.recues(ApiTableauBord.routeDaily), hasLength(2));
+    // 3.16.0 : chiffres du jour déjà lus → mémoire de l'accueil (2 min) ; la route absente (tuiles) est retenue.
+    expect(serveur.recues(ApiTableauBord.routeDaily), hasLength(1), reason: 'mémoire de l\'accueil');
+    expect(serveur.recues(ApiTableauBord.routeTuiles), hasLength(1), reason: 'route absente retenue : aucun nouveau 404');
     await fermerApplication(tester);
   });
 

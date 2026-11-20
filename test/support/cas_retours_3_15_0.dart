@@ -22,9 +22,25 @@ Future<void> _pomper(WidgetTester tester, [int fois = 6]) async {
 }
 
 Future<void> Function(WidgetTester) _toucher(String cle) => (tester) async {
-      await tester.ensureVisible(find.byKey(Key(cle)).first);
+      // Le bouton peut rester compté « hors écran » par le finder (carte construite au bord de l'écran, selon la taille
+      // de l'écran et la date du jour) : il est alors actionné directement (on prépare un état à afficher, le toucher
+      // lui-même est vérifié par test/integration/retours_3_15_0_test.dart).
+      final f = find.byKey(Key(cle), skipOffstage: false).first;
+      await tester.ensureVisible(f);
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.byKey(Key(cle)).first);
+      final visible = find.byKey(Key(cle));
+      if (visible.evaluate().isNotEmpty) {
+        await tester.tap(visible.first);
+      } else {
+        final w = tester.widget(f);
+        if (w is IconButton) {
+          w.onPressed?.call();
+        } else if (w is ButtonStyleButton) {
+          w.onPressed?.call();
+        } else {
+          await tester.tap(f, warnIfMissed: false);
+        }
+      }
       await _pomper(tester);
     };
 

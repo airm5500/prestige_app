@@ -4,15 +4,20 @@
 // du texte), mise en page refaite : recherche contrôlée (longueur, caractères, anti-rebond, réponse d'une
 // recherche remplacée ignorée), résultats en cartes (téléphone) ou en tableau (tablette), fiche détaillée avec
 // chiffres clés en cartes (au lieu d'une fenêtre).
+// 3.16.0 (« Analyse article lente ») : la liste d'Analyse Article vient de la recherche légère (RechercheProduit :
+// /espace-produit/recherche, replis /vente/search puis /info), l'analyse complète (GET /info?search=<CIP exact>) n'est
+// lue qu'au toucher d'un produit ; historique des mouvements sur une ligne par mouvement.
 import 'package:flutter/material.dart';
 
 import '../../donnees/articles_donnees.dart';
+import '../../donnees/recherche_produit_donnees.dart';
 import '../../models/analyse_article_model.dart';
 import '../../models/produit_model.dart';
 import '../../widgets/stock_reserve.dart';
 import '../charte.dart';
 import '../composants.dart';
 import 'commun.dart';
+import 'commun_lot2.dart' show messageResultat;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Analyse Article
@@ -21,14 +26,23 @@ import 'commun.dart';
 class AnalyseArticleNouveau extends StatefulWidget {
   const AnalyseArticleNouveau({super.key});
 
+  /// Anti-rebond de la saisie (3.16.0 : 300 ms, comme Prestige Mobile).
+  static const antiRebond = Duration(milliseconds: 300);
+
   @override
   State<AnalyseArticleNouveau> createState() => _AnalyseArticleNouveauState();
 }
 
-class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with ChargementSuivi<AnalyseArticleNouveau, List<AnalyseArticle>> {
+/// 3.16.0 (« Analyse article lente ») : liste par la recherche LÉGÈRE (RechercheProduit : /espace-produit/recherche,
+/// replis /vente/search puis /info), anti-rebond 300 ms, réponse d'une saisie remplacée ignorée ; au toucher,
+/// GET /info?search=<CIP exact> pour ce seul produit (cache court), puis la même fiche détaillée qu'avant.
+class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with ChargementSuivi<AnalyseArticleNouveau, ResultatRechercheProduit> {
   final _recherche = TextEditingController();
   final _focus = FocusNode();
   String _terme = '';
+
+  /// CIP dont l'analyse est en cours d'ouverture (un seul à la fois : anti double appui).
+  String? _ouverture;
 
   @override
   void initState() {
@@ -51,10 +65,29 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
       abandonner();
       return;
     }
-    charger(() => RechercheArticles.analyse(context, texte, onSessionInvalid: sessionInvalide(context)));
+    charger(() => RechercheProduit.rechercher(context, texte, onSessionInvalid: sessionInvalide(context)));
   }
 
-  void _ouvrir(AnalyseArticle a) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailAnalyseArticle(article: a)));
+  Future<void> _ouvrir(ProduitTrouve p) async {
+    if (_ouverture != null) return;
+    setState(() => _ouverture = p.cip);
+    try {
+      final a = await RechercheProduit.analyse(context, p, onSessionInvalid: sessionInvalide(context));
+      // Écran fermé pendant la lecture : rien n'est ouvert (la réponse remplit seulement le cache court).
+      if (!mounted) return;
+      if (a == null) {
+        messageResultat(context, 'Analyse introuvable pour le CIP ${p.cip}.', echec: true);
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailAnalyseArticle(article: a)));
+    } catch (e) {
+      if (!mounted) return;
+      final d = DiagnosticErreur.de(e);
+      messageResultat(context, d.cause == CauseErreur.autre ? d.message : '${d.titre}. ${d.message}', echec: true);
+    } finally {
+      if (mounted) setState(() => _ouverture = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -66,6 +99,7 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
             libelle: 'Rechercher un article',
             aide: 'Libellé (2 car.) ou code CIP (3 chiffres)',
             enCours: enCours,
+            antiRebond: AnalyseArticleNouveau.antiRebond,
             onRecherche: _rechercher,
           ),
           const SizedBox(height: 8),
@@ -73,11 +107,17 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
         ]),
       );
 
+  Widget? _attente(ProduitTrouve p) => _ouverture == p.cip
+      ? const Padding(
+          padding: EdgeInsets.only(left: 8, top: 2),
+          child: SizedBox(key: Key('analyse_ouverture'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+      : null;
+
   List<Widget> _corps() {
     if (enCours) return const [EtatChargement(texte: 'Recherche en cours…')];
     if (erreur != null) return [EtatErreur(erreur: erreur!, reessayer: () => _rechercher(_terme))];
-    final l = donnees;
-    if (l == null) {
+    final r = donnees;
+    if (r == null) {
       return const [
         EtatVide(
             titre: 'Recherchez un article',
@@ -85,9 +125,16 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
             icone: Icons.query_stats)
       ];
     }
+    final l = r.produits;
     if (l.isEmpty) return [EtatVide(titre: 'Aucun article trouvé', texte: 'Aucun article valide pour « $_terme ».', icone: Icons.search_off)];
     return [
       TitreSection('${l.length} article${l.length > 1 ? 's' : ''}'),
+      if (r.limiteAtteinte)
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text('Les ${r.maximum} premiers : précisez la recherche pour voir les autres.',
+              key: const Key('analyse_limite'), style: const TextStyle(color: Charte.gris, fontSize: 13)),
+        ),
       ListeOuTableau(
         nombre: l.length,
         onTap: (i) => _ouvrir(l[i]),
@@ -96,23 +143,24 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
           Colonne('Libellé', flex: 5),
           Colonne('Prix vente', flex: 2, droite: true),
           Colonne('Stock', flex: 1, droite: true),
-          Colonne('Réserve', flex: 1, droite: true),
-          Colonne('Moy. 3 mois', flex: 2, droite: true),
+          Colonne('Emplacement', flex: 2),
         ],
         cellules: (i) => [
-          l[i].codeCip,
-          l[i].libelle,
-          formaterMontant(l[i].prixVente),
-          l[i].stock?.toString() ?? 'N/A',
-          l[i].reserve.geree ? '${l[i].reserve.stockReserve}' : '—',
-          l[i].moyenne.toStringAsFixed(2),
+          l[i].cip,
+          l[i].designation,
+          l[i].prixVente == null ? '—' : formaterMontant(l[i].prixVente),
+          l[i].stockTotal == null ? 'N/A' : formaterNombre(l[i].stockTotal!),
+          l[i].emplacement ?? '—',
         ],
         carte: (i) => CarteLigne(
-          titre: l[i].libelle,
-          etiquette: (l[i].classe ?? '').isEmpty ? null : Etiquette('Classe ${l[i].classe}', ton: Ton.ambre),
-          lignes: ['CIP ${l[i].codeCip} · Stock ${l[i].stock?.toString() ?? 'N/A'} · Moy. 3 mois ${l[i].moyenne.toStringAsFixed(2)}'],
-          pied: StockReserveResume(reserve: l[i].reserve, rayon: l[i].stock),
-          valeur: formaterMontant(l[i].prixVente),
+          key: Key('article_${l[i].cip}'),
+          titre: l[i].designation,
+          lignes: [
+            ['CIP ${l[i].cip}', if (l[i].stockTotal != null) 'Stock ${formaterNombre(l[i].stockTotal!)}', if (l[i].emplacement != null) l[i].emplacement!]
+                .join(' · '),
+          ],
+          valeur: l[i].prixVente == null ? null : formaterMontant(l[i].prixVente),
+          action: _attente(l[i]),
           onTap: () => _ouvrir(l[i]),
         ),
       ),
@@ -124,6 +172,14 @@ class _AnalyseArticleNouveauState extends State<AnalyseArticleNouveau> with Char
 class DetailAnalyseArticle extends StatelessWidget {
   final AnalyseArticle article;
   const DetailAnalyseArticle({super.key, required this.article});
+
+  /// Historique des mouvements (les derniers de chaque sorte) : (clé, libellé court, date, quantité), dans
+  /// l'ordre d'origine. Libellés courts : « Inventaire · 12/11/2026 » et « Qté 1234 » tiennent sur une ligne à 320 dp.
+  static List<(String, String, String?, int?)> mouvements(AnalyseArticle a) => [
+        ('vente', 'Vente', a.dateDerniereVente, a.qteDerniereVente),
+        ('achat', 'Achat', a.dateDernierAchat, a.qteDernierAchat),
+        ('inventaire', 'Inventaire', a.dateDernierInventaire, a.qteDernierInventaire),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -161,10 +217,11 @@ class DetailAnalyseArticle extends StatelessWidget {
         CarteSection(titre: 'Stock rayon et réserve', icone: Icons.inventory_2_outlined, enfants: [
           for (final (libelle, valeur) in stockReserveInfos(a.stock, a.reserve)) LigneDetail(libelle, valeur),
         ]),
+        // 3.16.0 : une ligne par DERNIER mouvement, date et quantité sur la MÊME ligne (quantité de 1 à 4 chiffres
+        // jamais renvoyée à la ligne, même à 320 dp).
         CarteSection(titre: 'Historique des mouvements', icone: Icons.history, enfants: [
-          LigneDetail('Dernière Vente', '${a.dateDerniereVente ?? "N/A"} (Qté: ${a.qteDerniereVente ?? 0})'),
-          LigneDetail('Dernier Achat', '${a.dateDernierAchat ?? "N/A"} (Qté: ${a.qteDernierAchat ?? 0})'),
-          LigneDetail('Dernier Inventaire', '${a.dateDernierInventaire ?? "N/A"} (Qté: ${a.qteDernierInventaire ?? 0})'),
+          for (final (cle, libelle, date, qte) in mouvements(a))
+            LigneDetail('$libelle · ${date ?? 'N/A'}', 'Qté ${qte ?? 0}', uneLigne: true, key: Key('mouvement_$cle')),
         ]),
         CarteSection(titre: 'Ventes mensuelles', icone: Icons.bar_chart, enfants: [
           if (ventes.isEmpty)

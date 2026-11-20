@@ -232,28 +232,42 @@ class ChiffreCle extends StatelessWidget {
 }
 
 /// Ligne « libellé … valeur » d'une carte de détail.
+///
+/// [uneLigne] (3.16.0, historique des mouvements d'Analyse Article) : TOUJOURS sur une ligne — le libellé prend la
+/// place restante (coupé par « … » s'il le faut), la valeur garde sa largeur naturelle (jamais coupée ni renvoyée à
+/// la ligne : une quantité de 1 à 4 chiffres reste lisible à 320 dp). Sans [uneLigne] : comportement d'origine
+/// (deux moitiés égales, retour à la ligne permis), utilisé par toutes les autres fiches.
 class LigneDetail extends StatelessWidget {
   final String libelle;
   final String valeur;
   final bool gras;
   final Color? couleur;
-  const LigneDetail(this.libelle, this.valeur, {super.key, this.gras = false, this.couleur});
+  final bool uneLigne;
+  const LigneDetail(this.libelle, this.valeur, {super.key, this.gras = false, this.couleur, this.uneLigne = false});
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    final styleLibelle = TextStyle(color: gras ? Charte.encre : Charte.grisTexte, fontSize: 14, fontWeight: gras ? FontWeight.bold : FontWeight.w600);
+    final styleValeur = TextStyle(color: couleur ?? Charte.encre, fontSize: 14.5, fontWeight: gras ? FontWeight.w800 : FontWeight.w600);
+    if (uneLigne) {
+      return Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Text(libelle, style: TextStyle(color: gras ? Charte.encre : Charte.grisTexte, fontSize: 14, fontWeight: gras ? FontWeight.bold : FontWeight.w600)),
-          ),
+        child: Row(children: [
+          Expanded(child: Text(libelle, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false, style: styleLibelle)),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(valeur,
-                textAlign: TextAlign.right,
-                style: TextStyle(color: couleur ?? Charte.encre, fontSize: 14.5, fontWeight: gras ? FontWeight.w800 : FontWeight.w600)),
-          ),
+          Text(valeur, maxLines: 1, softWrap: false, textAlign: TextAlign.right, style: styleValeur),
         ]),
       );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Text(libelle, style: styleLibelle)),
+        const SizedBox(width: 12),
+        Expanded(child: Text(valeur, textAlign: TextAlign.right, style: styleValeur)),
+      ]),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------

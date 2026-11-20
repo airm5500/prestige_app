@@ -92,10 +92,14 @@ void main() {
       expect(tester.widget<IconButton>(cle('affluence_suivante')).onPressed, isNotNull);
       await toucher(tester, 'affluence_precedente');
       expect(serveur.recues(ApiTableauBord.routeAffluence).last.parametres['date'], '2026-10-05');
+      // 3.16.0 : semaines déjà lues → mémoire de l'accueil (cache court), aucune nouvelle requête.
+      final lues = serveur.recues(ApiTableauBord.routeAffluence).length;
       await toucher(tester, 'affluence_suivante');
-      expect(serveur.recues(ApiTableauBord.routeAffluence).last.parametres['date'], '2026-10-12');
+      expect(tester.widget<Text>(cle('affluence_semaine')).data, 'Semaine du 12/10 au 18/10');
+      expect(serveur.recues(ApiTableauBord.routeAffluence), hasLength(lues), reason: 'semaine déjà lue : mémoire de l\'accueil');
       await toucher(tester, 'affluence_cette_semaine');
-      expect(serveur.recues(ApiTableauBord.routeAffluence).last.parametres, {'date': '2026-10-19', 'frais': '0'});
+      expect(tester.widget<Text>(cle('affluence_semaine')).data, 'Semaine du 19/10 au 25/10');
+      expect(serveur.recues(ApiTableauBord.routeAffluence).map((r) => r.parametres['frais']).toSet(), {'0'}, reason: 'cache du serveur');
       expect(cle('affluence_cette_semaine'), findsNothing);
       serveur.oublierRequetes();
       await tester.tap(cle('tableau_bord_actualiser'));

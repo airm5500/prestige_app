@@ -69,7 +69,11 @@ void main() {
     expect(find.byKey(const Key('tb_evolution_veille')), findsOneWidget);
     expect(find.text('Achats'), findsOneWidget, reason: '« Achats du jour » seulement pour aujourd\'hui');
     await toucher(tester, find.byKey(const Key('chiffres_aujourdhui')));
-    await attendreQue(tester, () => serveur.recues('/tableau-bord/tuiles').length == 3, raison: 'retour à aujourd\'hui');
+    // 3.16.0 : chiffres du jour déjà lus → mémoire de l'accueil (2 min), aucune requête.
+    await attendreWidget(tester, find.byKey(const Key('chiffre_tb_ca')));
+    await stabiliser(tester);
+    expect(serveur.recues('/tableau-bord/tuiles'), hasLength(2), reason: 'retour à aujourd\'hui : mémoire de l\'accueil');
+    expect(find.text('Achats du jour'), findsOneWidget);
 
     // Fréquentation : part du CA et écart avec la veille, puis 2 h et 7 h – 22 h sans aucune requête.
     final defilement = find.descendant(of: find.byKey(const Key('defilement_tableau_bord')), matching: find.byType(Scrollable)).first;

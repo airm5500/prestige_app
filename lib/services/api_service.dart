@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
@@ -192,11 +193,24 @@ class ApiService {
   }
 
   Future<void> setSessionCookie(String rawCookie) async {
+    _numeroSession++;
     _sessionCookie = extraireCookieSession(rawCookie);
     await CookieSecurise.instance.ecrire(_sessionCookie!);
   }
 
+  /// Numéro de la session : augmente à chaque connexion (nouveau cookie) et à chaque déconnexion.
+  int _numeroSession = 0;
+
+  /// Empreinte de la session et du client HTTP en cours (3.16.0, clés des caches courts, lib/donnees/cache_court.dart) :
+  /// change à chaque connexion / déconnexion (et quand un test remplace le client). Le cookie n'y figure pas ; sa
+  /// relecture au démarrage (loadSessionCookie : même session) ne la change pas.
+  int get empreinteSession => Object.hash(identityHashCode(client), _numeroSession);
+
+  /// Adresse du serveur modifiée dans la Configuration : les caches courts repartent de zéro.
+  void serveurModifie() => _numeroSession++;
+
   Future<void> clearSessionCookie() async {
+    _numeroSession++;
     _sessionCookie = null;
     await CookieSecurise.instance.effacer();
   }
@@ -257,6 +271,34 @@ class ApiService {
     final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delai ?? delaiGet);
     return _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid));
   }
+
+  /// 3.16.0 (« CA crédit lent ») : taille de réponse à partir de laquelle [getLourd] décode HORS du fil de l'interface.
+  static const seuilDecodageIsole = 256 * 1024;
+
+  /// GET d'une route qui peut renvoyer une très grande liste (ex. /ca-credit, non paginé par le serveur) : même
+  /// requête, mêmes contrôles et mêmes erreurs que [get], mais une réponse de [seuilDecodageIsole] octets ou plus est
+  /// décodée ET lue par [lire] dans un isolat (compute) : l'écran reste fluide pendant le décodage. [lire] doit être
+  /// une fonction statique ou de premier niveau (envoyée à l'isolat).
+  Future<T> getLourd<T>(BuildContext context, String endpoint, T Function(dynamic data) lire,
+      {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai}) async {
+    final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
+    var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
+    if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
+    JournalApp.debug(JournalApp.requete('GET', uri));
+    final response = await _envoyer(() => client.get(uri, headers: _getHeaders()), delai ?? delaiGet);
+    final code = response.statusCode;
+    if (code >= 200 && code < 300 && response.bodyBytes.length >= seuilDecodageIsole) {
+      try {
+        return await compute(_decoderEtLire<T>, (response.bodyBytes, lire));
+      } catch (_) {
+        JournalApp.debug('Réponse illisible (JSON incorrect)');
+        throw const ApiLoadException(ApiLoadException.messageReponse, nature: NatureErreur.reponse);
+      }
+    }
+    return lire(await _verifier404(ipProvider.activeBaseUrl, endpoint, () => _handleResponse(response, onSessionInvalid)));
+  }
+
+  static T _decoderEtLire<T>((Uint8List, T Function(dynamic)) m) => m.$2(jsonDecode(utf8.decode(m.$1)));
 
   Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);

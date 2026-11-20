@@ -31,6 +31,20 @@ class EtatStock {
   /// Lignes demandées par page (écran d'origine).
   static const taillePage = 15;
 
+  /// 3.16.0 (« État de stock lent ») : une recherche de 1 ou 2 caractères n'est pas envoyée (GET /fichearticle/comparaison
+  /// sur presque tout le catalogue). 3 caractères au moins ; un code CIP / EAN complet (7 chiffres ou plus) passe
+  /// évidemment. Recherche vide : seuls les filtres comptent (comme avant).
+  static const longueurMinimale = 3;
+
+  /// Anti-rebond de la saisie (nouvelle interface).
+  static const antiRebond = Duration(milliseconds: 300);
+
+  /// [texte] saisi (avant nettoyage) est-il trop court pour partir ?
+  static bool rechercheTropCourte(String texte) {
+    final t = Saisie.recherche(texte);
+    return t.isNotEmpty && t.length < longueurMinimale;
+  }
+
   /// Comparaisons du filtre de stock (valeur envoyée → libellé).
   static const comparaisons = {
     'EQUAL': 'Egal (=)',

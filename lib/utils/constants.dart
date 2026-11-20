@@ -74,7 +74,9 @@ class AppConstants {
   static const String margeProduitsVendusEndpoint = '/datareporting/margeproduitsvendus';
 
   // Default Values
-  static const String defaultLocalIp = '';
+  // 3.16.0 : nouvelle configuration → serveur local 192.168.1.50:8080, comme Prestige Mobile et Prestige Vente.
+  // Une adresse déjà enregistrée (même vide) n'est jamais remplacée (IpConfigProvider.loadSettings).
+  static const String defaultLocalIp = '192.168.1.50';
   static const String defaultRemoteIp = '';
   static const String defaultPort = '8080';
   static const String defaultAppName = 'prestige';

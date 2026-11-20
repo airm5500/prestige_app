@@ -459,6 +459,10 @@ void main() {
     await attendreWidget(tester, find.widgetWithText(AppBar, 'Analyse Article'));
     serveur.expirerSessions();
     await tester.enterText(champAnalyseArticle, 'parafictif');
+    // 3.16.0 : la liste vient de la recherche publique (/espace-produit/recherche, sans session) ; l'expiration se
+    // voit au toucher du produit (/info?search=<CIP>).
+    await attendreTexte(tester, DonneesFictives.libelleArticle1);
+    await tester.tap(find.text(DonneesFictives.libelleArticle1));
     await attendreWidget(tester, find.byType(LoginScreen));
     await attendreTexte(tester, AuthProvider.messageSessionExpiree);
     await attendreQue(tester, () => find.byType(AnalyseArticleNouveau).evaluate().isEmpty, raison: 'Analyse Article fermée');

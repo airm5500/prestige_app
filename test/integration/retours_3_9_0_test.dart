@@ -203,11 +203,16 @@ void main() {
       await demonter(tester);
     });
 
+    // 3.16.0 : entre les deux, la recherche de l'écran de vente (/vente/search) est essayée (repli testé dans
+    // integration/retours_3_16_0_test.dart) ; ici le serveur ne l'a pas non plus.
     testWidgets('serveur sans /espace-produit (404) : repli /info (« commence par »), avertissement, détail sans requête', (tester) async {
       serveur.quand(routeRecherche, ReponseFausse.introuvable(), methode: 'GET');
+      serveur.quand('/vente/search', ReponseFausse.introuvable(), methode: 'GET');
       await monter(tester, ongletRecherche);
       await saisir(tester, 'para');
+      await pomper(tester, 6);
       expect(serveur.recues(routeRecherche).single.parametres['q'], 'para');
+      expect(serveur.recues('/vente/search').single.parametres, {'query': 'para', 'start': '0', 'limit': '30'});
       expect(serveur.recues(routeInfo).single.parametres, {'search': 'para'});
       expect(cle('recherche_produit_commence_par'), findsOneWidget);
       expect(find.text(DonneesFictives.libelleArticle1), findsOneWidget);

@@ -21,6 +21,7 @@ import 'interface_version.dart';
 import 'nouvelle_interface/charte.dart';
 import 'nouvelle_interface/icones_illustrees.dart';
 import 'ui/taille_ecran.dart';
+import 'widgets/defilement.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -141,6 +142,8 @@ class PrestigeApp extends StatelessWidget {
       builder: (context, nouvelle, _) => MaterialApp(
       key: ValueKey<bool>(nouvelle),
       title: 'Prestige App',
+      // 3.16.0 : indicateur de défilement vertical toujours visible sur toutes les listes (lib/widgets/defilement.dart).
+      scrollBehavior: const DefilementPrestige(),
       theme: nouvelle ? themeNouvelleInterface(context) : themeAncienneInterface(context),
       builder: (context, child) => InterfaceScope(nouvelle: nouvelle, child: child ?? const SizedBox()),
       debugShowCheckedModeBanner: false,

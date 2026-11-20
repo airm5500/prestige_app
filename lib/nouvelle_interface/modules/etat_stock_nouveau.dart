@@ -5,6 +5,8 @@
 // (anti-rebond), filtres (emplacement, comparaison de stock + quantité contrôlée) dans la feuille du bas, chiffres
 // clés, articles en cartes (téléphone) ou tableau (tablette), « Afficher plus » (page suivante, un appel par appui),
 // détail d'un article dans une feuille. Comme l'écran d'origine, rien n'est cherché avant une recherche ou un filtre.
+// 3.16.0 (« État de stock lent ») : 3 caractères au moins (EtatStock.rechercheTropCourte), anti-rebond 300 ms, la
+// réponse d'une recherche remplacée est ignorée (numéro de génération) et jamais affichée.
 import 'package:flutter/material.dart';
 
 import '../../donnees/etat_stock_donnees.dart';
@@ -42,6 +44,9 @@ class _EtatStockNouveauState extends State<EtatStockNouveau> {
   int _total = 0;
   int _page = 0;
   bool _cherche = false;
+
+  /// Saisie de 1 ou 2 caractères : rien n'est envoyé, l'écran le dit.
+  bool _tropCourt = false;
   bool _enCours = false;
   bool _suiteEnCours = false;
   Object? _erreur;
@@ -76,8 +81,13 @@ class _EtatStockNouveauState extends State<EtatStockNouveau> {
 
   /// Première page (nouvelle recherche, filtres, Réessayer) ; toute recherche précédente est abandonnée.
   Future<void> _chercher() async {
+    if (EtatStock.rechercheTropCourte(_recherche.text)) {
+      _attendreSaisie();
+      return;
+    }
     final g = ++_generation;
     setState(() {
+      _tropCourt = false;
       _cherche = true;
       _enCours = true;
       _suiteEnCours = false;
@@ -127,10 +137,24 @@ class _EtatStockNouveauState extends State<EtatStockNouveau> {
     }
   }
 
+  /// Saisie trop courte : toute recherche en cours est abandonnée (sa réponse sera ignorée), rien n'est envoyé.
+  void _attendreSaisie() {
+    _generation++;
+    setState(() {
+      _tropCourt = true;
+      _cherche = false;
+      _articles.clear();
+      _erreur = null;
+      _enCours = false;
+      _suiteEnCours = false;
+    });
+  }
+
   void _surRecherche(String texte) {
     if (texte.isEmpty && _actifs == 0) {
       _generation++;
       setState(() {
+        _tropCourt = false;
         _cherche = false;
         _articles.clear();
         _erreur = null;
@@ -256,8 +280,9 @@ class _EtatStockNouveauState extends State<EtatStockNouveau> {
             ChampRecherche(
               controleur: _recherche,
               libelle: 'Rechercher un article',
-              aide: 'Nom, code ou scan',
+              aide: 'Nom, code ou scan (3 caractères au moins)',
               enCours: _enCours,
+              antiRebond: EtatStock.antiRebond,
               onRecherche: _surRecherche,
             ),
             EtiquettesFiltres(etiquettes: [
@@ -281,6 +306,15 @@ class _EtatStockNouveauState extends State<EtatStockNouveau> {
       );
 
   List<Widget> _corps() {
+    if (_tropCourt) {
+      return const [
+        EtatVide(
+            key: Key('etat_stock_trop_court'),
+            titre: 'Recherche trop courte',
+            texte: 'Saisissez au moins ${EtatStock.longueurMinimale} caractères du nom ou du code.',
+            icone: Icons.keyboard_outlined),
+      ];
+    }
     if (!_cherche) {
       return const [
         EtatVide(

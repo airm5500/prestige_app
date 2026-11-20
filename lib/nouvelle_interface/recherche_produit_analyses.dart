@@ -115,13 +115,13 @@ class _RechercheProduitAnalysesState extends State<RechercheProduitAnalyses>
         enfants.add(EtatVide(titre: 'Aucun produit trouvé', texte: 'Aucun produit pour « $_terme ».', icone: Icons.search_off));
       } else {
         enfants.add(TitreSection(
-            '${r.produits.length} produit${r.produits.length > 1 ? 's' : ''}${r.contient ? ' contenant « $_terme »' : ''}',
+            '${r.produits.length} produit${r.produits.length > 1 ? 's' : ''}${r.source == SourceRecherche.espaceProduit ? ' contenant « $_terme »' : ''}',
             marge: const EdgeInsets.fromLTRB(4, 4, 4, 6)));
         if (r.limiteAtteinte) {
-          enfants.add(const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 6),
-            child: Text('Les ${RechercheProduit.maxResultats} premiers : précisez la recherche pour voir les autres.',
-                key: Key('recherche_produit_limite'), style: TextStyle(color: Charte.gris, fontSize: 13)),
+          enfants.add(Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text('Les ${r.maximum} premiers : précisez la recherche pour voir les autres.',
+                key: const Key('recherche_produit_limite'), style: const TextStyle(color: Charte.gris, fontSize: 13)),
           ));
         }
         for (final p in r.produits) {
