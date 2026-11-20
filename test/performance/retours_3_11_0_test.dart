@@ -62,10 +62,12 @@ void main() {
       });
       final cartes = rs.where((r) => r.chemin != '/officine' && r.chemin != '/licence/find' && r.chemin != AppConstants.authEndpoint).toList();
       // 8 cartes (3.15.0 : + Affluence), une lecture chacune (aucune relecture au second défilement).
-      mesurer('Tableau de bord ($nom) — requêtes des cartes', cartes.length, seuil: 8, unite: 'requêtes', detail: detailRequetes(cartes));
+      // 3.17.0 : + 1 essai de /tableau-bord/tva (demande 68) sur un serveur qui ne l'a pas encore (404 retenu pour la
+      // session) ; 8 sur un serveur à jour (la carte TVA ne lit plus /tvas).
+      mesurer('Tableau de bord ($nom) — requêtes des cartes', cartes.length, seuil: 9, unite: 'requêtes', detail: detailRequetes(cartes));
       expect(cartes.map((r) => r.chemin).toSet(), {
         '/tableau-bord/tuiles', '/ws/ca-achats-ventes', '/pilotage/suivi/frequentation', '/tableau-bord/valorisation', '/tableau-bord/encaissements',
-        '/tableau-bord/emplacements', '/tvas', '/tableau-bord/affluence',
+        '/tableau-bord/emplacements', '/tvas', '/tableau-bord/affluence', '/tableau-bord/tva',
       });
       await fermerApplication(tester);
     });

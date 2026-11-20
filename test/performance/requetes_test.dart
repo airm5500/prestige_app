@@ -96,7 +96,9 @@ void main() {
     ('A · défaut 3.10.1 (P4 jamais choisi)', Presentation.tableauDeBord, 4, AffichageMenus.unePage, null),
     // 3.11.0 : tableau de bord (défaut) : une requête par carte. 3.16.0 : les 8 cartes sont lues en parallèle dès
     // l'ouverture (même celles sous l'écran), une fois chacune : 8 cartes + connexion + officine.
-    ('Tableau de bord (défaut 3.11.0)', Presentation.tableauPrestige, 10, AffichageMenus.unePage, null),
+    // 3.17.0 : + 1 essai de /tableau-bord/tva (demande 68) tant que le serveur ne l'a pas (404 retenu pour la session,
+    // sans vérification /officine) ; sur un serveur à jour, /tvas n'est plus lue (10 de nouveau).
+    ('Tableau de bord (défaut 3.11.0)', Presentation.tableauPrestige, 11, AffichageMenus.unePage, null),
   ]) {
     testWidgets('connexion + accueil $nom : plafond $plafond requêtes', (tester) async {
       telephone(tester);

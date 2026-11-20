@@ -15,7 +15,9 @@
 //  - Marge Produits Vendus : GET /datareporting/margeproduitsvendus?dtStart=&dtEnd=&limit=9999 → « data », filtre
 //    LOCAL sur la marge (%) : =, >, <, >=, <=, !=, ~= (± 1) ;
 //  - CA Crédit : GET /ca-credit?dtStart=&dtEnd= → liste, recherche LOCALE (client, ayant droit, N° de facture,
-//    tiers payant) ;
+//    tiers payant) ; 3.17.0 (demande serveur 67) : la nouvelle interface ajoute start / limit (+ query, tiersPayant) :
+//    un serveur à jour répond par une PAGE { total, montant, clients, tiersPayants, data }, un serveur plus ancien
+//    ignore ces paramètres et renvoie la liste (comportement 3.16.0) ;
 //  - CA Global : GET /ca-all?dtStart=&dtEnd= → une ligne par jour triée par date, cumul de la période, CA brut et
 //    net (brut − remise).
 // Aucun de ces écrans n'a d'export.
@@ -219,6 +221,53 @@ class CaCreditDonnees {
   static Future<List<CaCredit>?> charger(BuildContext context, DateTime debut, DateTime fin, {VoidCallback? onSessionInvalid}) =>
       ApiService().getLourd(context, AppConstants.caCreditEndpoint, lire, queryParams: parametres(debut, fin), onSessionInvalid: onSessionInvalid);
 
+  // --- 3.17.0 : pagination, totaux, recherche et filtre côté serveur (demande 67) ---------------------------------
+
+  /// Taille d'une page demandée au serveur.
+  static const taillePage = 50;
+
+  /// Délai d'attente de cette route seulement : le serveur lit toute la période avant de découper la page (12 à
+  /// 16 s pour un mois chargé, mesuré par le serveur) ; les autres routes gardent ApiService.delaiGet.
+  static const delai = Duration(seconds: 60);
+
+  /// Mode de la route détecté pour une source (serveur local / distant et session, CacheCourt.source) : true = page
+  /// (serveur à jour), false = liste (serveur ancien). Absent : pas encore détecté.
+  static final _modes = <String, bool>{};
+
+  static bool? modeConnu(String source) => _modes[source];
+  static void noterMode(String source, bool pagine) => _modes[source] = pagine;
+
+  /// Tests : oublie les modes détectés.
+  static void oublierModes() => _modes.clear();
+
+  /// Paramètres d'une page : période, start, limit ; query et tiersPayant seulement s'ils sont donnés.
+  static Map<String, String> parametresPage(DateTime debut, DateTime fin, {int start = 0, int limit = taillePage, String query = '', String tiersPayant = ''}) => {
+        ..._dates(debut, fin),
+        'start': '$start',
+        'limit': '$limit',
+        if (query.isNotEmpty) 'query': query,
+        if (tiersPayant.isNotEmpty) 'tiersPayant': tiersPayant,
+      };
+
+  /// Réponse de /ca-credit : liste (serveur ancien, ou sans limit), page (serveur à jour, avec limit), sinon null
+  /// (forme inattendue). Fonction statique : peut être exécutée dans un isolat (ApiService.getLourd).
+  static ReponseCaCredit? lireReponse(dynamic data) {
+    if (data is List) {
+      final l = lire(data);
+      return l == null ? null : ReponseCaCredit.liste(l);
+    }
+    final p = PageCaCredit.lire(data);
+    return p == null ? null : ReponseCaCredit.page(p);
+  }
+
+  /// Une lecture de /ca-credit avec start / limit (+ query, tiersPayant) : page ou liste selon le serveur.
+  /// [pagine] false (serveur ancien déjà détecté) : la requête de la 3.16.0 (dtStart, dtEnd seulement).
+  static Future<ReponseCaCredit?> chargerPage(BuildContext context, DateTime debut, DateTime fin,
+      {bool pagine = true, int start = 0, int limit = taillePage, String query = '', String tiersPayant = '', VoidCallback? onSessionInvalid}) {
+    final p = pagine ? parametresPage(debut, fin, start: start, limit: limit, query: query, tiersPayant: tiersPayant) : parametres(debut, fin);
+    return ApiService().getLourd(context, AppConstants.caCreditEndpoint, lireReponse, queryParams: p, onSessionInvalid: onSessionInvalid, delai: delai);
+  }
+
   /// Recherche locale de l'écran d'origine (sans tenir compte de la casse).
   static List<CaCredit> filtrer(List<CaCredit> l, String texte) {
     final query = texte.toLowerCase();
@@ -232,6 +281,49 @@ class CaCreditDonnees {
   }
 
   static double total(List<CaCredit> l) => l.fold(0.0, (s, e) => s + e.montant);
+}
+
+/// Réponse de /ca-credit : la liste entière (serveur ancien) ou une page (serveur à jour, demande 67).
+class ReponseCaCredit {
+  final List<CaCredit>? liste;
+  final PageCaCredit? page;
+  const ReponseCaCredit.liste(List<CaCredit> l)
+      : liste = l,
+        page = null;
+  const ReponseCaCredit.page(PageCaCredit p)
+      : page = p,
+        liste = null;
+
+  bool get pagine => page != null;
+}
+
+/// Page de /ca-credit (demande 67) : totaux de TOUTES les lignes retenues par les filtres (total, montant, clients),
+/// tiers payants de toute la période (avant filtres, triés), lignes de la page (date décroissante, puis facture).
+class PageCaCredit {
+  final int total;
+  final double montant;
+  final int clients;
+  final List<String> tiersPayants;
+  final List<CaCredit> data;
+  const PageCaCredit({required this.total, required this.montant, required this.clients, required this.tiersPayants, required this.data});
+
+  /// Objet { total, montant, clients, tiersPayants, data } ; null si la forme est inattendue.
+  static PageCaCredit? lire(dynamic j) {
+    if (j is! Map) return null;
+    final total = j['total'], montant = j['montant'], clients = j['clients'], tiers = j['tiersPayants'], data = j['data'];
+    if (total is! num || data is! List) return null;
+    try {
+      return PageCaCredit(
+        total: total.toInt(),
+        montant: montant is num ? montant.toDouble() : 0,
+        clients: clients is num ? clients.toInt() : 0,
+        tiersPayants: tiers is List ? [for (final t in tiers) if (t is String) t] : const [],
+        data: [for (final x in data) CaCredit.fromJson(Map<String, dynamic>.from(x as Map))],
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------------------------------------------

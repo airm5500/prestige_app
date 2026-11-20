@@ -239,6 +239,9 @@ class DonneesVague4 {
 /// Routes par défaut de la 3.11.0 (appelé par FauxServeurPrestige.installerRoutesParDefaut). Création d'inventaire
 /// des sur-stocks : JAMAIS appelée (répond, pour que les tests puissent vérifier qu'aucune requête n'y part).
 void installerRoutesVague4(FauxServeurPrestige s) {
+  // Serveur déployé en officine (novembre 2026) : pas encore de /tableau-bord/tva (demande 68, 3.17.0) → 404 ; la
+  // carte TVA de l'accueil se replie sur /api/v3/tvas. Les tests de la 3.17.0 scriptent la nouvelle route.
+  s.quand('/tableau-bord/tva', ReponseFausse.introuvable(), methode: 'GET');
   s.quand('/balance/balancesalecash', ReponseFausse.json(DonneesVague4.balance()), methode: 'GET');
   s.route('/balance/balancesalecash/analyse', (r) => ReponseFausse.json(DonneesVague4.analyse(r.parametres['typePeriode'] ?? '')), methode: 'GET');
   s.quand('/balance/balancesalecash/pdf', ReponseFausse.octets('%PDF-1.4 fictif'.codeUnits, type: 'application/pdf'), methode: 'GET');

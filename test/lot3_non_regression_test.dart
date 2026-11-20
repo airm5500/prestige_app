@@ -494,7 +494,11 @@ void main() {
     await demonter(tester);
 
     expect(jourO.single, duJour);
-    expect(jourN, jourO);
+    // 3.17.0 (demande 67) : la nouvelle interface ajoute start=0&limit=50 (ignorés par le serveur actuel, qui renvoie
+    // la même liste) ; même période.
+    expect(jourN, [
+      {...jourO.single, 'start': '0', 'limit': '50'}
+    ]);
     expect(requetesO, 1, reason: 'recherche locale d\'origine');
     expect(requetesN, 1, reason: 'recherche locale : aucune nouvelle requête');
     expect(retenusO[''], hasLength(6));

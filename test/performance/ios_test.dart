@@ -41,7 +41,9 @@ void main() {
           await deuxPassages(tester, 'Tableau de bord ($nom, iOS)', minPas: 2, cle: 'defilement_tableau_bord');
         });
         final cartes = rs.where((r) => r.chemin != '/officine' && r.chemin != '/licence/find' && r.chemin != AppConstants.authEndpoint).toList();
-        mesurer('Tableau de bord ($nom, iOS) — requêtes des cartes', cartes.length, seuil: 8, unite: 'requêtes', detail: detailRequetes(cartes));
+        // 3.17.0 : + 1 essai de /tableau-bord/tva (demande 68) sur un serveur qui ne l'a pas encore (404 retenu pour la
+        // session) ; 8 sur un serveur à jour (la carte TVA ne lit plus /tvas).
+        mesurer('Tableau de bord ($nom, iOS) — requêtes des cartes', cartes.length, seuil: 9, unite: 'requêtes', detail: detailRequetes(cartes));
         await fermerApplication(tester);
       } finally {
         debugDefaultTargetPlatformOverride = null;

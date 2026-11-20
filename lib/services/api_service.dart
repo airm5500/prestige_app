@@ -457,6 +457,11 @@ class ApiService {
 
   /// Routes présentes sur TOUT serveur Prestige déployé (publiques ou de connexion) : un 404 y signifie que Prestige
   /// n'est pas déployé (démarrage ou redéploiement de Payara), jamais « élément introuvable ».
+  /// 3.17.0 : routes récentes ESSAYÉES par l'application, avec un repli connu (ex. carte TVA de l'accueil, demande
+  /// serveur 68 → api/v3/tvas). Leur 404 veut dire « serveur pas encore à jour » : aucune vérification /officine (le
+  /// repli, s'il répond 404 à son tour, fait la vérification).
+  static const routesSondees = {'/tableau-bord/tva'};
+
   static const routesToujoursPresentes = {AppConstants.authEndpoint, AppConstants.officineEndpoint, '/licence/find'};
 
   /// 3.10.3 (pharmacien : distinguer « serveur injoignable » et « Prestige pas déployé ») : un 404 d'une autre route
@@ -470,6 +475,7 @@ class ApiService {
       if (e.nature != NatureErreur.refus || e.code != 404) rethrow;
       final chemin = endpoint.split('?').first;
       if (routesToujoursPresentes.contains(chemin)) throw const ApiLoadException.nonDeploye(404);
+      if (routesSondees.contains(chemin)) rethrow;
       if (await prestigeNonDeploye(base)) throw const ApiLoadException.nonDeploye(404);
       rethrow;
     }

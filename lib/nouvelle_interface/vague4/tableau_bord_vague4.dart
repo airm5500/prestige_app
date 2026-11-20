@@ -14,7 +14,8 @@
 //  - Valorisation du stock — GET /tableau-bord/valorisation ; sinon GET /produit/valorisation (calcul du jour) ;
 //  - Encaissements du jour — GET /tableau-bord/encaissements?date= ;
 //  - Top 10 des ventes du mois par emplacement / par famille — GET /tableau-bord/emplacements?date=&limite=10&axe= ;
-//  - Ventes du mois par taux de TVA — GET /api/v3/tvas (Stat TVA).
+//  - Ventes du mois par taux de TVA — GET /tableau-bord/tva?date=&frais= (3.17.0, demande 68) ; serveur sans cette
+//    route (404 / 403) ou réponse inattendue : GET /api/v3/tvas (Stat TVA), comme avant.
 // Une carte dont la route manque sur le serveur (404) affiche « Indisponible sur ce serveur » ; une erreur d'une carte
 // ne gêne jamais les autres. Chaque carte ne charge qu'à son affichage (liste construite à la demande) ; ⟳ recharge
 // tout. L'accès aux menus reste : bouton « Tous les menus » en haut et barre du bas.
@@ -29,7 +30,7 @@
 //  - ⟳ vide cette mémoire et relit tout (frais).
 // Routes : ce sont déjà les plus légères du serveur (TableauBordRessource, caches serveur de 1 à 15 min, comme le
 // tableau de bord web) ; seule la carte TVA lit une statistique générale (/api/v3/tvas) : route dédiée demandée au
-// serveur (demande 68).
+// serveur (demande 68), utilisée dès qu'elle est déployée (3.17.0).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -330,6 +331,7 @@ class ApiTableauBord {
   static const routeEncaissements = '/tableau-bord/encaissements';
   static const routeEmplacements = '/tableau-bord/emplacements';
   static const routeAffluence = '/tableau-bord/affluence';
+  static const routeTva = '/tableau-bord/tva';
 
   static String jour(DateTime d) => DateFormatter.toApiFormat(d);
 
@@ -462,8 +464,41 @@ class ApiTableauBord {
     ];
   }
 
-  static Future<List<StatTva>> tva(BuildContext context, DateTime maintenant) async =>
-      await StatTvaDonnees.charger(context, DateTime(maintenant.year, maintenant.month, 1), maintenant, TypeVente.tout) ?? const [];
+  /// 3.17.0 (réponse du serveur à la demande 68) : GET /tableau-bord/tva?date=<jour>&frais= → { success, data :
+  /// [{ taux, ht, tva, ttc }] } (une ligne par taux, mêmes montants que /api/v3/tvas TOUT du 1er du mois au jour ;
+  /// cache serveur 3 min ; [frais] : ⟳, recalcul demandé). Route absente (404) ou refusée (403) : retenue pour la
+  /// session et repli sur /api/v3/tvas (calcul d'avant) ; réponse de forme inattendue : repli pour cette lecture.
+  static Future<List<StatTva>> tva(BuildContext context, DateTime maintenant, {MemoireTableauBord? memoire, bool frais = false}) async {
+    if (memoire == null || !memoire.sansRoute(context, routeTva)) {
+      try {
+        final j = await ApiVague2.get(context, routeTva, {'date': jour(maintenant), 'frais': frais ? '1' : '0'}, 'les ventes par taux de TVA');
+        final l = lireTva(j);
+        if (l != null) return l;
+      } catch (e) {
+        final absente = routeAbsente(e) || (e is ApiLoadException && e.nature == NatureErreur.droit);
+        final illisible = e is ApiLoadException && e.nature == NatureErreur.reponse;
+        if (!absente && !illisible) rethrow;
+        if (absente && context.mounted) memoire?.noterSansRoute(context, routeTva);
+      }
+    }
+    if (!context.mounted) throw const ApiLoadException('Écran fermé.', nature: NatureErreur.refus);
+    return await StatTvaDonnees.charger(context, DateTime(maintenant.year, maintenant.month, 1), maintenant, TypeVente.tout) ?? const [];
+  }
+
+  /// « data » de /tableau-bord/tva → lignes de la carte (mêmes champs que la Stat TVA : HT, TVA, TTC par taux) ;
+  /// null si la forme est inattendue (data absent ou pas une liste, ligne sans taux ou montant numérique).
+  static List<StatTva>? lireTva(Map<String, dynamic> j) {
+    final d = j['data'];
+    if (d is! List) return null;
+    final l = <StatTva>[];
+    for (final x in d) {
+      if (x is! Map) return null;
+      final taux = x['taux'], ht = x['ht'], tva = x['tva'], ttc = x['ttc'];
+      if (taux is! num || ht is! num || tva is! num || ttc is! num) return null;
+      l.add(StatTva(taux: taux.toInt(), totalHt: ht.toDouble(), totalTva: tva.toDouble(), totalTtc: ttc.toDouble(), montantUg: 0));
+    }
+    return l;
+  }
 
   /// 3.16.0 : lecture d'une carte, avec ses paramètres (clé du cache court de l'accueil, et lecture). Une SEULE
   /// définition, partagée par la carte et par la lecture en parallèle de l'ouverture ([AccueilTableauPrestige]) :
@@ -483,7 +518,7 @@ class ApiTableauBord {
       CarteTableauBord.valorisation => (cle: 'valorisation|$aujourdhui', lire: (c) => valorisation(c, maintenant, memoire: memoire)),
       CarteTableauBord.encaissements => (cle: 'encaissements|$aujourdhui', lire: (c) => encaissements(c, maintenant)),
       CarteTableauBord.top => (cle: 'top|$famille|$aujourdhui', lire: (c) => top(c, maintenant, famille: famille)),
-      CarteTableauBord.tva => (cle: 'tva|$aujourdhui', lire: (c) => tva(c, maintenant)),
+      CarteTableauBord.tva => (cle: 'tva|$aujourdhui', lire: (c) => tva(c, maintenant, memoire: memoire, frais: frais)),
     };
   }
 }
@@ -1506,7 +1541,7 @@ class _CarteTvaState extends State<_CarteTva> with ChargementCarte<_CarteTva, Li
   ActualisationTableauBord get actualisation => widget.actualisation;
 
   @override
-  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.tva, widget.maintenant(), memoire);
+  LectureCarte lecture({bool frais = false}) => ApiTableauBord.lecture(CarteTableauBord.tva, widget.maintenant(), memoire, frais: frais);
 
   @override
   Widget build(BuildContext context) => _Cadre(
