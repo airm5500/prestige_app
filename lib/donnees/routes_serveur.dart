@@ -13,6 +13,14 @@
 // /tableau-bord/tva (serveur récent), une fois, en arrière-plan ; sa réponse sert aux sessions suivantes. Un 404 de
 // /tableau-bord/tva est retenu [dureeAbsence] : les sessions suivantes de la journée lisent directement /api/v3/tvas
 // (⟳ de l'accueil réessaie la route). Rien de nominatif n'est gardé : l'adresse du serveur et des noms de routes.
+//
+// 3.17.2 — tableau-bord/version exige une session (réponse du serveur du 21/11) : sans session, elle répond 200
+// { success: false, msg: <message de déconnexion> }, sans version ni routes. Seule une réponse « success: true » sans
+// « routes » signifie « serveur antérieur » (retenu [dureeAbsence]). success false, réponse qui n'est pas un objet,
+// « routes » de forme inattendue, erreur réseau, 401, 403, 5xx, délai : réponse INCONNUE, rien n'est enregistré ni
+// changé ; la lecture est refaite à la session suivante (après reconnexion), jamais deux fois dans la même session.
+// « Veuillez vous connecter » déclenche, comme pour les autres routes du tableau de bord, le retour à la connexion
+// (ApiService._handleResponse → surSessionExpiree).
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
@@ -65,6 +73,33 @@ class EtatRoutes {
       tvaAbsenteLe: date(j['tvaAbsenteLe']),
     );
   }
+}
+
+/// 3.17.2 : nature d'une réponse de /tableau-bord/version.
+enum NatureVersion {
+  /// success true avec une liste « routes ».
+  annoncees,
+
+  /// success true sans « routes » : serveur antérieur.
+  anterieur,
+
+  /// success false (session expirée), réponse qui n'est pas un objet, « routes » illisible : rien n'est conclu.
+  inconnue,
+}
+
+@immutable
+class ReponseVersion {
+  final NatureVersion nature;
+
+  /// Routes annoncées (seulement pour [NatureVersion.annoncees]).
+  final Set<String>? routes;
+  const ReponseVersion.annoncees(Set<String> this.routes) : nature = NatureVersion.annoncees;
+  const ReponseVersion.anterieur()
+      : nature = NatureVersion.anterieur,
+        routes = null;
+  const ReponseVersion.inconnue()
+      : nature = NatureVersion.inconnue,
+        routes = null;
 }
 
 class RoutesServeur {
@@ -132,7 +167,8 @@ class RoutesServeur {
   static Future<void> oublierTvaAbsente(String serveur) =>
       _modifier(serveur, (e) => EtatRoutes(annoncees: e.annoncees, sansRoutesLe: e.sansRoutesLe));
 
-  /// Réponse de /tableau-bord/version : la liste « routes » (noms non vides), null sans liste (serveur antérieur).
+  /// Réponse de /tableau-bord/version : la liste « routes » (noms non vides), null sans liste. Ne dit PAS à elle seule
+  /// si le serveur est antérieur : voir [lireVersion] (3.17.2).
   static Set<String>? lireRoutes(Object? j) {
     if (j is! Map || j['routes'] is! List) return null;
     return {
@@ -141,23 +177,37 @@ class RoutesServeur {
     };
   }
 
+  /// 3.17.2 : nature d'une réponse de /tableau-bord/version (voir [ReponseVersion]).
+  static ReponseVersion lireVersion(Object? j) {
+    if (j is! Map || j['success'] != true) return const ReponseVersion.inconnue();
+    if (j['routes'] == null) return const ReponseVersion.anterieur();
+    final routes = lireRoutes(j);
+    return routes == null ? const ReponseVersion.inconnue() : ReponseVersion.annoncees(routes);
+  }
+
   /// Lectures de /tableau-bord/version de cette session (une seule par source : serveur et session).
   static final _lectures = <String, Future<Set<String>?>>{};
 
   /// Tests : oublie les lectures de la session.
   static void oublierSession() => _lectures.clear();
 
-  /// GET /tableau-bord/version, une fois par session et par serveur ; la réponse est retenue pour [serveur]. Échec
-  /// (404, 403, réseau, forme inattendue) : rien n'est retenu, null.
+  /// GET /tableau-bord/version, une fois par session et par serveur ; une réponse CONNUE est retenue pour [serveur]
+  /// (routes annoncées, ou serveur antérieur : success true sans routes). Réponse inconnue (success false — session
+  /// expirée —, forme inattendue) ou échec (404, 401, 403, 5xx, réseau, délai) : rien n'est retenu ni changé, null ;
+  /// nouvel essai à la session suivante.
   static Future<Set<String>?> lire(BuildContext context, String source, String serveur) {
     return _lectures.putIfAbsent(source, () async {
       try {
-        final routes = lireRoutes(await ApiService().get(context, route));
-        await _modifier(
-            serveur,
-            (e) => routes == null
-                ? EtatRoutes(sansRoutesLe: horloge(), tvaAbsenteLe: e.tvaAbsenteLe)
-                : EtatRoutes(annoncees: routes, tvaAbsenteLe: routes.contains(tva) ? null : e.tvaAbsenteLe));
+        final r = lireVersion(await ApiService().get(context, route));
+        final routes = r.routes;
+        switch (r.nature) {
+          case NatureVersion.inconnue:
+            return null;
+          case NatureVersion.anterieur:
+            await _modifier(serveur, (e) => EtatRoutes(sansRoutesLe: horloge(), tvaAbsenteLe: e.tvaAbsenteLe));
+          case NatureVersion.annoncees:
+            await _modifier(serveur, (e) => EtatRoutes(annoncees: routes, tvaAbsenteLe: routes!.contains(tva) ? null : e.tvaAbsenteLe));
+        }
         return routes;
       } catch (_) {
         return null;

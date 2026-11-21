@@ -81,6 +81,39 @@ void main() {
     });
   }
 
+  // 3.17.2 : tableau-bord/version répond { success: false, msg } (sans session au moment de la lecture) : rien n'est
+  // retenu, la lecture est refaite à la connexion suivante, toujours dans le plafond de la 1re connexion (11 / 9),
+  // puis 10 / 8 une fois la réponse connue.
+  testWidgets('3.17.2 · version sans session à la 1re connexion : ≤ 11, puis ≤ 11 (relue une fois), puis ≤ 10 requêtes', (tester) async {
+    telephone(tester);
+    preparerNouvelle(serveur, p: Presentation.tableauPrestige, style: null);
+    void sansSession() {
+      installer(ServeurOfficine.retour);
+      serveur.quand(RoutesServeur.route, ReponseFausse.json({'success': false, 'msg': 'Session fictive terminée'}), methode: 'GET');
+    }
+
+    sansSession();
+    final rs1 = await connexion(tester);
+    mesurer('Requêtes — connexion + accueil, version sans session (1re connexion)', rs1.length, seuil: 11, unite: 'requêtes', detail: detailRequetes(rs1));
+    mesurer('Requêtes des cartes, version sans session (1re connexion)', cartes(rs1).length, seuil: 9, unite: 'requêtes', detail: detailRequetes(cartes(rs1)));
+    expect(serveur.recues(RoutesServeur.route), hasLength(1));
+    await fermerApplication(tester);
+
+    installer(ServeurOfficine.retour);
+    final rs2 = await connexion(tester);
+    mesurer('Requêtes — connexion + accueil, version relue (connexion suivante)', rs2.length, seuil: 11, unite: 'requêtes', detail: detailRequetes(rs2));
+    mesurer('Requêtes des cartes, version relue (connexion suivante)', cartes(rs2).length, seuil: 9, unite: 'requêtes', detail: detailRequetes(cartes(rs2)));
+    expect(serveur.recues(RoutesServeur.route), hasLength(1), reason: 'rien n\'était retenu : relue une fois');
+    await fermerApplication(tester);
+
+    installer(ServeurOfficine.retour);
+    final rs3 = await connexion(tester);
+    mesurer('Requêtes — connexion + accueil, version connue (3e connexion)', rs3.length, seuil: 10, unite: 'requêtes', detail: detailRequetes(rs3));
+    mesurer('Requêtes des cartes, version connue (3e connexion)', cartes(rs3).length, seuil: 8, unite: 'requêtes', detail: detailRequetes(cartes(rs3)));
+    expect(serveur.recues(RoutesServeur.route), isEmpty);
+    await fermerApplication(tester);
+  });
+
   testWidgets('serveur qui annonce ses routes sans « tva » (annonce déjà connue) : 10 / 8 dès la 1re connexion', (tester) async {
     telephone(tester);
     preparerNouvelle(serveur, p: Presentation.tableauPrestige, style: null);
