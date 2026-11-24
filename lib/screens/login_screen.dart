@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../demo/widgets_demo.dart';
+import '../donnees/horloge_serveur.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../services/stockage_securise.dart';
@@ -36,12 +37,17 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _uiErrorMessage;
   String? _officineName;
 
+  /// 3.18.1 : bandeau « heure du serveur fausse » (GET /horloge/public, sans session) ; null : rien à afficher.
+  String? _horlogeMessage;
+  int _horlogeLecture = 0;
+
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchAndDisplayOfficineName(); // MODIFICATION
+      _verifierHorloge();
     });
     _usernameController.addListener(_clearError);
     _passwordController.addListener(_clearError);
@@ -66,6 +72,16 @@ class _LoginScreenState extends State<LoginScreen> {
         _officineName = freshName;
       });
     }
+  }
+
+  /// 3.18.1 : UNE lecture de l'horloge du serveur (affichage de l'écran, changement Local / Distant) ; jamais relancée.
+  /// BLOQUE → bandeau ; OK, REGULARISATION, serveur ancien (404), autre réponse, injoignable → rien.
+  Future<void> _verifierHorloge() async {
+    final n = ++_horlogeLecture;
+    final base = Provider.of<IpConfigProvider>(context, listen: false).activeBaseUrl;
+    final h = await HorlogeServeur.lire(base);
+    if (!mounted || n != _horlogeLecture) return;
+    setState(() => _horlogeMessage = h?.message);
   }
 
   @override
@@ -207,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           return;
                         }
                         ipProvider.setUseLocalIp(value);
+                        _verifierHorloge();
                         // On rafraîchit le nom de la pharmacie après le changement
                         await _fetchAndDisplayOfficineName();
                       },
@@ -259,6 +276,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             const SizedBox(height: 24),
+                            // 3.18.1 : heure du serveur fausse (information, la connexion reste possible).
+                            if (_horlogeMessage != null)
+                              Container(
+                                key: const Key('bandeau_horloge_serveur'),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                    color: Colors.orange.withAlpha(40),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.orange.withAlpha(120))),
+                                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Icon(Icons.schedule, color: Colors.orange.shade900),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                      child: Text(_horlogeMessage!,
+                                          style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w600))),
+                                ]),
+                              ),
                             _buildErrorMessage(),
                             TextFormField(
                               controller: _usernameController,
@@ -343,6 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     ipProvider.setUseLocalIp(value);
+    _verifierHorloge();
     await _fetchAndDisplayOfficineName();
   }
 
@@ -416,6 +452,13 @@ class _LoginScreenState extends State<LoginScreen> {
           const Text('Saisissez vos identifiants Prestige.', style: TextStyle(color: Charte.gris)),
           const SizedBox(height: 18),
         ],
+        // 3.18.1 : heure du serveur fausse (information, la connexion reste possible).
+        if (_horlogeMessage != null)
+          Padding(
+            key: const Key('bandeau_horloge_serveur'),
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Encadre(texte: _horlogeMessage!, icone: Icons.schedule, avertissement: true),
+          ),
         if (_uiErrorMessage != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 16),

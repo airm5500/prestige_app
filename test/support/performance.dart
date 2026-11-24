@@ -43,8 +43,9 @@ class Seuils {
   static const demarrageImages = 240;
 
   /// Requêtes au démarrage (avant connexion) : la licence et le nom de l'officine (affiché sur l'écran de
-  /// connexion, route publique /officine).
-  static const demarrageRequetes = 2;
+  /// connexion, route publique /officine) ; 3.18.1 : + UNE lecture de l'heure du serveur (GET /horloge/public, sans
+  /// session, 5 s au plus, jamais relancée) pour le bandeau de l'écran de connexion.
+  static const demarrageRequetes = 3;
 
   /// Connexion → accueil de la nouvelle interface affiché (A, B, C, menus par pages), images comprises.
   static const accueilMs = 600;

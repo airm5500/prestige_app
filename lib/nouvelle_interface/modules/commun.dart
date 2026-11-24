@@ -154,6 +154,9 @@ class DiagnosticErreur {
         DiagnosticErreur(CauseErreur.serveur, ApiLoadException.titreServeurIndisponible, e.message, Icons.cloud_sync_outlined),
       NatureErreur.serveur => DiagnosticErreur(CauseErreur.serveur, 'Erreur du serveur', e.message, Icons.dns_outlined),
       NatureErreur.droit => DiagnosticErreur(CauseErreur.droit, 'Droit manquant', e.message, Icons.lock_outline),
+      // 3.18.1 : heure du serveur fausse (423) : message du serveur tel quel (jamais « panne » ni « réseau »).
+      NatureErreur.refus when e.horlogeBloquee =>
+        DiagnosticErreur(CauseErreur.autre, ApiLoadException.titreHorloge, e.message, Icons.schedule),
       NatureErreur.refus || NatureErreur.reponse => DiagnosticErreur(CauseErreur.autre, 'Chargement impossible', e.message, Icons.error_outline),
     };
   }

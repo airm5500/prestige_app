@@ -62,15 +62,43 @@ class ApiLoadException implements Exception {
   /// Le serveur répond mais Prestige n'y est pas déployé (3.10.3) : 404 de Payara (route toujours présente, ou
   /// confirmé par /officine) ou 502 / 503 / 504.
   final bool prestigeNonDeploye;
+
+  /// 3.18.1 — Écriture refusée parce que l'heure du SERVEUR est fausse (HTTP 423, `horlogeBloquee:true`, serveur du
+  /// 24/11) : [message] est celui du serveur, affiché tel quel ; ni panne, ni réseau, ni erreur inconnue.
+  final bool horlogeBloquee;
   const ApiLoadException(this.message,
-      {this.nature = NatureErreur.reseau, this.code, this.connexionRefusee = false, this.prestigeNonDeploye = false});
+      {this.nature = NatureErreur.reseau,
+      this.code,
+      this.connexionRefusee = false,
+      this.prestigeNonDeploye = false,
+      this.horlogeBloquee = false});
+
+  /// 3.18.1 — Refus « heure du serveur fausse » (HTTP 423) : demande refusée ([NatureErreur.refus]), message du
+  /// serveur tel quel. Rien n'est enregistré ; aucune relance automatique (seuls l'administrateur ou la tâche Windows
+  /// du serveur remettent l'heure).
+  const ApiLoadException.horloge(this.message)
+      : nature = NatureErreur.refus,
+        code = codeHorlogeBloquee,
+        connexionRefusee = false,
+        prestigeNonDeploye = false,
+        horlogeBloquee = true;
+
+  /// Code HTTP du refus « heure du serveur fausse ».
+  static const codeHorlogeBloquee = 423;
+
+  /// Message affiché si le serveur répond 423 sans message lisible.
+  static const messageHorlogeParDefaut = 'Opération refusée par le serveur (code 423).';
+
+  /// Titre des écrans pour ce refus.
+  static const titreHorloge = 'Heure du serveur fausse';
 
   /// Prestige pas déployé (démarrage ou redéploiement) : message « Serveur indisponible ».
   const ApiLoadException.nonDeploye(int this.code)
       : message = messageServeurIndisponible,
         nature = NatureErreur.serveur,
         connexionRefusee = false,
-        prestigeNonDeploye = true;
+        prestigeNonDeploye = true,
+        horlogeBloquee = false;
 
   /// Cas 2 du pharmacien (3.10.3) : le serveur répond, Prestige n'est pas déployé.
   static const messageServeurIndisponible =
@@ -564,6 +592,12 @@ class ApiService {
       }
       return decodedBody;
     }
+    // 3.18.1 : heure du serveur fausse → écriture refusée (423). Message du serveur tel quel ; le journal ne garde que
+    // le code (jamais le message ni le corps).
+    if (code == ApiLoadException.codeHorlogeBloquee) {
+      JournalApp.debug('Écriture refusée HTTP 423 (heure du serveur fausse)');
+      throw ApiLoadException.horloge(messageHorloge(response));
+    }
     JournalApp.debug('Erreur serveur HTTP $code');
     // 502 / 503 / 504 : le serveur répond mais Prestige n'est pas disponible (démarrage, redéploiement).
     if (ApiLoadException.codesIndisponible.contains(code)) throw ApiLoadException.nonDeploye(code);
@@ -571,6 +605,18 @@ class ApiService {
       throw ApiLoadException('Erreur du serveur (code $code). Réessayez dans un instant.', nature: NatureErreur.serveur, code: code);
     }
     throw ApiLoadException('Le serveur a refusé la demande (code $code).', nature: NatureErreur.refus, code: code);
+  }
+
+  /// 3.18.1 — Message d'un refus 423 : `msg` (ou `message`) du corps JSON, tel quel ; sinon message par défaut.
+  static String messageHorloge(http.Response response) {
+    try {
+      final d = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true));
+      if (d is Map) {
+        final m = '${d['msg'] ?? d['message'] ?? ''}'.trim();
+        if (m.isNotEmpty) return m;
+      }
+    } catch (_) {}
+    return ApiLoadException.messageHorlogeParDefaut;
   }
 
   Never _sessionExpiree(VoidCallback? onSessionInvalid) {

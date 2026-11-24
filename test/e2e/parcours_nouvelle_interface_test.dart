@@ -211,7 +211,7 @@ void main() {
       await jusquAccueilNouveau(tester);
       final problemes = await parcourirModules(tester, p);
       expect(problemes, isEmpty, reason: problemes.join('\n'));
-      expect(serveur.requetes.where((r) => !r.chemin.startsWith('/licence') && r.chemin != '/user/auth' && r.chemin != '/officine')
+      expect(serveur.requetes.where((r) => !r.chemin.startsWith('/licence') && r.chemin != '/user/auth' && r.chemin != '/officine' && r.chemin != '/horloge/public')
           .map((r) => r.sessionEnvoyee).toSet(), {serveur.derniereSession});
       await terminer(tester);
     });

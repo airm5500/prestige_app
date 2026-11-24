@@ -165,7 +165,7 @@ void main() {
         findsNWidgets(modulesAccueil.length - (pages! - 1) * parPage));
     expect(problemes, isEmpty, reason: problemes.join('\n'));
     // Toutes les requêtes des modules portent la session ouverte à la connexion.
-    expect(serveur.requetes.where((r) => !r.chemin.startsWith('/licence') && r.chemin != '/user/auth' && r.chemin != '/officine')
+    expect(serveur.requetes.where((r) => !r.chemin.startsWith('/licence') && r.chemin != '/user/auth' && r.chemin != '/officine' && r.chemin != '/horloge/public')
         .map((r) => r.sessionEnvoyee).toSet(), {serveur.derniereSession});
     await terminer(tester);
   });

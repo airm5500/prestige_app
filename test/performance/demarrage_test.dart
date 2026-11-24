@@ -81,6 +81,8 @@ void main() {
     mesurer('Démarrage → connexion (nouvelle interface) — images rendues', r.images, seuil: Seuils.demarrageImages, unite: 'images');
     mesurer('Démarrage → connexion (nouvelle interface) — requêtes', r.requetes, seuil: Seuils.demarrageRequetes, unite: 'requêtes',
         detail: detailRequetes(serveur.requetes));
+    // 3.18.1 : licence, officine et UNE lecture de l'heure du serveur, rien d'autre.
+    expect(serveur.requetes.map((r) => '${r.methode} ${r.chemin}').toList()..sort(), ['GET /horloge/public', 'GET /licence/find', 'GET /officine']);
     await fermerApplication(tester);
   });
 
@@ -92,6 +94,8 @@ void main() {
     mesurer('Démarrage → connexion (ancienne interface) — images rendues', r.images, seuil: Seuils.demarrageImages, unite: 'images');
     mesurer('Démarrage → connexion (ancienne interface) — requêtes', r.requetes, seuil: Seuils.demarrageRequetes, unite: 'requêtes',
         detail: detailRequetes(serveur.requetes));
+    // 3.18.1 : licence, officine et UNE lecture de l'heure du serveur, rien d'autre.
+    expect(serveur.requetes.map((r) => '${r.methode} ${r.chemin}').toList()..sort(), ['GET /horloge/public', 'GET /licence/find', 'GET /officine']);
     final c = await connecter(tester, find.byType(HomeScreen));
     mesurer('Connexion → accueil d\'origine', c.ms, seuil: Seuils.accueilMs, unite: 'ms', detail: '${c.images} images');
     await fermerApplication(tester);
