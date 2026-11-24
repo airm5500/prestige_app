@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../demo/widgets_demo.dart';
 import '../providers/ip_config_provider.dart';
 import '../providers/licence_provider.dart';
 import '../services/api_service.dart';
@@ -229,6 +230,9 @@ class _ServeurInjoignableScreenState extends State<ServeurInjoignableScreen> {
                     label: const Text('Configuration'),
                   ),
                 ),
+                // 3.18.0 : explorer l'application sans serveur (données fictives).
+                const SizedBox(height: 8),
+                const BoutonDemo(),
               ],
             ),
           ),
@@ -334,6 +338,9 @@ class _ServeurInjoignableScreenState extends State<ServeurInjoignableScreen> {
                       label: const Text('Configuration'),
                     ),
                   ),
+                  // 3.18.0 : explorer l'application sans serveur (données fictives).
+                  const SizedBox(height: 8),
+                  const BoutonDemo(),
                 ]),
               ),
             ),

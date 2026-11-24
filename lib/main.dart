@@ -14,6 +14,8 @@ import 'screens/serveur_injoignable_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'utils/constants.dart';
+import 'demo/mode_demo.dart';
+import 'demo/widgets_demo.dart';
 import 'services/api_service.dart';
 import 'package:prestige_app/providers/licence_provider.dart';
 import 'package:prestige_app/screens/licence_registration_screen.dart';
@@ -145,7 +147,9 @@ class PrestigeApp extends StatelessWidget {
       // 3.16.0 : indicateur de défilement vertical toujours visible sur toutes les listes (lib/widgets/defilement.dart).
       scrollBehavior: const DefilementPrestige(),
       theme: nouvelle ? themeNouvelleInterface(context) : themeAncienneInterface(context),
-      builder: (context, child) => InterfaceScope(nouvelle: nouvelle, child: child ?? const SizedBox()),
+      // 3.18.0 : messager commun (message « Indisponible en démonstration ») et bandeau du mode démonstration.
+      scaffoldMessengerKey: ModeDemo.messager,
+      builder: (context, child) => InterfaceScope(nouvelle: nouvelle, child: CadreDemo(child: child ?? const SizedBox())),
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -259,7 +263,7 @@ class _AppLifecycleObserverState extends State<AppLifecycleObserver> with Widget
     // Si la licence expire pendant l'utilisation (ou au réveil), on remplace l'écran actuel par l'écran de blocage.
     return Consumer<LicenceProvider>(
       builder: (context, licenceProvider, child) {
-        if (licenceProvider.status == LicenceStatus.expired) {
+        if (licenceProvider.status == LicenceStatus.expired && !ModeDemo.estActif) {
           return const LicenceRegistrationScreen();
         }
         // Sinon on affiche l'écran normal (AuthWrapper)
@@ -274,6 +278,15 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 3.18.0 : mode démonstration (lib/demo/mode_demo.dart) : accueil directement, sans configuration, licence ni
+    // connexion (serveur fictif en mémoire) ; à la sortie, retour au parcours habituel ci-dessous.
+    return ValueListenableBuilder<bool>(
+      valueListenable: ModeDemo.actif,
+      builder: (context, demo, _) => demo ? InterfaceVersion.home(nouvelle: InterfaceVersion.nouvelle(context)) : _parcours(),
+    );
+  }
+
+  Widget _parcours() {
     // Cette partie gère le flux de démarrage initial (IP -> Licence -> Auth)
     return Consumer<IpConfigProvider>(
       builder: (context, ipProvider, child) {

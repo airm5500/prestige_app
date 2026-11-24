@@ -32,12 +32,36 @@ class CoffreIdentifiantsSecurise implements CoffreIdentifiants {
   final FlutterSecureStorage _s;
   const CoffreIdentifiantsSecurise([this._s = const FlutterSecureStorage(aOptions: AndroidOptions(encryptedSharedPreferences: true))]);
 
+  /// Mode démonstration (lib/demo/mode_demo.dart) : coffre EN MÉMOIRE (null hors démonstration). Le stockage
+  /// sécurisé réel n'est alors ni lu ni modifié.
+  static Map<String, String>? memoireDemo;
+
   @override
-  Future<String?> lire(String cle) => _s.read(key: cle);
+  Future<String?> lire(String cle) async {
+    final demo = memoireDemo;
+    if (demo != null) return demo[cle];
+    return _s.read(key: cle);
+  }
+
   @override
-  Future<void> ecrire(String cle, String valeur) => _s.write(key: cle, value: valeur);
+  Future<void> ecrire(String cle, String valeur) async {
+    final demo = memoireDemo;
+    if (demo != null) {
+      demo[cle] = valeur;
+      return;
+    }
+    await _s.write(key: cle, value: valeur);
+  }
+
   @override
-  Future<void> effacer(String cle) => _s.delete(key: cle);
+  Future<void> effacer(String cle) async {
+    final demo = memoireDemo;
+    if (demo != null) {
+      demo.remove(cle);
+      return;
+    }
+    await _s.delete(key: cle);
+  }
 }
 
 /// Un secret mémorisé : stockage sûr, migration de l'ancienne clé en clair, repli sans perte.

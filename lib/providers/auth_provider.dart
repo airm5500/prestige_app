@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../demo/mode_demo.dart';
 import '../models/user_model.dart';
 import '../models/officine_model.dart';
 import '../nouvelle_interface/vague1/profil_acces.dart';
@@ -143,9 +144,42 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // --- Mode démonstration (lib/demo/mode_demo.dart) : tout en mémoire, rien d'enregistré ---
+
+  bool _demo = false;
+
+  /// Ouvre la session de démonstration (aucune requête, aucun identifiant, aucune écriture sur le téléphone).
+  void entrerDemo(Map<String, Object?> utilisateur, Map<String, Object?> officine) {
+    _demo = true;
+    _user = AppUser.fromJson(utilisateur);
+    _officine = Officine.fromJson(officine);
+    ProfilAcces.utilisateur.value = _user;
+    _errorMessage = null;
+    _isLoggedIn = true;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Ferme la session de démonstration : retour à l'écran de connexion, données réelles intactes.
+  void quitterDemo() {
+    if (!_demo) return;
+    _demo = false;
+    _user = null;
+    _officine = null;
+    ProfilAcces.utilisateur.value = null;
+    _isLoggedIn = false;
+    _isLoading = false;
+    notifyListeners();
+  }
+
   /// Déconnexion locale. [motif] : message affiché (session expirée), aucun pour une déconnexion voulue.
   void forceLogout({String? motif}) {
     if (!_isLoggedIn) return;
+    if (_demo) {
+      // Déconnexion pendant la démonstration (bouton, inactivité) : on quitte la démonstration.
+      ModeDemo.quitter();
+      return;
+    }
     JournalApp.debug('Déconnexion forcée (session invalide)');
     _user = null;
     ProfilAcces.utilisateur.value = null;
@@ -157,6 +191,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout(BuildContext context) async {
+    if (_demo) return ModeDemo.quitter();
     try {
       await _apiService.post(context, AppConstants.logoutEndpoint, {});
     } catch (e) {
@@ -177,6 +212,8 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    // Démonstration ouverte pendant le démarrage : l'utilisateur fictif reste en place.
+    if (_demo) return;
     final userDataString = prefs.getString(AppConstants.userDataKey);
     if (userDataString != null) {
       _user = AppUser.fromJson(jsonDecode(userDataString));

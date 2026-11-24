@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
+import '../demo/mode_demo.dart';
 import '../providers/ip_config_provider.dart';
 import 'journal_app.dart';
 import 'stockage_securise.dart';
@@ -215,6 +216,19 @@ class ApiService {
   /// Adresse du serveur modifiée dans la Configuration : les caches courts repartent de zéro.
   void serveurModifie() => _numeroSession++;
 
+  /// Mode démonstration (lib/demo/mode_demo.dart) : session fictive EN MÉMOIRE, rien n'est enregistré.
+  void entrerDemo() {
+    _numeroSession++;
+    _sessionCookie = 'JSESSIONID=demonstration';
+  }
+
+  /// Fin de la démonstration : nouvelle empreinte de session, cookie réel relu (stockage sécurisé intact).
+  Future<void> quitterDemo() async {
+    _numeroSession++;
+    _sessionCookie = null;
+    await loadSessionCookie();
+  }
+
   Future<void> clearSessionCookie() async {
     _numeroSession++;
     _sessionCookie = null;
@@ -247,6 +261,7 @@ class ApiService {
   static VoidCallback? surSessionExpiree;
 
   Future<Map<String, dynamic>> post(BuildContext context, String endpoint, Map<String, dynamic> body, {VoidCallback? onSessionInvalid}) async {
+    if (ModeDemo.bloquee('POST', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final url = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     JournalApp.debug(JournalApp.requete('POST', url));
@@ -269,6 +284,7 @@ class ApiService {
   /// fermée par le client HTTP, http.AbortableRequest) et l'appel échoue avec [ApiLoadException.annulee].
   Future<dynamic> get(BuildContext context, String endpoint,
       {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai, Future<void>? annulation}) async {
+    if (ModeDemo.bloquee('GET', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
 
@@ -298,6 +314,7 @@ class ApiService {
   /// une fonction statique ou de premier niveau (envoyée à l'isolat).
   Future<T> getLourd<T>(BuildContext context, String endpoint, T Function(dynamic data) lire,
       {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai}) async {
+    if (ModeDemo.bloquee('GET', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
@@ -318,6 +335,7 @@ class ApiService {
   static T _decoderEtLire<T>((Uint8List, T Function(dynamic)) m) => m.$2(jsonDecode(utf8.decode(m.$1)));
 
   Future<dynamic> getV3(BuildContext context, String endpoint, {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+    if (ModeDemo.bloquee('GET', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final baseUrl = ipProvider.activeBaseUrlV3;
 
@@ -332,6 +350,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> delete(BuildContext context, String endpoint, {VoidCallback? onSessionInvalid}) async {
+    if (ModeDemo.bloquee('DELETE', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     final baseUrl = ipProvider.activeBaseUrl;
     final url = Uri.parse('$baseUrl$endpoint');
@@ -350,6 +369,7 @@ class ApiService {
   /// Mêmes natures d'échec que [post] ; délai [delaiPost].
   Future<Map<String, dynamic>> put(BuildContext context, String endpoint,
       {Map<String, String>? queryParams, VoidCallback? onSessionInvalid}) async {
+    if (ModeDemo.bloquee('PUT', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
@@ -361,6 +381,7 @@ class ApiService {
   /// POST d'un corps JSON avec paramètres dans l'adresse (vague 3 : /rappels-habitude/marquer?statut=).
   Future<Map<String, dynamic>> postAvecParametres(BuildContext context, String endpoint, Map<String, dynamic> body,
       {Map<String, String>? queryParams, VoidCallback? onSessionInvalid, Duration? delai}) async {
+    if (ModeDemo.bloquee('POST', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     if (queryParams != null) uri = uri.replace(queryParameters: queryParams);
@@ -398,6 +419,8 @@ class ApiService {
     bool ambigu401 = false,
     VoidCallback? onSessionInvalid,
   }) async {
+    // Démonstration : aucun fichier n'est produit (les éditions viennent du serveur).
+    if (ModeDemo.bloquee('EXPORT', endpoint)) throw ModeDemo.refuser();
     final ipProvider = Provider.of<IpConfigProvider>(context, listen: false);
     var uri = Uri.parse('${ipProvider.activeBaseUrl}$endpoint');
     if (queryParams != null) uri = uri.replace(queryParameters: queryParams);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prestige_app/demo/mode_demo.dart';
 import 'package:prestige_app/models/licence_model.dart';
 import 'package:prestige_app/services/api_service.dart';
 
@@ -26,7 +27,8 @@ class LicenceProvider extends ChangeNotifier {
   // prestige_vente_app). [silencieux] : réessai depuis l'écran « serveur injoignable », qui reste affiché
   // pendant la vérification (pas de retour à l'écran de démarrage).
   Future<void> checkLicence(BuildContext context, {bool silencieux = false}) async {
-    if (_verificationEnCours) return;
+    // Démonstration : la licence de l'officine n'est jamais vérifiée (ni changée) avec le serveur fictif.
+    if (_verificationEnCours || ModeDemo.estActif) return;
     _verificationEnCours = true;
     if (!silencieux) _status = LicenceStatus.checking;
     notifyListeners();

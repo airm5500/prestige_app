@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../demo/widgets_demo.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ip_config_provider.dart';
 import '../services/stockage_securise.dart';
@@ -465,6 +466,11 @@ class _LoginScreenState extends State<LoginScreen> {
               child: const Text('Se connecter'),
             ),
           ),
+        // 3.18.0 : explorer l'application sans serveur ni identifiant (données fictives).
+        if (!_isLoading) ...[
+          const SizedBox(height: 14),
+          const BoutonDemo(),
+        ],
         if (licence != null) ...[
           const SizedBox(height: 20),
           Text(

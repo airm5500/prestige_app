@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../demo/widgets_demo.dart';
 import '../providers/ip_config_provider.dart';
 import '../services/api_service.dart';
 import 'package:flutter/services.dart';
@@ -146,6 +147,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                // 3.18.0 : premier écran d'une installation neuve : la démonstration en un toucher, sans serveur.
+                if (!canPop) const Padding(padding: EdgeInsets.only(bottom: 8), child: CarteDemo()),
                 Text('Configurer les adresses IP du serveur', style: theme.textTheme.titleLarge?.copyWith(color: theme.primaryColorDark), textAlign: TextAlign.center),
                 const SizedBox(height: 30),
                 _buildIpInputRow(controller: _localIpController, labelText: 'Adresse IP Locale', hintText: 'ex: 192.168.1.100', icon: Icons.computer, isPinging: _isPingingLocal, pingMessage: _localPingMessage, pingSuccess: _localPingSuccess, onPing: () => _handlePing(true)),
@@ -267,6 +270,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                // 3.18.0 : premier écran d'une installation neuve : la démonstration en un toucher, sans serveur.
+                if (!canPop) const CarteDemo(),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
                   child: Text('Configurer les adresses IP du serveur', style: TextStyle(color: Charte.gris, fontSize: 15)),

@@ -4,11 +4,14 @@
 // obligatoire du code par défaut — voir CodeAdmin (lib/services/pin_securise.dart).
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../demo/mode_demo.dart';
 import '../services/pin_securise.dart';
 
 class PinCodeDialog {
   // Méthode 1 : VÉRIFIER le code (pour accéder à un menu)
   static Future<bool> show(BuildContext context) async {
+    // Démonstration : aucun code administrateur (rien n'est enregistré, les écritures sont refusées).
+    if (ModeDemo.estActif) return true;
     final code = CodeAdmin.instance;
     final attente = await code.attenteRestante();
     if (attente != null) {
